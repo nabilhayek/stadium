@@ -1,26 +1,102 @@
+@layer theme, base, components, utilities;
+
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* HeroUI v3 — selective imports only. The full bundle is ~430KB; we ship only what the shop uses. */
+@import "@heroui/styles/base" layer(base);
+@import "@heroui/styles/themes/shared/theme.css";
+@import "@heroui/styles/themes/default/variables.css" layer(theme);
+@import "@heroui/styles/components/button.css" layer(components);
+@import "@heroui/styles/components/spinner.css" layer(components);
+@import "@heroui/styles/components/chip.css" layer(components);
+@import "@heroui/styles/components/close-button.css" layer(components);
+@import "@heroui/styles/components/drawer.css" layer(components);
+@import "@heroui/styles/components/input.css" layer(components);
+@import "@heroui/styles/components/textfield.css" layer(components);
+@import "@heroui/styles/utilities";
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/* Dark-only theme. Overrides the HeroUI dark palette with our tokens. */
+@layer theme {
+  .dark,
+  [data-theme="dark"] {
+    color-scheme: dark;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #090909;
+    --foreground: #ffffff;
+
+    --surface: #141414;
+    --surface-foreground: var(--foreground);
+    --surface-secondary: #1c1c1c;
+    --surface-secondary-foreground: var(--foreground);
+    --surface-tertiary: #262626;
+    --surface-tertiary-foreground: var(--foreground);
+
+    --overlay: #141414;
+    --overlay-foreground: var(--foreground);
+
+    --muted: #999999;
+
+    /* Secondary buttons / chips: charcoal on black */
+    --default: #1c1c1c;
+    --default-foreground: var(--foreground);
+
+    /* Primary CTA: white pill, black text */
+    --accent: #ffffff;
+    --accent-foreground: #000000;
+
+    /* Blue is a signal, not a fill: links, focus rings, selection */
+    --link: #0099ff;
+    --focus: #0099ff;
+
+    --border: #262626;
+    --separator: #1a1a1a;
+    --backdrop: rgba(0, 0, 0, 0.7);
+
+    --radius: 0.625rem;
+    --surface-shadow: 0 0 0 0 transparent;
+    --overlay-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.1) inset;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+@layer base {
+  html {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    letter-spacing: -0.01em;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+
+  /* Reserve space for the sticky cart bar so the last product row is never hidden. */
+  main[data-has-cart-bar] {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+@layer components {
+  /* Every CTA is a pill. */
+  .button,
+  .chip {
+    border-radius: 9999px;
+  }
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }

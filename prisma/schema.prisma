@@ -1,0 +1,162 @@
+// Stadium food delivery — data model foundation.
+// Connection URL lives in prisma.config.ts (Prisma 7).
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  runtime  = "nodejs"
+}
+
+/// A venue. Reached via example.com/[slug].
+model Stadium {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  city      String?
+  /// ISO 4217 code, e.g. "EUR". Prices are stored in minor units (cents).
+  currency  String   @default("EUR")
+  timezone  String   @default("Europe/Amsterdam")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vendors  Vendor[]
+  sections Section[]
+  orders   Order[]
+
+  @@index([isActive])
+}
+
+/// A seating block / stand. Used for "confirm seat" and delivery routing.
+model Section {
+  id        String   @id @default(cuid())
+  stadiumId String
+  code      String
+  name      String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stadium Stadium @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
+  orders  Order[]
+
+  @@unique([stadiumId, code])
+  @@index([stadiumId, sortOrder])
+}
+
+/// A food/drink outlet inside a stadium.
+model Vendor {
+  id          String   @id @default(cuid())
+  stadiumId   String
+  slug        String
+  name        String
+  description String?
+  imageUrl    String?
+  isOpen      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stadium  Stadium   @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
+  products Product[]
+  orders   Order[]
+
+  @@unique([stadiumId, slug])
+  @@index([stadiumId, isOpen, sortOrder])
+}
+
+/// Global product category (Drinks, Snacks, Hot food...). Shared across stadiums.
+model Category {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  /// Optional emoji/icon key, keeps the UI image-free and light.
+  icon      String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@index([sortOrder])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  vendorId    String
+  categoryId  String
+  name        String
+  description String?
+  imageUrl    String?
+  /// Minor units (cents). Never store floats for money.
+  priceCents  Int
+  isAvailable Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  vendor     Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  category   Category    @relation(fields: [categoryId], references: [id])
+  orderItems OrderItem[]
+
+  @@index([vendorId, isAvailable, sortOrder])
+  @@index([categoryId])
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  ACCEPTED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+/// One order = one vendor (keeps prep + delivery simple). Multi-vendor carts split into several orders.
+model Order {
+  id         String      @id @default(cuid())
+  /// Short human-readable code shown to runners and customers, e.g. "A7K2".
+  code       String      @unique
+  stadiumId  String
+  vendorId   String
+  sectionId  String?
+  seatRow    String?
+  seatNumber String?
+  status     OrderStatus @default(PENDING_PAYMENT)
+  totalCents Int
+  currency   String
+  note       String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  stadium Stadium     @relation(fields: [stadiumId], references: [id])
+  vendor  Vendor      @relation(fields: [vendorId], references: [id])
+  section Section?    @relation(fields: [sectionId], references: [id])
+  items   OrderItem[]
+
+  @@index([stadiumId, status, createdAt])
+  @@index([vendorId, status])
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  productId String
+  /// Snapshot at time of order so history survives menu edits.
+  name      String
+  unitCents Int
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+}
