@@ -1,9 +1,14 @@
-import "dotenv/config";
+import { config } from "dotenv";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
+config();
+config({ path: ".env.local", override: true });
+
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+  adapter: new PrismaPg({
+    connectionString: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL,
+  }),
 });
 
 const categories = [
