@@ -10,6 +10,7 @@ export const FALLBACK_ARENA = {
     { id: "E", code: "E", name: "East Stand" },
     { id: "S", code: "S", name: "South Stand" },
     { id: "W", code: "W", name: "West Stand" },
+    { id: "G", code: "G", name: "Section G" },
   ],
   vendors: [
     {
@@ -52,10 +53,10 @@ export const FALLBACK_ARENA = {
     },
   ],
   categories: [
-    { id: "c-drinks", slug: "drinks", name: "Drinks", icon: "🥤" },
-    { id: "c-beer", slug: "beer", name: "Beer", icon: "🍺" },
-    { id: "c-snacks", slug: "snacks", name: "Snacks", icon: "🍟" },
-    { id: "c-hot", slug: "hot-food", name: "Hot food", icon: "🌭" },
-    { id: "c-sweets", slug: "sweets", name: "Sweets", icon: "🍦" },
+    { id: "c-drinks", slug: "drinks", name: "Drinks", icon: null },
+    { id: "c-beer", slug: "beer", name: "Beer", icon: null },
+    { id: "c-snacks", slug: "snacks", name: "Snacks", icon: null },
+    { id: "c-hot", slug: "hot-food", name: "Hot food", icon: null },
+    { id: "c-sweets", slug: "sweets", name: "Sweets", icon: null },
   ],
 };

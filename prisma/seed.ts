@@ -12,11 +12,11 @@ const prisma = new PrismaClient({
 });
 
 const categories = [
-  { slug: "drinks", name: "Drinks", icon: "🥤", sortOrder: 0 },
-  { slug: "beer", name: "Beer", icon: "🍺", sortOrder: 1 },
-  { slug: "snacks", name: "Snacks", icon: "🍟", sortOrder: 2 },
-  { slug: "hot-food", name: "Hot food", icon: "🌭", sortOrder: 3 },
-  { slug: "sweets", name: "Sweets", icon: "🍦", sortOrder: 4 },
+  { slug: "drinks", name: "Drinks", icon: null as string | null, sortOrder: 0 },
+  { slug: "beer", name: "Beer", icon: null as string | null, sortOrder: 1 },
+  { slug: "snacks", name: "Snacks", icon: null as string | null, sortOrder: 2 },
+  { slug: "hot-food", name: "Hot food", icon: null as string | null, sortOrder: 3 },
+  { slug: "sweets", name: "Sweets", icon: null as string | null, sortOrder: 4 },
 ];
 
 type SeedProduct = {
@@ -89,6 +89,21 @@ async function main() {
       },
     },
   });
+
+  const sectionDefs = [
+    { code: "N", name: "North Stand" },
+    { code: "E", name: "East Stand" },
+    { code: "S", name: "South Stand" },
+    { code: "W", name: "West Stand" },
+    { code: "G", name: "Section G" },
+  ];
+  for (const [i, s] of sectionDefs.entries()) {
+    await prisma.section.upsert({
+      where: { stadiumId_code: { stadiumId: stadium.id, code: s.code } },
+      update: { name: s.name, sortOrder: i },
+      create: { stadiumId: stadium.id, code: s.code, name: s.name, sortOrder: i },
+    });
+  }
 
   const categoryIds = new Map<string, string>();
   for (const c of categories) {

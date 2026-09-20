@@ -28,7 +28,7 @@ class SeatStore {
       const raw = window.localStorage.getItem(this.key);
       if (raw) {
         const parsed = JSON.parse(raw) as Seat;
-        if (parsed?.sectionCode && parsed.row && parsed.number) this.seat = parsed;
+        if (parsed?.sectionCode && parsed.number) this.seat = { ...parsed, row: parsed.row ?? "" };
       }
     } catch {
       /* ignore */
@@ -82,6 +82,38 @@ export function getSeatStore(stadiumSlug: string): SeatStore {
 }
 
 export function formatSeat(seat: Seat, long = false): string {
-  if (long) return `${seat.sectionName} · Row ${seat.row} · Seat ${seat.number}`;
-  return `${seat.sectionCode}-${seat.row}-${seat.number}`;
+  const row = seat.row.trim();
+  if (long) {
+    return row
+      ? `${seat.sectionName} · Row ${row} · Seat ${seat.number}`
+      : `${seat.sectionName} · Seat ${seat.number}`;
+  }
+  return row ? `${seat.sectionCode}-${row}-${seat.number}` : `${seat.sectionCode}-${seat.number}`;
+}
+
+export type SeatQuery = { section?: string; row?: string; seat?: string };
+export type SeatSection = { code: string; name: string };
+
+export function resolveSection(sections: SeatSection[], code: string): SeatSection {
+  const upper = code.trim().toUpperCase();
+  return (
+    sections.find((s) => s.code.toUpperCase() === upper) ?? {
+      code: upper,
+      name: `Section ${upper}`,
+    }
+  );
+}
+
+/** Reads QR/query params. `?section=G&seat=110` is enough; row is optional. */
+export function seatFromQuery(query: SeatQuery | undefined, sections: SeatSection[]): Seat | null {
+  const code = query?.section?.trim();
+  const number = query?.seat?.trim();
+  if (!code || !number) return null;
+  const section = resolveSection(sections, code);
+  return {
+    sectionCode: section.code,
+    sectionName: section.name,
+    row: query?.row?.trim() ?? "",
+    number,
+  };
 }

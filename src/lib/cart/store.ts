@@ -11,6 +11,8 @@ export type CartLine = {
   name: string;
   unitCents: number;
   qty: number;
+  /** Allergies / extras for this line. */
+  note?: string;
 };
 
 export type CartState = {
@@ -97,6 +99,15 @@ class CartStore {
   setQty = (productId: string, qty: number) => {
     if (qty <= 0) return this.set(this.state.lines.filter((l) => l.productId !== productId));
     this.set(this.state.lines.map((l) => (l.productId === productId ? { ...l, qty } : l)));
+  };
+
+  setNote = (productId: string, note: string) => {
+    const trimmed = note.trim();
+    this.set(
+      this.state.lines.map((l) =>
+        l.productId === productId ? { ...l, note: trimmed || undefined } : l,
+      ),
+    );
   };
 
   remove = (productId: string) => this.setQty(productId, 0);

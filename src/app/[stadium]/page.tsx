@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getActiveStadiums, getStadiumMenu } from "@/lib/queries/stadium";
 import { Menu } from "@/components/shop/menu";
 import { CartBar } from "@/components/shop/cart-bar";
+import { Hero } from "@/components/shop/hero";
 import { SeatStatus } from "@/components/shop/seat-status";
 
 type Props = {
@@ -43,15 +44,13 @@ export default async function StadiumShopPage({ params, searchParams }: Props) {
 
   return (
     <main data-has-cart-bar className="mx-auto w-full max-w-md px-4">
-      <header className="pt-6 pb-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted">Order to your seat</p>
-        <h1 className="mt-1 text-3xl font-semibold leading-none tracking-tighter">{menu.name}</h1>
+      <Hero name={menu.name} city={menu.city} vendorCount={menu.vendors.length}>
         <SeatStatus
           stadiumSlug={menu.slug}
           sections={menu.sections}
           fromQuery={{ section: query.section, row: query.row, seat: query.seat }}
         />
-      </header>
+      </Hero>
 
       <Menu
         stadiumSlug={menu.slug}

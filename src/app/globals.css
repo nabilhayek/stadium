@@ -15,46 +15,43 @@
 @import "@heroui/styles/components/textfield.css" layer(components);
 @import "@heroui/styles/utilities";
 
-/* Dark-only theme. Overrides the HeroUI dark palette with our tokens. */
+/* Light canvas. */
 @layer theme {
-  .dark,
-  [data-theme="dark"] {
-    color-scheme: dark;
+  :root,
+  [data-theme="light"] {
+    color-scheme: light;
 
-    --background: #090909;
-    --foreground: #ffffff;
+    --background: #f4f4f1;
+    --foreground: #111111;
 
-    --surface: #141414;
+    --surface: #ffffff;
     --surface-foreground: var(--foreground);
-    --surface-secondary: #1c1c1c;
+    --surface-secondary: #ecece8;
     --surface-secondary-foreground: var(--foreground);
-    --surface-tertiary: #262626;
+    --surface-tertiary: #e4e4df;
     --surface-tertiary-foreground: var(--foreground);
 
-    --overlay: #141414;
+    --overlay: #ffffff;
     --overlay-foreground: var(--foreground);
 
-    --muted: #999999;
+    --muted: #6b6b66;
 
-    /* Secondary buttons / chips: charcoal on black */
-    --default: #1c1c1c;
+    --default: #ecece8;
     --default-foreground: var(--foreground);
 
-    /* Primary CTA: white pill, black text */
-    --accent: #ffffff;
-    --accent-foreground: #000000;
+    --accent: #111111;
+    --accent-foreground: #ffffff;
 
-    /* Blue is a signal, not a fill: links, focus rings, selection */
-    --link: #0099ff;
-    --focus: #0099ff;
+    --link: #0066cc;
+    --focus: #0066cc;
 
-    --border: #262626;
-    --separator: #1a1a1a;
-    --backdrop: rgba(0, 0, 0, 0.7);
+    --border: #e2e2dc;
+    --separator: #ecece8;
+    --backdrop: rgba(17, 17, 17, 0.38);
 
     --radius: 0.625rem;
-    --surface-shadow: 0 0 0 0 transparent;
-    --overlay-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.1) inset;
+    --surface-shadow: 0 1px 0 rgba(17, 17, 17, 0.04);
+    --overlay-shadow: 0 16px 48px rgba(17, 17, 17, 0.12);
   }
 }
 
@@ -62,6 +59,7 @@
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
     "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-display: var(--font-display-face), ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -78,6 +76,10 @@
   body {
     min-height: 100dvh;
     overscroll-behavior-y: none;
+    background-image:
+      radial-gradient(60% 40% at 50% -10%, rgba(106, 76, 245, 0.08), transparent 70%),
+      radial-gradient(40% 30% at 100% 20%, rgba(255, 122, 61, 0.06), transparent 70%);
+    background-repeat: no-repeat;
   }
 
   /* Reserve space for the sticky cart bar so the last product row is never hidden. */
@@ -91,6 +93,71 @@
   .button,
   .chip {
     border-radius: 9999px;
+  }
+
+  button,
+  a,
+  [role="button"] {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .button:active,
+  .button[data-pressed="true"],
+  .button.button--sm:active,
+  .button.button--lg:active {
+    transform: none !important;
+  }
+
+  /* Dark spotlight card — the one atmosphere device on the light canvas. */
+  .spot {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background: #111111;
+    color: #ffffff;
+    border-radius: 28px;
+  }
+  .spot-in {
+    animation: spot-in 900ms ease-out both;
+  }
+  @keyframes spot-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* iOS drum picker column. */
+  .wheel {
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
+    overscroll-behavior: contain;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28%, #000 72%, transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 28%, #000 72%, transparent);
+  }
+  .wheel::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Thin ruled list rows. */
+  .rule > * + * {
+    border-top: 1px solid var(--separator);
+  }
+}
+
+@keyframes ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  80%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
   }
 }
 
