@@ -13,6 +13,7 @@ import {
 } from "@/lib/seat/store";
 import { SPRING } from "@/components/motion/variants";
 import { SeatConfirm } from "./seat-confirm";
+import { Armchair } from "lucide-react";
 
 export type { SeatSection };
 
@@ -71,6 +72,7 @@ export function SeatStatus({ stadiumSlug, sections, fromQuery }: Props) {
         className="flex w-full items-center justify-between gap-3 rounded-full border border-white/10 bg-white/10 px-4 py-2.5 text-left"
       >
         <span className="flex min-w-0 items-center gap-2.5">
+          <Armchair className="size-4 shrink-0 text-white/70" strokeWidth={1.8} aria-hidden />
           <span className="min-w-0 truncate text-[15px] text-white/70">
             <AnimatePresence mode="wait" initial={false}>
               <m.span

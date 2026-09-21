@@ -52,7 +52,7 @@ export function pushLiveLock(receipt: Receipt, now: number) {
     badge: "/icons/icon-192.png",
     silent: !first && !arrived,
     renotify: arrived,
-    data: { url: `/${receipt.stadiumSlug}/order` },
+    data: { url: `/${receipt.stadiumSlug}/order/${encodeURIComponent(receipt.orderNumber)}` },
   };
 
   try {

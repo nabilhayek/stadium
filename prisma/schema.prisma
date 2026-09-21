@@ -27,8 +27,36 @@ model Stadium {
   vendors  Vendor[]
   sections Section[]
   orders   Order[]
+  receipts Receipt[]
 
   @@index([isActive])
+}
+
+/// Customer-facing order document. Local-first: the phone writes it to its own
+/// storage first, then syncs it here so `/[stadium]/order/[orderNumber]` resolves
+/// on a fresh device. `body` is the receipt exactly as the client stores it;
+/// the columns beside it exist for lookups only.
+model Receipt {
+  id          String   @id @default(cuid())
+  stadiumId   String
+  /// Short code shown to the customer, e.g. "A-K7M2". Unique per stadium.
+  orderNumber String
+  /// Anonymous per-install id so a phone can restore its own history.
+  deviceId    String
+  /// Client-generated write secret. Updates must present it; reads never return it.
+  token       String
+  paidAt      DateTime
+  readyAt     DateTime
+  totalCents  Int
+  currency    String
+  body        Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stadium Stadium @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
+
+  @@unique([stadiumId, orderNumber])
+  @@index([stadiumId, deviceId, paidAt])
 }
 
 /// A seating block / stand. Used for "confirm seat" and delivery routing.

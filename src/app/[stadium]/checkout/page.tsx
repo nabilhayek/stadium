@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getStadiumMenu } from "@/lib/queries/stadium";
 import { CheckoutView } from "@/components/checkout/checkout-view";
-import { catalogFromVendors, drinksFromCatalog } from "@/lib/menu/catalog";
 
 type Props = { params: Promise<{ stadium: string }> };
 
@@ -24,8 +23,6 @@ export default async function CheckoutPage({ params }: Props) {
   const menu = await getStadiumMenu(slug);
   if (!menu) notFound();
 
-  const catalog = catalogFromVendors(menu.vendors);
-
   return (
     <main className="mx-auto w-full max-w-md px-4 pt-6">
       <CheckoutView
@@ -33,7 +30,6 @@ export default async function CheckoutPage({ params }: Props) {
         stadiumName={menu.name}
         currency={menu.currency}
         sections={menu.sections}
-        drinks={drinksFromCatalog(catalog, menu.categories)}
       />
     </main>
   );

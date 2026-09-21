@@ -1,79 +1,31 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { m } from "framer-motion";
-import { useMounted, useStorageValue } from "@/lib/hooks/use-storage";
 import { formatCents } from "@/lib/money";
-import { formatClock, isOrderLive, parseReceipt, receiptKey, confirmDigits } from "@/lib/orders/receipt";
-import { formatOrderWhen, lineCount, parsePastOrders, pastOrdersKey } from "@/lib/orders/past";
+import { formatClock, confirmDigits, type Receipt } from "@/lib/orders/receipt";
+import { formatOrderWhen, lineCount } from "@/lib/orders/past";
 import { formatSeat } from "@/lib/seat/store";
-import { useNow } from "@/lib/hooks/use-now";
 import { fadeUp, stagger } from "@/components/motion/variants";
+import { BackLink } from "@/components/ui/back-link";
 import { SameAgain } from "./same-again";
 import type { CatalogItem } from "@/lib/menu/catalog";
 
 type Props = {
+  order: Receipt;
   stadiumSlug: string;
-  orderNumber: string;
   currency: string;
   catalog: CatalogItem[];
 };
 
-export function OrderReceipt({ stadiumSlug, orderNumber, currency, catalog }: Props) {
-  const router = useRouter();
-  const mounted = useMounted();
-  const now = useNow(30_000);
-  const pastRaw = useStorageValue("local", pastOrdersKey(stadiumSlug));
-  const liveRaw = useStorageValue("session", receiptKey(stadiumSlug));
-
-  const order = useMemo(() => {
-    const live = parseReceipt(liveRaw);
-    if (live?.orderNumber === orderNumber) return live;
-    return parsePastOrders(pastRaw).find((o) => o.orderNumber === orderNumber) ?? null;
-  }, [liveRaw, pastRaw, orderNumber]);
-
-  useEffect(() => {
-    const session = parseReceipt(liveRaw);
-    if (!session || !now) return;
-    if (session.orderNumber === orderNumber && isOrderLive(session, now)) {
-      router.replace(`/${stadiumSlug}/order`);
-    }
-  }, [liveRaw, now, orderNumber, router, stadiumSlug]);
-
-  if (!mounted) return null;
-
-  if (!order) {
-    return (
-      <m.div variants={stagger(0.08)} initial="hidden" animate="show" className="flex min-h-[70dvh] flex-col justify-center pr-12">
-        <m.h1 variants={fadeUp} className="font-display text-[28px] font-semibold tracking-[-0.03em]">
-          Receipt not on this phone
-        </m.h1>
-        <m.p variants={fadeUp} className="mt-2 text-[15px] text-muted">
-          History is stored locally, so it only shows orders placed here.
-        </m.p>
-        <m.div variants={fadeUp} className="mt-6">
-          <Link href={`/${stadiumSlug}/orders`} className="button button--primary button--lg w-full text-center">
-            Back to history
-          </Link>
-        </m.div>
-      </m.div>
-    );
-  }
-
+/** A finished order. The page decides where the receipt came from; this only draws it. */
+export function OrderReceipt({ order, stadiumSlug, currency, catalog }: Props) {
   const money = formatCents(order.totalCents ?? 0, order.currency ?? currency);
   const count = lineCount(order);
 
   return (
     <m.div variants={stagger(0.07, 0.08)} initial="hidden" animate="show" className="flex flex-col gap-5 pb-16">
       <m.header variants={fadeUp} className="pr-12">
-        <Link
-          href={`/${stadiumSlug}/orders`}
-          className="inline-flex items-center gap-1 text-[13px] text-muted underline-offset-4 hover:text-foreground hover:underline"
-        >
-          <span aria-hidden>←</span> History
-        </Link>
+        <BackLink href={`/${stadiumSlug}/orders`}>History</BackLink>
         <h1 className="font-display mt-3 text-[28px] font-semibold leading-none tracking-[-0.03em]">
           Order {order.orderNumber}
         </h1>

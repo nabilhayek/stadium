@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getStadiumMenu } from "@/lib/queries/stadium";
+import { BackLink } from "@/components/ui/back-link";
 
 type Props = { params: Promise<{ stadium: string }> };
 
@@ -45,12 +45,7 @@ export default async function SupportPage({ params }: Props) {
   return (
     <main className="mx-auto w-full max-w-md px-4 pt-6 pb-16">
       <header className="pr-12">
-        <Link
-          href={`/${menu.slug}`}
-          className="inline-flex items-center gap-1 text-[13px] text-muted underline-offset-4 hover:text-foreground hover:underline"
-        >
-          <span aria-hidden>←</span> Menu
-        </Link>
+        <BackLink href={`/${menu.slug}`}>Menu</BackLink>
         <h1 className="font-display mt-3 text-[28px] font-semibold leading-none tracking-[-0.03em]">
           Support
         </h1>

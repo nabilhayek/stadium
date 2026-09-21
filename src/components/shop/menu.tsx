@@ -7,6 +7,7 @@ import { useStorageValue } from "@/lib/hooks/use-storage";
 import type { MenuCategory, MenuProduct, MenuVendor } from "@/lib/queries/stadium";
 import { useEntrance } from "@/components/motion/entrance";
 import { EASE, SPRING, fadeUp, stagger } from "@/components/motion/variants";
+import { Search, X } from "lucide-react";
 import { ProductCard } from "./product-card";
 import { PopularRail } from "./popular-rail";
 
@@ -121,17 +122,11 @@ export function Menu({ stadiumSlug, currency, vendors, categories }: Props) {
       >
         <label className="relative mt-4 block">
           <span className="sr-only">Search the menu</span>
-          <svg
+          <Search
             aria-hidden
-            viewBox="0 0 20 20"
             className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-          >
-            <circle cx="9" cy="9" r="5.5" />
-            <path d="m13.5 13.5 3 3" strokeLinecap="round" />
-          </svg>
+            strokeWidth={1.8}
+          />
           <input
             type="search"
             enterKeyHint="search"
@@ -153,9 +148,9 @@ export function Menu({ stadiumSlug, currency, vendors, categories }: Props) {
                 exit={{ opacity: 0, scale: 0.7 }}
                 onClick={() => setQuery("")}
                 aria-label="Clear search"
-                className="absolute right-2 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full bg-surface-secondary text-[14px]"
+                className="absolute right-2 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full bg-surface-secondary text-muted"
               >
-                ×
+                <X className="size-3.5" strokeWidth={2.2} aria-hidden />
               </m.button>
             ) : null}
           </AnimatePresence>

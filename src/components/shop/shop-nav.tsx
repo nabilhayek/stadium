@@ -1,8 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { Menu, X } from "lucide-react";
 
 const NavDrawer = dynamic(() => import("./nav-drawer").then((mod) => mod.NavDrawer), {
   ssr: false,
@@ -17,14 +18,18 @@ export function ShopNav({ stadiumSlug }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasOpened, setHasOpened] = useState(false);
 
-  useEffect(() => {
+  // Close on navigation: remember the path the drawer opened on and compare during render.
+  const [openedAt, setOpenedAt] = useState(pathname);
+  if (isOpen && openedAt !== pathname) {
     setIsOpen(false);
-  }, [pathname]);
+    setOpenedAt(pathname);
+  }
 
   const open = useCallback(() => {
     setHasOpened(true);
     setIsOpen(true);
-  }, []);
+    setOpenedAt(pathname);
+  }, [pathname]);
 
   const warm = useCallback(() => {
     router.prefetch(`/${stadiumSlug}/orders`);
@@ -45,7 +50,11 @@ export function ShopNav({ stadiumSlug }: Props) {
             aria-haspopup="dialog"
             className="pointer-events-auto grid size-10 place-items-center rounded-full bg-white text-black [box-shadow:0px_0px_20px_0px_rgba(0,0,0,0.5)]"
           >
-            <HamburgerIcon open={isOpen} />
+            {isOpen ? (
+              <X className="size-4" strokeWidth={2} aria-hidden />
+            ) : (
+              <Menu className="size-4" strokeWidth={2} aria-hidden />
+            )}
           </button>
         </div>
       </div>
@@ -54,30 +63,5 @@ export function ShopNav({ stadiumSlug }: Props) {
         <NavDrawer stadiumSlug={stadiumSlug} isOpen={isOpen} onOpenChange={setIsOpen} />
       ) : null}
     </>
-  );
-}
-
-function HamburgerIcon({ open }: { open: boolean }) {
-  return (
-    <span className="relative block size-4" aria-hidden>
-      <span
-        className={[
-          "absolute left-0 block h-[1.5px] w-4 bg-current transition-transform duration-200",
-          open ? "top-[7.5px] rotate-45" : "top-[3px]",
-        ].join(" ")}
-      />
-      <span
-        className={[
-          "absolute left-0 top-[7.5px] block h-[1.5px] w-4 bg-current transition-opacity duration-200",
-          open ? "opacity-0" : "opacity-100",
-        ].join(" ")}
-      />
-      <span
-        className={[
-          "absolute left-0 block h-[1.5px] w-4 bg-current transition-transform duration-200",
-          open ? "top-[7.5px] -rotate-45" : "top-[12px]",
-        ].join(" ")}
-      />
-    </span>
   );
 }

@@ -8,7 +8,7 @@
  *
  * Bump VERSION to invalidate all caches on deploy.
  */
-const VERSION = "v2";
+const VERSION = "v3";
 const STATIC_CACHE = `static-${VERSION}`;
 const PAGE_CACHE = `pages-${VERSION}`;
 const KNOWN = new Set([STATIC_CACHE, PAGE_CACHE]);

@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, m } from "framer-motion";
 import { PillButton } from "@/components/ui/pill-button";
 import { Field } from "@/components/ui/field";
@@ -12,34 +13,36 @@ import { SeatConfirm } from "@/components/shop/seat-confirm";
 import { useEntrance } from "@/components/motion/entrance";
 import { EASE, SPRING, fadeUp, stagger } from "@/components/motion/variants";
 import { useCart } from "@/lib/cart/use-cart";
-import { cartTotals, type CartLine } from "@/lib/cart/store";
+import { cartTotals, type CartLine, type CartState } from "@/lib/cart/store";
 import { useSeat } from "@/lib/seat/use-seat";
 import { formatSeat, getSeatStore, type Seat } from "@/lib/seat/store";
 import { arrivalClock, estimateDelivery } from "@/lib/checkout/eta";
 import { formatCents } from "@/lib/money";
 import { recordOrdered } from "@/lib/orders/history";
-import { recordPastOrder } from "@/lib/orders/past";
+import { commitReceipt } from "@/lib/orders/sync";
+import { getDeviceId } from "@/lib/device";
 import { useNow } from "@/lib/hooks/use-now";
 import { useStorageValue, useMounted } from "@/lib/hooks/use-storage";
 import {
   earliestSchedule,
   formatClock,
+  isOrderLive,
   isValidSchedule,
   makeConfirmCode,
   makeOrderNumber,
+  makeReceiptToken,
   parseReceipt,
   receiptKey,
   stampPaidAt,
-  writeReceipt,
   type Fulfillment,
   type Receipt,
   type Timing,
 } from "@/lib/orders/receipt";
 import type { SeatSection } from "@/components/shop/seat-status";
+import { BackLink } from "@/components/ui/back-link";
+import { Armchair, Check, ChevronDown, Loader2, ShoppingBag } from "lucide-react";
 import { ApplePayMark, CardMark, GooglePayMark } from "./pay-marks";
-import { OnTheWay } from "./on-the-way";
 import { requestLiveLock, pushLiveLock } from "@/lib/orders/live-lock";
-import type { CatalogItem } from "@/lib/menu/catalog";
 
 type Method = "apple" | "google" | "card";
 
@@ -48,7 +51,6 @@ type Props = {
   stadiumName: string;
   currency: string;
   sections: SeatSection[];
-  drinks?: CatalogItem[];
 };
 
 const panelVariants = {
@@ -59,11 +61,23 @@ const panelVariants = {
 
 const LAYOUT = { duration: 0.32, ease: EASE };
 
-export function CheckoutView({ stadiumSlug, stadiumName, currency, sections, drinks = [] }: Props) {
-  const { state, store: cart } = useCart(stadiumSlug);
+export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: Props) {
+  const router = useRouter();
+  const { state: liveCart, store: cart } = useCart(stadiumSlug);
   const { seat } = useSeat(stadiumSlug);
-  const { count, cents } = cartTotals(state);
   const entrance = useEntrance();
+
+  // After pay we keep drawing the cart as it was, clear the real one, and move
+  // to the order's own URL. The frozen copy stops the empty state flashing in between.
+  const [paid, setPaid] = useState<{ receipt: Receipt; cart: CartState } | null>(null);
+  const state = paid ? paid.cart : liveCart;
+  const { count, cents } = cartTotals(state);
+
+  useEffect(() => {
+    if (!paid) return;
+    cart.clear();
+    router.replace(`/${stadiumSlug}/order/${encodeURIComponent(paid.receipt.orderNumber)}`);
+  }, [paid, cart, router, stadiumSlug]);
 
   // Wallet default follows the platform; the user's explicit pick wins.
   const mounted = useMounted();
@@ -87,12 +101,12 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections, dri
   const scheduledAt = pickedAt ?? earliestSchedule(now);
   const setScheduledAt = setPickedAt;
 
-  // The receipt lives in sessionStorage; a fresh payment or a dismiss overrides it.
+  // An order already in flight — offered as a link when there is nothing to pay for.
   const storedRaw = useStorageValue("session", receiptKey(stadiumSlug));
-  const stored = useMemo(() => parseReceipt(storedRaw), [storedRaw]);
-  const [receiptOverride, setReceiptOverride] = useState<Receipt | null | undefined>(undefined);
-  const receipt = receiptOverride === undefined ? stored : receiptOverride;
-  const setReceipt = setReceiptOverride;
+  const tracking = useMemo(() => {
+    const stored = parseReceipt(storedRaw);
+    return stored && now && isOrderLive(stored, now) ? stored : null;
+  }, [storedRaw, now]);
 
   const eta = estimateDelivery(state, fulfillment);
   const byVendor = useMemo(() => {
@@ -130,13 +144,18 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections, dri
       return;
     }
     setPaying(true);
+    const orderNumber = makeOrderNumber();
+    // Warm the order page while the wallet sheet is up, so the hand-off is instant.
+    router.prefetch(`/${stadiumSlug}/order/${encodeURIComponent(orderNumber)}`);
     const lock = requestLiveLock();
     await new Promise((r) => setTimeout(r, 1100));
     const paidAt = stampPaidAt();
     const readyAt = timing === "scheduled" ? scheduledAt : paidAt + eta.max * 60_000;
     const next: Receipt = {
-      orderNumber: makeOrderNumber(),
+      orderNumber,
       confirmCode: makeConfirmCode(),
+      deviceId: getDeviceId() ?? undefined,
+      token: makeReceiptToken(),
       stadiumSlug,
       stadiumName,
       seat,
@@ -160,20 +179,14 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections, dri
         unitCents: l.unitCents,
       })),
     };
-    writeReceipt(next);
-    recordPastOrder(next);
+    // Local first: phone storage now, server copy in the background.
+    commitReceipt(next);
     recordOrdered(
       stadiumSlug,
       state.lines.flatMap((l) => Array.from({ length: l.qty }, () => l.productId)),
     );
-    cart.clear();
-    setPaying(false);
-    setReceipt(next);
+    setPaid({ receipt: next, cart: state });
     if (await lock) pushLiveLock(next, paidAt);
-  }
-
-  if (receipt && count === 0) {
-    return <OnTheWay receipt={receipt} drinks={drinks} />;
   }
 
   if (count === 0) {
@@ -188,10 +201,21 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections, dri
           Nothing to check out
         </m.h1>
         <m.p variants={fadeUp} className="mt-2 text-[15px] text-muted">
-          Add something from the shop first.
+          {tracking ? "Your last order is still on its way." : "Add something from the shop first."}
         </m.p>
-        <m.div variants={fadeUp}>
-          <Link href={`/${stadiumSlug}`} className="button button--primary button--md mt-8 w-fit">
+        <m.div variants={fadeUp} className="mt-8 flex flex-col gap-2">
+          {tracking ? (
+            <Link
+              href={`/${stadiumSlug}/order/${encodeURIComponent(tracking.orderNumber)}`}
+              className="button button--primary button--lg w-full text-center"
+            >
+              Track order {tracking.orderNumber}
+            </Link>
+          ) : null}
+          <Link
+            href={`/${stadiumSlug}`}
+            className={`button button--lg w-full text-center ${tracking ? "button--secondary" : "button--primary"}`}
+          >
             Back to the shop
           </Link>
         </m.div>
@@ -223,12 +247,7 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections, dri
       className="flex flex-col gap-7 pb-[max(7.5rem,env(safe-area-inset-bottom))]"
     >
       <m.header variants={fadeUp} className="pr-12">
-        <Link
-          href={`/${stadiumSlug}`}
-          className="inline-flex items-center gap-1 text-[13px] text-muted underline-offset-4 hover:text-foreground hover:underline"
-        >
-          <span aria-hidden>←</span> Menu
-        </Link>
+        <BackLink href={`/${stadiumSlug}`}>Menu</BackLink>
         <h1 className="font-display mt-3 text-[28px] font-semibold leading-none tracking-[-0.03em]">
           Checkout
         </h1>
@@ -264,7 +283,7 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections, dri
                 <div className="flex items-center justify-between gap-3 rounded-[20px] border border-border bg-surface p-4">
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-surface-secondary">
-                      <SeatIcon />
+                      <Armchair className="size-5" strokeWidth={1.7} aria-hidden />
                     </span>
                     <div className="min-w-0">
                       <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Deliver to</p>
@@ -292,7 +311,7 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections, dri
                 <div className="rounded-[20px] border border-border bg-surface p-4">
                   <div className="flex items-center gap-3">
                     <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-surface-secondary">
-                      <BagIcon />
+                      <ShoppingBag className="size-5" strokeWidth={1.7} aria-hidden />
                     </span>
                     <div className="min-w-0">
                       <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Collect at</p>
@@ -413,7 +432,7 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections, dri
             }}
             title="Apple Pay"
             hint="Face ID · one tap"
-            mark={<ApplePayMark className="h-6 w-auto" />}
+            mark={<ApplePayMark />}
           />
           <WalletPay
             selected={method === "google"}
@@ -423,7 +442,7 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections, dri
             }}
             title="Google Pay"
             hint="Saved cards"
-            mark={<GooglePayMark className="h-6 w-auto text-foreground" />}
+            mark={<GooglePayMark />}
           />
         </div>
         <button
@@ -435,8 +454,8 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections, dri
           }}
         >
           {cardOpen ? "Hide card" : "Pay another way"}
-          <m.span aria-hidden animate={{ rotate: cardOpen ? 180 : 0 }} className="inline-block text-[11px]">
-            ▾
+          <m.span aria-hidden animate={{ rotate: cardOpen ? 180 : 0 }} className="inline-flex">
+            <ChevronDown className="size-3.5" strokeWidth={2} />
           </m.span>
         </button>
         <AnimatePresence initial={false}>
@@ -518,19 +537,24 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections, dri
             size="lg"
             variant="primary"
             fullWidth
-            disabled={paying}
+            disabled={paying || paid !== null}
             className="relative overflow-hidden shadow-[0_12px_32px_-12px_rgba(17,17,17,0.55)]"
           >
             <AnimatePresence mode="popLayout" initial={false}>
               <m.span
-                key={paying ? "paying" : payLabel}
+                key={paid ? "paid" : paying ? "paying" : payLabel}
                 initial={{ y: 16, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: -16, opacity: 0 }}
                 transition={{ duration: 0.2 }}
                 className="inline-flex items-center gap-2"
               >
-                {paying ? (
+                {paid ? (
+                  <>
+                    <Check className="size-4" strokeWidth={2.6} aria-hidden />
+                    Paid
+                  </>
+                ) : paying ? (
                   <>
                     <Spinner />
                     Confirming…
@@ -591,17 +615,16 @@ function WalletPay({
       >
         <AnimatePresence>
           {selected ? (
-            <m.svg
+            <m.span
               key="check"
-              viewBox="0 0 12 12"
-              className="size-3 text-background"
+              className="grid place-items-center"
               initial={{ scale: 0.4, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.4, opacity: 0 }}
               transition={SPRING}
             >
-              <path d="M2.5 6.2 5 8.6 9.6 3.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </m.svg>
+              <Check className="size-3 text-background" strokeWidth={3} />
+            </m.span>
           ) : null}
         </AnimatePresence>
       </span>
@@ -615,31 +638,7 @@ function WalletPay({
 }
 
 function Spinner() {
-  return (
-    <span
-      aria-hidden
-      className="inline-block size-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
-    />
-  );
-}
-
-function SeatIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-5 text-foreground" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M6 11V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5" />
-      <path d="M4 13a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3H4z" />
-      <path d="M6 16v3M18 16v3" />
-    </svg>
-  );
-}
-
-function BagIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-5 text-foreground" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M5 8h14l-1 12H6z" />
-      <path d="M9 8V6a3 3 0 0 1 6 0v2" />
-    </svg>
-  );
+  return <Loader2 className="size-4 animate-spin" aria-hidden />;
 }
 
 function maskNumber(raw: string) {

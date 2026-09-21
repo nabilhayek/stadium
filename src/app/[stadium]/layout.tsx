@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ShopNav } from "@/components/shop/shop-nav";
+import { OrderSync } from "@/components/orders/order-sync";
 
 type Props = {
   children: ReactNode;
@@ -12,6 +13,7 @@ export default async function StadiumLayout({ children, params }: Props) {
     <>
       {children}
       <ShopNav stadiumSlug={stadium} />
+      <OrderSync />
     </>
   );
 }

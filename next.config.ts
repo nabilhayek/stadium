@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
 
   // Tree-shake barrel exports so importing `Button` doesn't pull the whole library.
   experimental: {
-    optimizePackageImports: ["@heroui/react"],
+    optimizePackageImports: ["@heroui/react", "lucide-react"],
   },
 
   images: {

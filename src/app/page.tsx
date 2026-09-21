@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { getActiveStadiums } from "@/lib/queries/stadium";
 
 export const revalidate = 60;
@@ -30,9 +31,7 @@ export default async function HomePage() {
                 <span className="block font-medium">{s.name}</span>
                 {s.city ? <span className="text-sm text-muted">{s.city}</span> : null}
               </span>
-              <span aria-hidden className="text-muted">
-                →
-              </span>
+              <ChevronRight className="size-4 text-muted" strokeWidth={2} aria-hidden />
             </Link>
           </li>
         ))}

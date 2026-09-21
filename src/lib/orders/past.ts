@@ -35,7 +35,10 @@ export function readPastOrders(stadiumSlug: string): Receipt[] {
 export function recordPastOrder(receipt: Receipt) {
   if (typeof window === "undefined") return;
   const prev = readPastOrders(receipt.stadiumSlug);
-  const next = [receipt, ...prev.filter((o) => o.orderNumber !== receipt.orderNumber)].slice(0, MAX);
+  // Newest first by pay time, so receipts restored from the server slot in where they belong.
+  const next = [receipt, ...prev.filter((o) => o.orderNumber !== receipt.orderNumber)]
+    .sort((a, b) => b.paidAt - a.paidAt)
+    .slice(0, MAX);
   writeStorage("local", pastOrdersKey(receipt.stadiumSlug), JSON.stringify(next));
 }
 

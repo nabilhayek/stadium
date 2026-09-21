@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { m } from "framer-motion";
 import { useMounted, useStorageValue } from "@/lib/hooks/use-storage";
 import { formatCents } from "@/lib/money";
 import { isOrderLive, parseReceipt, receiptKey, statusTitle, type Receipt } from "@/lib/orders/receipt";
 import { formatOrderWhen, lineCount, parsePastOrders, pastOrdersKey, recordPastOrder } from "@/lib/orders/past";
+import { restoreDeviceHistory } from "@/lib/orders/sync";
 import { formatSeat } from "@/lib/seat/store";
 import { useNow } from "@/lib/hooks/use-now";
 import { fadeUp, stagger } from "@/components/motion/variants";
+import { BackLink } from "@/components/ui/back-link";
 import { SameAgain } from "./same-again";
 import type { CatalogItem } from "@/lib/menu/catalog";
 
@@ -30,6 +32,17 @@ export function OrderHistory({ stadiumSlug, currency, catalog }: Props) {
     }
   }, [live, past]);
 
+  // Local first: the list above renders straight from storage. Then ask the
+  // server once for anything this phone placed but no longer has.
+  const [restoring, setRestoring] = useState(false);
+  const restored = useRef(false);
+  useEffect(() => {
+    if (!mounted || restored.current) return;
+    restored.current = true;
+    setRestoring(true);
+    void restoreDeviceHistory(stadiumSlug).finally(() => setRestoring(false));
+  }, [mounted, stadiumSlug]);
+
   const orders = useMemo(() => {
     if (!live) return past;
     if (past.some((o) => o.orderNumber === live.orderNumber)) return past;
@@ -41,12 +54,7 @@ export function OrderHistory({ stadiumSlug, currency, catalog }: Props) {
   return (
     <m.div variants={stagger(0.07, 0.08)} initial="hidden" animate="show" className="flex flex-col gap-6 pb-16">
       <m.header variants={fadeUp} className="pr-12">
-        <Link
-          href={`/${stadiumSlug}`}
-          className="inline-flex items-center gap-1 text-[13px] text-muted underline-offset-4 hover:text-foreground hover:underline"
-        >
-          <span aria-hidden>←</span> Menu
-        </Link>
+        <BackLink href={`/${stadiumSlug}`}>Menu</BackLink>
         <h1 className="font-display mt-3 text-[28px] font-semibold leading-none tracking-[-0.03em]">
           Order history
         </h1>
@@ -55,11 +63,19 @@ export function OrderHistory({ stadiumSlug, currency, catalog }: Props) {
 
       {orders.length === 0 ? (
         <m.div variants={fadeUp} className="rounded-[20px] border border-border bg-surface px-5 py-10 text-center">
-          <p className="text-[15px] font-medium">No orders yet</p>
-          <p className="mt-1 text-[13px] text-muted">When you pay, the receipt lands here.</p>
-          <Link href={`/${stadiumSlug}`} className="button button--primary button--md mt-6 inline-flex">
-            Order something
-          </Link>
+          {restoring ? (
+            <p className="text-[15px] font-medium" role="status">
+              Checking for earlier orders…
+            </p>
+          ) : (
+            <>
+              <p className="text-[15px] font-medium">No orders yet</p>
+              <p className="mt-1 text-[13px] text-muted">When you pay, the receipt lands here.</p>
+              <Link href={`/${stadiumSlug}`} className="button button--primary button--md mt-6 inline-flex">
+                Order something
+              </Link>
+            </>
+          )}
         </m.div>
       ) : (
         <m.ul variants={fadeUp} className="flex flex-col gap-2">
@@ -70,8 +86,8 @@ export function OrderHistory({ stadiumSlug, currency, catalog }: Props) {
               stadiumSlug={stadiumSlug}
               currency={order.currency ?? currency}
               catalog={catalog}
-              now={now || Date.now()}
-              tracking={live?.orderNumber === order.orderNumber && isOrderLive(order, now || Date.now())}
+              now={now}
+              tracking={live?.orderNumber === order.orderNumber && isOrderLive(order, now)}
             />
           ))}
         </m.ul>
@@ -95,9 +111,7 @@ function HistoryRow({
   now: number;
   tracking: boolean;
 }) {
-  const href = tracking
-    ? `/${stadiumSlug}/order`
-    : `/${stadiumSlug}/orders/${encodeURIComponent(order.orderNumber)}`;
+  const href = `/${stadiumSlug}/order/${encodeURIComponent(order.orderNumber)}`;
   const count = lineCount(order);
   const status = isOrderLive(order, now) ? statusTitle(order, now) : "Completed";
 

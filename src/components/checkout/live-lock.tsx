@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { PillButton } from "@/components/ui/pill-button";
+import { Pin } from "lucide-react";
+import { useMounted } from "@/lib/hooks/use-storage";
 import {
   liveLockPermission,
   liveLockSupported,
@@ -17,11 +19,10 @@ type Props = { receipt: Receipt; now: number };
  * in sync. Dynamic Island itself is native-only; this is the PWA equivalent.
  */
 export function LiveLock({ receipt, now }: Props) {
-  const [permission, setPermission] = useState<ReturnType<typeof liveLockPermission>>("unsupported");
-
-  useEffect(() => {
-    setPermission(liveLockPermission());
-  }, []);
+  // The browser's answer is read during render once mounted; the user's tap on "Pin" overrides it.
+  const mounted = useMounted();
+  const [answer, setAnswer] = useState<ReturnType<typeof liveLockPermission> | null>(null);
+  const permission = answer ?? (mounted ? liveLockPermission() : "unsupported");
 
   useEffect(() => {
     if (permission !== "granted") return;
@@ -42,7 +43,7 @@ export function LiveLock({ receipt, now }: Props) {
 
   async function enable() {
     const ok = await requestLiveLock();
-    setPermission(liveLockPermission());
+    setAnswer(liveLockPermission());
     if (ok) pushLiveLock(receipt, Date.now());
   }
 
@@ -51,7 +52,8 @@ export function LiveLock({ receipt, now }: Props) {
       <p className="min-w-0 text-[13px] leading-snug">
         Keep the countdown and code on your lock screen.
       </p>
-      <PillButton size="sm" variant="primary" className="shrink-0" onClick={enable}>
+      <PillButton size="sm" variant="primary" className="shrink-0 gap-1.5" onClick={enable}>
+        <Pin className="size-3.5" strokeWidth={2} aria-hidden />
         Pin
       </PillButton>
     </div>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Drawer } from "@heroui/react";
+import { ChevronRight, Coins, Globe, LifeBuoy, Receipt, Store } from "lucide-react";
 
 type Props = {
   stadiumSlug: string;
@@ -11,8 +12,8 @@ type Props = {
 };
 
 const NAV = [
-  { href: (slug: string) => `/${slug}/orders`, label: "Order history", hint: "Past receipts" },
-  { href: (slug: string) => `/${slug}/support`, label: "Support", hint: "Help with an order" },
+  { href: (slug: string) => `/${slug}/orders`, label: "Order history", hint: "Past receipts", icon: Receipt },
+  { href: (slug: string) => `/${slug}/support`, label: "Support", hint: "Help with an order", icon: LifeBuoy },
 ] as const;
 
 /** Right-edge menu: history, support, and language/currency placeholders. */
@@ -38,6 +39,7 @@ export function NavDrawer({ stadiumSlug, isOpen, onOpenChange }: Props) {
                 href={shopHref}
                 label="Shop"
                 hint="Order to your seat"
+                icon={Store}
                 active={pathname === shopHref}
               />
               {NAV.map((item) => {
@@ -48,6 +50,7 @@ export function NavDrawer({ stadiumSlug, isOpen, onOpenChange }: Props) {
                     href={href}
                     label={item.label}
                     hint={item.hint}
+                    icon={item.icon}
                     active={pathname === href || pathname.startsWith(`${href}/`)}
                   />
                 );
@@ -59,8 +62,8 @@ export function NavDrawer({ stadiumSlug, isOpen, onOpenChange }: Props) {
                 Preferences
               </p>
               <ul className="mt-2">
-                <ComingSoonRow label="Language" value="English" />
-                <ComingSoonRow label="Currency" value="Venue default" />
+                <ComingSoonRow label="Language" value="English" icon={Globe} />
+                <ComingSoonRow label="Currency" value="Venue default" icon={Coins} />
               </ul>
             </section>
           </Drawer.Body>
@@ -74,11 +77,13 @@ function NavLink({
   href,
   label,
   hint,
+  icon: Icon,
   active,
 }: {
   href: string;
   label: string;
   hint: string;
+  icon: typeof Store;
   active: boolean;
 }) {
   const router = useRouter();
@@ -97,23 +102,35 @@ function NavLink({
         active ? "bg-surface-secondary" : "hover:bg-default",
       ].join(" ")}
     >
-      <span>
-        <span className="block text-[15px] font-medium">{label}</span>
-        <span className="block text-[13px] text-muted">{hint}</span>
+      <span className="flex min-w-0 items-center gap-3">
+        <Icon className="size-4 shrink-0 text-muted" strokeWidth={1.8} aria-hidden />
+        <span>
+          <span className="block text-[15px] font-medium">{label}</span>
+          <span className="block text-[13px] text-muted">{hint}</span>
+        </span>
       </span>
-      <span aria-hidden className="text-muted">
-        →
-      </span>
+      <ChevronRight className="size-4 shrink-0 text-muted" strokeWidth={2} aria-hidden />
     </Link>
   );
 }
 
-function ComingSoonRow({ label, value }: { label: string; value: string }) {
+function ComingSoonRow({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  icon: typeof Store;
+}) {
   return (
     <li className="flex items-center justify-between gap-3 rounded-2xl px-3 py-3">
-      <span>
-        <span className="block text-[15px] font-medium">{label}</span>
-        <span className="block text-[13px] text-muted">Coming soon</span>
+      <span className="flex min-w-0 items-center gap-3">
+        <Icon className="size-4 shrink-0 text-muted" strokeWidth={1.8} aria-hidden />
+        <span>
+          <span className="block text-[15px] font-medium">{label}</span>
+          <span className="block text-[13px] text-muted">Coming soon</span>
+        </span>
       </span>
       <span className="text-[13px] text-muted">{value}</span>
     </li>

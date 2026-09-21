@@ -3,7 +3,9 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { AnimatePresence, m } from "framer-motion";
+import { BackLink } from "@/components/ui/back-link";
 import { PillButton } from "@/components/ui/pill-button";
+import { Bike, Check, Mail } from "lucide-react";
 import { SpotGradient } from "@/components/ui/spot-gradient";
 import { EASE, SPRING, fadeUp, stagger } from "@/components/motion/variants";
 import { useNow } from "@/lib/hooks/use-now";
@@ -14,10 +16,9 @@ import {
   formatRemain,
   isValidEmail,
   statusTitle,
-  writeReceipt,
   type Receipt,
 } from "@/lib/orders/receipt";
-import { recordPastOrder } from "@/lib/orders/past";
+import { commitReceipt } from "@/lib/orders/sync";
 import type { CatalogItem } from "@/lib/menu/catalog";
 import { LiveLock } from "./live-lock";
 import { SecondRound } from "./second-round";
@@ -53,8 +54,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
 
   function update(patch: Partial<Receipt>) {
     const next = { ...receipt, ...patch };
-    writeReceipt(next);
-    recordPastOrder(next);
+    commitReceipt(next);
     setReceipt(next);
   }
 
@@ -87,12 +87,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
     >
       <header className="flex flex-col items-start pr-12">
         <m.div variants={fadeUp}>
-          <Link
-            href={`/${receipt.stadiumSlug}`}
-            className="inline-flex items-center gap-1 text-[13px] text-muted underline-offset-4 hover:text-foreground hover:underline"
-          >
-            <span aria-hidden>←</span> Back
-          </Link>
+          <BackLink href={`/${receipt.stadiumSlug}`}>Back</BackLink>
         </m.div>
         <m.div variants={fadeUp} className="mt-5">
           <SuccessMark />
@@ -205,7 +200,9 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
       {delivery ? (
         <m.section variants={fadeUp} className="rounded-[20px] border border-border bg-surface p-5">
           <div className="flex items-start gap-3">
-            <RunnerIcon />
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-surface-secondary">
+              <Bike className="size-5" strokeWidth={1.7} aria-hidden />
+            </span>
             <div className="min-w-0 flex-1">
               <p className="text-[15px] font-medium">A runner has your order</p>
               <p className="mt-1 text-[13px] leading-snug text-muted">
@@ -247,7 +244,9 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
 
       <m.section variants={fadeUp} className="rounded-[20px] border border-border bg-surface p-5">
         <div className="flex items-start gap-3">
-          <MailIcon />
+          <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-surface-secondary">
+            <Mail className="size-5" strokeWidth={1.7} aria-hidden />
+          </span>
           <div className="min-w-0 flex-1">
             <p className="text-[15px] font-medium">Receipt by email</p>
             <p className="mt-1 text-[13px] leading-snug text-muted">Optional. Nothing else, no newsletter.</p>
@@ -377,14 +376,7 @@ function SuccessMark() {
       className="grid size-14 place-items-center rounded-full bg-foreground text-background shadow-[0_12px_28px_-10px_rgba(17,17,17,0.5)]"
       aria-hidden
     >
-      <svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-        <m.path
-          d="M5 12.5l4.2 4.2L19 7"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 0.5, ease: EASE, delay: 0.25 }}
-        />
-      </svg>
+      <Check className="size-7" strokeWidth={2.4} />
     </m.div>
   );
 }
@@ -414,28 +406,5 @@ function Ring({ progress, arrived, children }: { progress: number; arrived: bool
       </svg>
       <div className="absolute inset-0 grid place-items-center">{children}</div>
     </div>
-  );
-}
-
-function RunnerIcon() {
-  return (
-    <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-surface-secondary">
-      <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <circle cx="14" cy="4.5" r="1.8" />
-        <path d="M6 20l3.5-6 3 2.5L14 12l3 2 3-1" />
-        <path d="M9.5 14 8 10.5l4-1.5 2.5 3" />
-      </svg>
-    </span>
-  );
-}
-
-function MailIcon() {
-  return (
-    <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-surface-secondary">
-      <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <rect x="3.5" y="5.5" width="17" height="13" rx="2.5" />
-        <path d="m4.5 7 7.5 6 7.5-6" />
-      </svg>
-    </span>
   );
 }

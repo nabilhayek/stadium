@@ -29,16 +29,22 @@ export function CartBar({ stadiumSlug, currency, openCart = false }: Props) {
     if (count > 0) router.prefetch(`/${stadiumSlug}/checkout`);
   }, [count, router, stadiumSlug]);
 
-  useEffect(() => {
-    if (!openCart || count === 0) return;
+  // `?cart=1` (from "Same again") opens the drawer once the cart has hydrated.
+  // State is adjusted during render, then the flag is stripped from the URL.
+  const [autoOpened, setAutoOpened] = useState(false);
+  if (openCart && count > 0 && !autoOpened) {
+    setAutoOpened(true);
     setHasOpened(true);
     setIsOpen(true);
+  }
+
+  useEffect(() => {
+    if (!autoOpened) return;
     const url = new URL(window.location.href);
     if (!url.searchParams.has("cart")) return;
     url.searchParams.delete("cart");
-    const next = url.pathname + url.search + url.hash;
-    window.history.replaceState(null, "", next);
-  }, [openCart, count]);
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  }, [autoOpened]);
 
   const order = useActiveOrder(stadiumSlug);
   const showCart = count > 0 && !isOpen;

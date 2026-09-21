@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { Button, Drawer } from "@heroui/react";
+import { Minus, Pencil, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart/use-cart";
 import { cartTotals, type CartLine } from "@/lib/cart/store";
@@ -141,7 +142,7 @@ function CartLineRow({
             editing || hasNote ? "bg-foreground text-background" : "bg-default text-muted",
           ].join(" ")}
         >
-          <PenIcon />
+          <Pencil className="size-4" strokeWidth={1.7} aria-hidden />
         </button>
         <div className="flex items-center gap-1 rounded-full bg-default p-0.5">
           <Button
@@ -151,7 +152,7 @@ function CartLineRow({
             onPress={() => onQty(line.qty - 1)}
             aria-label={`Decrease ${line.name}`}
           >
-            −
+            <Minus className="size-4" strokeWidth={2} />
           </Button>
           <span className="min-w-5 text-center text-sm font-medium tabular-nums">{line.qty}</span>
           <Button
@@ -161,7 +162,7 @@ function CartLineRow({
             onPress={() => onQty(line.qty + 1)}
             aria-label={`Increase ${line.name}`}
           >
-            +
+            <Plus className="size-4" strokeWidth={2} />
           </Button>
         </div>
         <p className="w-14 shrink-0 text-right text-sm font-medium tabular-nums">
@@ -203,23 +204,5 @@ function CartLineRow({
         ) : null}
       </AnimatePresence>
     </li>
-  );
-}
-
-function PenIcon() {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      className="size-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M12.4 4.1 15.9 7.6 7.2 16.3H3.7v-3.5z" />
-      <path d="m11.1 5.4 3.5 3.5" />
-    </svg>
   );
 }

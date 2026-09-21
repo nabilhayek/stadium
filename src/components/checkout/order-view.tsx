@@ -1,31 +1,33 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { m } from "framer-motion";
 import { useMounted, useStorageValue } from "@/lib/hooks/use-storage";
-import { parseReceipt, receiptKey } from "@/lib/orders/receipt";
+import { useNow } from "@/lib/hooks/use-now";
+import { isOrderLive, parseReceipt, receiptKey } from "@/lib/orders/receipt";
 import { fadeUp, stagger } from "@/components/motion/variants";
-import { OnTheWay } from "./on-the-way";
-import type { CatalogItem } from "@/lib/menu/catalog";
 
-type Props = { stadiumSlug: string; drinks?: CatalogItem[] };
+type Props = { stadiumSlug: string };
 
 /**
- * Standalone tracking page for the current order. The receipt lives in
- * sessionStorage, so this is reachable from the shop's active-order widget
- * even after the cart has new items in it.
+ * /[stadium]/order without a number: jump to the order this phone is tracking,
+ * or explain that there is none. Every order has its own URL.
  */
-export function OrderView({ stadiumSlug, drinks = [] }: Props) {
+export function OrderView({ stadiumSlug }: Props) {
+  const router = useRouter();
   const mounted = useMounted();
+  const now = useNow(1000);
   const raw = useStorageValue("session", receiptKey(stadiumSlug));
   const receipt = useMemo(() => parseReceipt(raw), [raw]);
+  const live = receipt && now ? isOrderLive(receipt, now) : false;
 
-  if (!mounted) return null;
+  useEffect(() => {
+    if (receipt && live) router.replace(`/${stadiumSlug}/order/${encodeURIComponent(receipt.orderNumber)}`);
+  }, [receipt, live, router, stadiumSlug]);
 
-  if (receipt) {
-    return <OnTheWay receipt={receipt} drinks={drinks} />;
-  }
+  if (!mounted || !now || live) return null;
 
   return (
     <m.div
@@ -40,9 +42,12 @@ export function OrderView({ stadiumSlug, drinks = [] }: Props) {
       <m.p variants={fadeUp} className="mt-2 text-[15px] text-muted">
         Once you pay, your order tracker lives here.
       </m.p>
-      <m.div variants={fadeUp} className="mt-6">
+      <m.div variants={fadeUp} className="mt-6 flex flex-col gap-2">
         <Link href={`/${stadiumSlug}`} className="button button--primary button--lg w-full text-center">
           Back to the shop
+        </Link>
+        <Link href={`/${stadiumSlug}/orders`} className="button button--secondary button--lg w-full text-center">
+          Order history
         </Link>
       </m.div>
     </m.div>

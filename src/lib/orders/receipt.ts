@@ -35,13 +35,40 @@ export type Receipt = {
   currency?: string;
   totalCents?: number;
   lines: ReceiptLine[];
+  /** Anonymous install id the order was placed from. Lets that phone restore its history. */
+  deviceId?: string;
+  /** Write secret for the server copy. Missing on receipts restored from a bare URL. */
+  token?: string;
 };
 
 const PREFIX = "receipt:v1:";
 
+/** Unambiguous, shout-across-the-counter alphabet: no 0/O or 1/I. */
+const CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+
+function randomCode(length: number) {
+  const bytes = new Uint8Array(length);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) crypto.getRandomValues(bytes);
+  else for (let i = 0; i < length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  let out = "";
+  for (const b of bytes) out += CODE_ALPHABET[b % CODE_ALPHABET.length];
+  return out;
+}
+
+/** "A-K7M2" — ~1M combinations per stadium, so numbers stay unique server-side. */
 export function makeOrderNumber() {
-  const n = (Date.now() % 9000) + 1000;
-  return `A-${n}`;
+  return `A-${randomCode(4)}`;
+}
+
+/** Secret that authorises updates to the server copy of a receipt. */
+export function makeReceiptToken() {
+  return randomCode(24);
+}
+
+const ORDER_NUMBER = /^[A-Z]-[A-Z0-9]{4,8}$/i;
+
+export function isOrderNumber(value: string) {
+  return ORDER_NUMBER.test(value);
 }
 
 /** Payment timestamp (ms). */

@@ -3,6 +3,7 @@
 import { AnimatePresence, m } from "framer-motion";
 import { useCartQty } from "@/lib/cart/use-cart";
 import { getCartStore, type AddableProduct } from "@/lib/cart/store";
+import { Minus, Plus } from "lucide-react";
 
 type Props = {
   stadiumSlug: string;
@@ -40,7 +41,7 @@ export function AddToCartButton({ stadiumSlug, product, dense = false }: Props) 
             aria-label={qty === 1 ? `Remove ${product.name}` : `Decrease ${product.name}`}
             className={`grid ${hit} place-items-center rounded-full leading-none active:scale-90`}
           >
-            −
+            <Minus className="size-3.5" strokeWidth={2.4} />
           </button>
           <span className="relative block h-5 min-w-5 overflow-hidden text-center text-[14px] font-semibold tabular-nums">
             <AnimatePresence mode="wait" initial={false}>
@@ -63,7 +64,7 @@ export function AddToCartButton({ stadiumSlug, product, dense = false }: Props) 
             aria-label={`Increase ${product.name}`}
             className={`grid ${hit} place-items-center rounded-full leading-none active:scale-90`}
           >
-            +
+            <Plus className="size-3.5" strokeWidth={2.4} />
           </button>
         </div>
       )}
