@@ -9,6 +9,9 @@ export type ReceiptLine = {
   name: string;
   qty: number;
   note?: string;
+  vendorId?: string;
+  vendorName?: string;
+  unitCents?: number;
 };
 
 export type Receipt = {
@@ -28,6 +31,9 @@ export type Receipt = {
   confirmCode: string;
   /** Where to send the receipt. Sending is wired up later; we only store it for now. */
   email?: string;
+  /** Present on orders placed after history landed. Older receipts omit it. */
+  currency?: string;
+  totalCents?: number;
   lines: ReceiptLine[];
 };
 
@@ -109,4 +115,27 @@ export function isValidEmail(value: string) {
 
 export function formatClock(ms: number) {
   return new Date(ms).toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" });
+}
+
+/** "m:ss" countdown. */
+export function formatRemain(ms: number) {
+  const total = Math.ceil(Math.max(0, ms) / 1000);
+  const mm = Math.floor(total / 60);
+  const ss = total % 60;
+  return `${mm}:${ss.toString().padStart(2, "0")}`;
+}
+
+/** Headline for the current stage of an order. */
+export function statusTitle(receipt: Receipt, now: number) {
+  const arrived = receipt.readyAt - now <= 0;
+  const delivery = receipt.fulfillment === "delivery";
+  if (arrived) return delivery ? "At your seat" : "Ready for pickup";
+  return delivery ? "On the way" : "Being prepared";
+}
+
+/** How long after the ETA the shop keeps showing the order widget. */
+const LINGER_MS = 30 * 60_000;
+
+export function isOrderLive(receipt: Receipt, now: number) {
+  return now < receipt.readyAt + LINGER_MS;
 }

@@ -56,10 +56,8 @@
 }
 
 @theme inline {
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-    "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-  --font-display: var(--font-display-face), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-sans-face), sans-serif;
+  --font-display: var(--font-display-face), var(--font-sans-face), sans-serif;
 }
 
 @layer base {

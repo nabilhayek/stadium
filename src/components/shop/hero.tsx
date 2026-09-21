@@ -23,9 +23,9 @@ export function Hero({ name, city, vendorCount, children }: Props) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.55, ease: EASE }}
     >
-      <SpotGradient speed={0.7} />
+      <SpotGradient />
 
-      <m.div variants={stagger(0.07, 0.15)} initial={entrance ? "hidden" : false} animate="show">
+      <m.div variants={stagger(0.07, 0.15)} initial={entrance ? "hidden" : false} animate="show" className="pr-14">
         <m.p
           variants={fadeUp}
           className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/70"

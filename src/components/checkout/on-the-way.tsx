@@ -9,27 +9,25 @@ import { EASE, SPRING, fadeUp, stagger } from "@/components/motion/variants";
 import { useNow } from "@/lib/hooks/use-now";
 import { formatSeat } from "@/lib/seat/store";
 import {
-  clearReceipt,
   confirmDigits,
   formatClock,
+  formatRemain,
   isValidEmail,
+  statusTitle,
   writeReceipt,
   type Receipt,
 } from "@/lib/orders/receipt";
+import { recordPastOrder } from "@/lib/orders/past";
+import type { CatalogItem } from "@/lib/menu/catalog";
+import { LiveLock } from "./live-lock";
+import { SecondRound } from "./second-round";
 
 type Props = {
   receipt: Receipt;
-  onDismiss: () => void;
+  drinks?: CatalogItem[];
 };
 
-function formatRemain(ms: number) {
-  const total = Math.ceil(ms / 1000);
-  const mm = Math.floor(total / 60);
-  const ss = total % 60;
-  return `${mm}:${ss.toString().padStart(2, "0")}`;
-}
-
-export function OnTheWay({ receipt: initial, onDismiss }: Props) {
+export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
   const [receipt, setReceipt] = useState(initial);
   const tick = useNow(1000);
   // Server snapshot is 0 — fall back to paidAt so SSR shows the full countdown.
@@ -56,6 +54,7 @@ export function OnTheWay({ receipt: initial, onDismiss }: Props) {
   function update(patch: Partial<Receipt>) {
     const next = { ...receipt, ...patch };
     writeReceipt(next);
+    recordPastOrder(next);
     setReceipt(next);
   }
 
@@ -77,18 +76,7 @@ export function OnTheWay({ receipt: initial, onDismiss }: Props) {
     setEditingEmail(false);
   }
 
-  function dismiss() {
-    clearReceipt(receipt.stadiumSlug);
-    onDismiss();
-  }
-
-  const title = arrived
-    ? delivery
-      ? "At your seat"
-      : "Ready for pickup"
-    : delivery
-      ? "On the way"
-      : "Being prepared";
+  const title = statusTitle(receipt, now);
 
   return (
     <m.div
@@ -97,8 +85,18 @@ export function OnTheWay({ receipt: initial, onDismiss }: Props) {
       animate="show"
       className="flex flex-col gap-5 pb-10"
     >
-      <header className="flex flex-col items-start">
-        <SuccessMark />
+      <header className="flex flex-col items-start pr-12">
+        <m.div variants={fadeUp}>
+          <Link
+            href={`/${receipt.stadiumSlug}`}
+            className="inline-flex items-center gap-1 text-[13px] text-muted underline-offset-4 hover:text-foreground hover:underline"
+          >
+            <span aria-hidden>←</span> Back
+          </Link>
+        </m.div>
+        <m.div variants={fadeUp} className="mt-5">
+          <SuccessMark />
+        </m.div>
         <m.p variants={fadeUp} className="mt-5 text-[11px] font-medium uppercase tracking-[0.16em] text-muted">
           {receipt.stadiumName} · Order {receipt.orderNumber}
         </m.p>
@@ -141,10 +139,13 @@ export function OnTheWay({ receipt: initial, onDismiss }: Props) {
         <p className="mt-4 text-center text-[13px] leading-snug text-muted">
           They type these four digits to confirm the order reached you.
         </p>
+        <div className="mt-4">
+          <LiveLock receipt={receipt} now={now} />
+        </div>
       </m.section>
 
       <m.section variants={fadeUp} className="spot px-5 py-5">
-        <SpotGradient speed={0.6} scrim={0.4} />
+        <SpotGradient scrim={0.4} />
         <div className="flex items-center gap-5">
           <Ring progress={progress} arrived={arrived}>
             <span className="font-display text-[26px] font-semibold leading-none tracking-[-0.04em] tabular-nums text-white">
@@ -164,41 +165,42 @@ export function OnTheWay({ receipt: initial, onDismiss }: Props) {
           </div>
         </div>
 
-        <ol className="mt-5 grid" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0,1fr))` }}>
-          {steps.map((s, i) => {
-            const done = i <= stepIndex;
-            const current = i === stepIndex;
-            return (
-              <li key={s} className="relative flex flex-col items-start">
-                <div className="flex w-full items-center">
+        <ol className="relative mt-5">
+          <span className="pointer-events-none absolute left-1.5 right-1.5 top-[5.5px] h-[2px] overflow-hidden rounded-full bg-white/25">
+            <m.span
+              className="absolute inset-y-0 left-0 bg-white"
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.round((arrived ? 1 : progress) * 100)}%` }}
+              transition={{ duration: 0.8, ease: EASE }}
+            />
+          </span>
+          <div className="relative flex justify-between">
+            {steps.map((s, i) => {
+              const done = i <= stepIndex;
+              const current = i === stepIndex;
+              const align = i === 0 ? "items-start" : i === steps.length - 1 ? "items-end" : "items-center";
+              return (
+                <li key={s} className={`flex min-w-0 flex-col ${align}`}>
                   <m.span
                     className="relative z-10 grid size-3 place-items-center rounded-full"
-                    animate={{ backgroundColor: done ? "#ffffff" : "rgba(255,255,255,0.25)", scale: current ? 1.15 : 1 }}
+                    animate={{ backgroundColor: done ? "#ffffff" : "rgba(255,255,255,0.35)", scale: current ? 1.15 : 1 }}
                     transition={SPRING}
                   >
                     {current && !arrived ? (
                       <span className="absolute inset-0 rounded-full bg-white/60 [animation:ping_1.8s_ease-out_infinite]" />
                     ) : null}
                   </m.span>
-                  {i < steps.length - 1 ? (
-                    <span className="relative mx-1 h-px flex-1 overflow-hidden rounded-full bg-white/20">
-                      <m.span
-                        className="absolute inset-y-0 left-0 bg-white"
-                        initial={{ width: 0 }}
-                        animate={{ width: i < stepIndex ? "100%" : i === stepIndex ? `${Math.round(((progress * (steps.length - 1)) % 1) * 100)}%` : "0%" }}
-                        transition={{ duration: 0.8, ease: EASE }}
-                      />
-                    </span>
-                  ) : null}
-                </div>
-                <span className={["mt-2 text-[11px] font-medium", done ? "text-white" : "text-white/45"].join(" ")}>
-                  {s}
-                </span>
-              </li>
-            );
-          })}
+                  <span className={["mt-2 text-[11px] font-medium", done ? "text-white" : "text-white/45"].join(" ")}>
+                    {s}
+                  </span>
+                </li>
+              );
+            })}
+          </div>
         </ol>
       </m.section>
+
+      <SecondRound receipt={receipt} drinks={drinks} now={now} onUpdate={setReceipt} />
 
       {delivery ? (
         <m.section variants={fadeUp} className="rounded-[20px] border border-border bg-surface p-5">
@@ -335,13 +337,10 @@ export function OnTheWay({ receipt: initial, onDismiss }: Props) {
         </ul>
       </m.section>
 
-      <m.div variants={fadeUp} className="flex flex-col gap-2 pt-1">
+      <m.div variants={fadeUp} className="pt-1">
         <Link href={`/${receipt.stadiumSlug}`} className="button button--primary button--lg w-full text-center">
           Back to the shop
         </Link>
-        <PillButton variant="ghost" size="lg" fullWidth onClick={dismiss}>
-          Order again
-        </PillButton>
       </m.div>
     </m.div>
   );

@@ -112,6 +112,9 @@ class CartStore {
 
   remove = (productId: string) => this.setQty(productId, 0);
 
+  /** Replace the whole cart — used by “Same again” from history. */
+  replace = (lines: CartLine[]) => this.set(lines.filter((l) => l.qty > 0));
+
   clear = () => this.set([]);
 }
 

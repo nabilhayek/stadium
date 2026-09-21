@@ -18,6 +18,7 @@ import { formatSeat, getSeatStore, type Seat } from "@/lib/seat/store";
 import { arrivalClock, estimateDelivery } from "@/lib/checkout/eta";
 import { formatCents } from "@/lib/money";
 import { recordOrdered } from "@/lib/orders/history";
+import { recordPastOrder } from "@/lib/orders/past";
 import { useNow } from "@/lib/hooks/use-now";
 import { useStorageValue, useMounted } from "@/lib/hooks/use-storage";
 import {
@@ -37,6 +38,8 @@ import {
 import type { SeatSection } from "@/components/shop/seat-status";
 import { ApplePayMark, CardMark, GooglePayMark } from "./pay-marks";
 import { OnTheWay } from "./on-the-way";
+import { requestLiveLock, pushLiveLock } from "@/lib/orders/live-lock";
+import type { CatalogItem } from "@/lib/menu/catalog";
 
 type Method = "apple" | "google" | "card";
 
@@ -45,15 +48,18 @@ type Props = {
   stadiumName: string;
   currency: string;
   sections: SeatSection[];
+  drinks?: CatalogItem[];
 };
 
 const panelVariants = {
-  enter: (dir: number) => ({ opacity: 0, x: 24 * dir }),
-  center: { opacity: 1, x: 0 },
-  exit: (dir: number) => ({ opacity: 0, x: -24 * dir }),
+  enter: (dir: number) => ({ opacity: 0, x: 20 * dir, height: 0 }),
+  center: { opacity: 1, x: 0, height: "auto" },
+  exit: (dir: number) => ({ opacity: 0, x: -20 * dir, height: 0 }),
 };
 
-export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: Props) {
+const LAYOUT = { duration: 0.32, ease: EASE };
+
+export function CheckoutView({ stadiumSlug, stadiumName, currency, sections, drinks = [] }: Props) {
   const { state, store: cart } = useCart(stadiumSlug);
   const { seat } = useSeat(stadiumSlug);
   const { count, cents } = cartTotals(state);
@@ -124,6 +130,7 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
       return;
     }
     setPaying(true);
+    const lock = requestLiveLock();
     await new Promise((r) => setTimeout(r, 1100));
     const paidAt = stampPaidAt();
     const readyAt = timing === "scheduled" ? scheduledAt : paidAt + eta.max * 60_000;
@@ -141,9 +148,20 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
       paidAt,
       readyAt,
       runnerNote: "",
-      lines: state.lines.map((l) => ({ productId: l.productId, name: l.name, qty: l.qty, note: l.note })),
+      currency,
+      totalCents: cents,
+      lines: state.lines.map((l) => ({
+        productId: l.productId,
+        name: l.name,
+        qty: l.qty,
+        note: l.note,
+        vendorId: l.vendorId,
+        vendorName: l.vendorName,
+        unitCents: l.unitCents,
+      })),
     };
     writeReceipt(next);
+    recordPastOrder(next);
     recordOrdered(
       stadiumSlug,
       state.lines.flatMap((l) => Array.from({ length: l.qty }, () => l.productId)),
@@ -151,10 +169,11 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
     cart.clear();
     setPaying(false);
     setReceipt(next);
+    if (await lock) pushLiveLock(next, paidAt);
   }
 
   if (receipt && count === 0) {
-    return <OnTheWay receipt={receipt} onDismiss={() => setReceipt(null)} />;
+    return <OnTheWay receipt={receipt} drinks={drinks} />;
   }
 
   if (count === 0) {
@@ -163,7 +182,7 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
         variants={stagger(0.08)}
         initial={entrance ? "hidden" : false}
         animate="show"
-        className="flex min-h-[70dvh] flex-col justify-center"
+        className="flex min-h-[70dvh] flex-col justify-center pr-12"
       >
         <m.h1 variants={fadeUp} className="font-display text-[28px] font-semibold tracking-[-0.03em]">
           Nothing to check out
@@ -203,7 +222,7 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
       animate="show"
       className="flex flex-col gap-7 pb-[max(7.5rem,env(safe-area-inset-bottom))]"
     >
-      <m.header variants={fadeUp}>
+      <m.header variants={fadeUp} className="pr-12">
         <Link
           href={`/${stadiumSlug}`}
           className="inline-flex items-center gap-1 text-[13px] text-muted underline-offset-4 hover:text-foreground hover:underline"
@@ -239,23 +258,25 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.25, ease: EASE }}
-                className="flex items-center justify-between gap-3 rounded-[20px] border border-border bg-surface p-4"
+                transition={{ duration: 0.32, ease: EASE }}
+                className="overflow-hidden"
               >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-surface-secondary">
-                    <SeatIcon />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Deliver to</p>
-                    <p className="mt-0.5 truncate text-[15px] font-medium">
-                      {seat ? formatSeat(seat, true) : "Seat not set"}
-                    </p>
+                <div className="flex items-center justify-between gap-3 rounded-[20px] border border-border bg-surface p-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-surface-secondary">
+                      <SeatIcon />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Deliver to</p>
+                      <p className="mt-0.5 truncate text-[15px] font-medium">
+                        {seat ? formatSeat(seat, true) : "Seat not set"}
+                      </p>
+                    </div>
                   </div>
+                  <PillButton size="sm" variant="secondary" onClick={() => setEditSeat(true)}>
+                    {seat ? "Edit" : "Set"}
+                  </PillButton>
                 </div>
-                <PillButton size="sm" variant="secondary" onClick={() => setEditSeat(true)}>
-                  {seat ? "Edit" : "Set"}
-                </PillButton>
               </m.div>
             ) : (
               <m.div
@@ -265,30 +286,32 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.25, ease: EASE }}
-                className="rounded-[20px] border border-border bg-surface p-4"
+                transition={{ duration: 0.32, ease: EASE }}
+                className="overflow-hidden"
               >
-                <div className="flex items-center gap-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-surface-secondary">
-                    <BagIcon />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Collect at</p>
-                    <p className="mt-0.5 text-[15px] font-medium">
-                      {byVendor.map((lines) => lines[0].vendorName).join(" · ")}
-                    </p>
+                <div className="rounded-[20px] border border-border bg-surface p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-surface-secondary">
+                      <BagIcon />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Collect at</p>
+                      <p className="mt-0.5 text-[15px] font-medium">
+                        {byVendor.map((lines) => lines[0].vendorName).join(" · ")}
+                      </p>
+                    </div>
                   </div>
+                  <p className="mt-3 text-[13px] leading-snug text-muted">
+                    Skip the queue — show your order number at the counter and it is handed straight over.
+                  </p>
                 </div>
-                <p className="mt-3 text-[13px] leading-snug text-muted">
-                  Skip the queue — show your order number at the counter and it is handed straight over.
-                </p>
               </m.div>
             )}
           </AnimatePresence>
         </div>
       </m.section>
 
-      <m.section variants={fadeUp}>
+      <m.section variants={fadeUp} layout transition={{ layout: LAYOUT }}>
         <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.14em] text-muted">When</p>
         <Segmented<Timing>
           aria-label="When"
@@ -323,8 +346,8 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
         </AnimatePresence>
       </m.section>
 
-      <m.section variants={fadeUp} className="spot px-5 py-5">
-        <SpotGradient speed={0.5} />
+      <m.section variants={fadeUp} layout transition={{ layout: LAYOUT }} className="spot px-5 py-5">
+        <SpotGradient />
         <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/70">
           {fulfillment === "delivery" ? "Estimated delivery" : "Ready in"}
         </p>
@@ -345,7 +368,7 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
         <p className="mt-2 text-[13px] text-white/75">{whenSub}</p>
       </m.section>
 
-      <m.section variants={fadeUp}>
+      <m.section variants={fadeUp} layout transition={{ layout: LAYOUT }}>
         <div className="flex items-baseline justify-between">
           <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Order</p>
           <Link href={`/${stadiumSlug}`} className="text-[13px] font-medium text-link">
@@ -379,7 +402,7 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
         </ul>
       </m.section>
 
-      <m.fieldset variants={fadeUp} className="min-w-0">
+      <m.fieldset variants={fadeUp} layout transition={{ layout: LAYOUT }} className="min-w-0">
         <legend className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Pay with</legend>
         <div className="mt-3 flex flex-col gap-2" role="radiogroup" aria-label="Payment method">
           <WalletPay

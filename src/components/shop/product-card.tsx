@@ -47,6 +47,75 @@ export function ProductCard({
   inList = true,
   compact = false,
 }: Props) {
+  const add = (
+    <AddToCartButton
+      stadiumSlug={stadiumSlug}
+      dense={compact}
+      product={{
+        productId: product.id,
+        vendorId,
+        vendorName,
+        name: product.name,
+        unitCents: product.priceCents,
+      }}
+    />
+  );
+
+  const tile = product.imageUrl ? (
+    <Image
+      src={product.imageUrl}
+      alt=""
+      width={compact ? 200 : 64}
+      height={compact ? 160 : 64}
+      sizes={compact ? "168px" : "64px"}
+      loading="lazy"
+      className={compact ? "h-24 w-full rounded-2xl object-cover" : "size-16 shrink-0 rounded-2xl object-cover"}
+    />
+  ) : (
+    <span
+      aria-hidden
+      className={
+        compact
+          ? "font-display grid h-24 w-full place-items-center rounded-2xl text-[26px] font-semibold tracking-tight text-foreground/70"
+          : "font-display grid size-14 shrink-0 place-items-center rounded-2xl text-[20px] font-semibold tracking-tight text-foreground/70"
+      }
+      style={{ background: tileFor(product.categoryId) }}
+    >
+      {product.name.charAt(0)}
+    </span>
+  );
+
+  if (compact) {
+    return (
+      <m.li
+        variants={inList ? fadeUp : undefined}
+        whileTap={{ scale: 0.985 }}
+        className={[
+          "flex flex-col rounded-[22px] border border-border bg-surface p-2.5 shadow-[0_1px_0_rgba(17,17,17,0.03)]",
+          className,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        <div className="relative">
+          {tile}
+          {badge ? (
+            <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-[#6a4cf5] backdrop-blur-sm">
+              {badge}
+            </span>
+          ) : null}
+        </div>
+        <h3 className="mt-2.5 min-h-[2.5rem] line-clamp-2 text-[14px] font-medium leading-snug tracking-[-0.01em]">
+          {product.name}
+        </h3>
+        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+          <p className="text-[13px] font-medium tabular-nums">{formatCents(product.priceCents, currency)}</p>
+          {add}
+        </div>
+      </m.li>
+    );
+  }
+
   return (
     <m.li
       variants={inList ? fadeUp : undefined}
@@ -58,53 +127,20 @@ export function ProductCard({
         .filter(Boolean)
         .join(" ")}
     >
-      {product.imageUrl ? (
-        <Image
-          src={product.imageUrl}
-          alt=""
-          width={64}
-          height={64}
-          sizes="64px"
-          loading="lazy"
-          className="size-16 shrink-0 rounded-2xl object-cover"
-        />
-      ) : (
-        <span
-          aria-hidden
-          className="font-display grid size-14 shrink-0 place-items-center rounded-2xl text-[20px] font-semibold tracking-tight text-foreground/70"
-          style={{ background: tileFor(product.categoryId) }}
-        >
-          {product.name.charAt(0)}
-        </span>
-      )}
+      {tile}
 
       <div className="min-w-0 flex-1">
         {badge ? (
           <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#6a4cf5]">{badge}</p>
         ) : null}
-        <h3 className={["text-[15px] font-medium leading-tight", compact ? "line-clamp-2" : "truncate"].join(" ")}>
-          {product.name}
-        </h3>
-        {product.description && !compact ? (
-          <p className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-muted">
-            {product.description}
-          </p>
+        <h3 className="truncate text-[15px] font-medium leading-tight">{product.name}</h3>
+        {product.description ? (
+          <p className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-muted">{product.description}</p>
         ) : null}
-        <p className="mt-1 text-[13px] font-medium tabular-nums">
-          {formatCents(product.priceCents, currency)}
-        </p>
+        <p className="mt-1 text-[13px] font-medium tabular-nums">{formatCents(product.priceCents, currency)}</p>
       </div>
 
-      <AddToCartButton
-        stadiumSlug={stadiumSlug}
-        product={{
-          productId: product.id,
-          vendorId,
-          vendorName,
-          name: product.name,
-          unitCents: product.priceCents,
-        }}
-      />
+      {add}
     </m.li>
   );
 }

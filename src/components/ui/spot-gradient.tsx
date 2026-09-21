@@ -8,7 +8,8 @@ const MeshGradient = dynamic(
   { ssr: false },
 );
 
-export const SPOT_COLORS = ["#e0eaff", "#241d9a", "#f75092", "#9f50d3"];
+/** Matches theme ink / surface / link (#111, #fff, #0066cc) with a soft sky stop. */
+export const SPOT_COLORS = ["#ffffff", "#d6e8ff", "#0066cc", "#111111"];
 
 type Props = {
   colors?: string[];

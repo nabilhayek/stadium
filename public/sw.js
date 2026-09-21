@@ -8,7 +8,7 @@
  *
  * Bump VERSION to invalidate all caches on deploy.
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC_CACHE = `static-${VERSION}`;
 const PAGE_CACHE = `pages-${VERSION}`;
 const KNOWN = new Set([STATIC_CACHE, PAGE_CACHE]);
@@ -46,6 +46,25 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(networkFirst(request, PAGE_CACHE));
   }
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = event.notification.data?.url || "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ("focus" in client) {
+          client.focus();
+          if ("navigate" in client && client.url !== new URL(target, self.location.origin).href) {
+            return client.navigate(target);
+          }
+          return;
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+    }),
+  );
 });
 
 async function cacheFirst(request, cacheName) {

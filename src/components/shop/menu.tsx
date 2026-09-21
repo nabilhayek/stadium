@@ -8,6 +8,7 @@ import type { MenuCategory, MenuProduct, MenuVendor } from "@/lib/queries/stadiu
 import { useEntrance } from "@/components/motion/entrance";
 import { EASE, SPRING, fadeUp, stagger } from "@/components/motion/variants";
 import { ProductCard } from "./product-card";
+import { PopularRail } from "./popular-rail";
 
 type Flat = MenuProduct & { vendorId: string; vendorName: string };
 
@@ -25,19 +26,36 @@ function flatten(vendors: MenuVendor[]): Flat[] {
 }
 
 const SEARCH_ALIASES: Record<string, string[]> = {
-  coke: ["cola"],
-  cola: ["coke"],
+  coke: ["cola", "coca"],
+  cola: ["coke", "coca"],
+  coca: ["coke", "cola"],
   veggie: ["veg", "vegetarian", "salad"],
   fries: ["chips"],
+  chips: ["fries"],
 };
 
-function termsFor(q: string) {
-  return [q, ...(SEARCH_ALIASES[q] ?? [])];
+function normalize(value: string) {
+  return value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function tokensOf(value: string) {
+  return normalize(value).split(/[^a-z0-9]+/).filter(Boolean);
 }
 
 function matchesQuery(p: Flat, q: string) {
-  const hay = `${p.name} ${p.description ?? ""} ${p.vendorName}`.toLowerCase();
-  return termsFor(q).some((t) => hay.includes(t));
+  const query = normalize(q);
+  if (!query) return true;
+  const hay = normalize(`${p.name} ${p.description ?? ""} ${p.vendorName}`);
+  const tokens = tokensOf(hay);
+  if (hay.includes(query) || tokens.some((t) => t.startsWith(query))) return true;
+
+  for (const [key, alts] of Object.entries(SEARCH_ALIASES)) {
+    const names = [key, ...alts];
+    const touchesQuery = names.some((name) => name.startsWith(query) || query.startsWith(name));
+    if (!touchesQuery) continue;
+    if (names.some((name) => hay.includes(name) || tokens.some((t) => t.startsWith(name)))) return true;
+  }
+  return false;
 }
 
 /**
@@ -220,38 +238,23 @@ export function Menu({ stadiumSlug, currency, vendors, categories }: Props) {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3, ease: EASE }}
-            className="overflow-hidden"
+            // Bleed to the page gutter so the rail's edge fade isn't clipped by the height-collapse overflow.
+            className="-mx-4 overflow-hidden px-4"
           >
             <div className="pt-6">
-              <div className="flex items-baseline justify-between">
-                <h2
-                  id="popular-rail"
-                  className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted"
-                >
-                  {railTitle}
-                </h2>
-                <span className="text-[11px] text-muted">Swipe</span>
-              </div>
-              <m.ul
-                variants={stagger(0.06, 0.35)}
-                initial={entrance ? "hidden" : false}
-                animate="show"
-                className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-2 scrollbar-none"
+              <h2
+                id="popular-rail"
+                className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted"
               >
-                {popular.map((p) => (
-                  <ProductCard
-                    key={p.id}
-                    stadiumSlug={stadiumSlug}
-                    currency={currency}
-                    vendorId={p.vendorId}
-                    vendorName={p.vendorName}
-                    product={p}
-                    badge={lastSet.has(p.id) ? "Last time" : undefined}
-                    className="w-[236px] shrink-0"
-                    compact
-                  />
-                ))}
-              </m.ul>
+                {railTitle}
+              </h2>
+              <PopularRail
+                stadiumSlug={stadiumSlug}
+                currency={currency}
+                items={popular}
+                lastIds={lastSet}
+                animateIn={entrance}
+              />
             </div>
           </m.section>
         ) : null}

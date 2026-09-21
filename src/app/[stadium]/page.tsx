@@ -8,7 +8,7 @@ import { SeatStatus } from "@/components/shop/seat-status";
 
 type Props = {
   params: Promise<{ stadium: string }>;
-  searchParams: Promise<{ section?: string; row?: string; seat?: string }>;
+  searchParams: Promise<{ section?: string; row?: string; seat?: string; cart?: string }>;
 };
 
 // Statically pre-render known stadiums; unknown slugs render on demand, then get cached.
@@ -59,7 +59,7 @@ export default async function StadiumShopPage({ params, searchParams }: Props) {
         categories={menu.categories}
       />
 
-      <CartBar stadiumSlug={menu.slug} currency={menu.currency} />
+      <CartBar stadiumSlug={menu.slug} currency={menu.currency} openCart={query.cart === "1"} />
     </main>
   );
 }

@@ -82,7 +82,7 @@ export function getSeatStore(stadiumSlug: string): SeatStore {
 }
 
 export function formatSeat(seat: Seat, long = false): string {
-  const row = seat.row.trim();
+  const row = (seat.row ?? "").trim();
   if (long) {
     return row
       ? `${seat.sectionName} · Row ${row} · Seat ${seat.number}`

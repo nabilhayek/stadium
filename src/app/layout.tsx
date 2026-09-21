@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Instrument_Sans } from "next/font/google";
+import { DM_Sans, Instrument_Sans } from "next/font/google";
 import { SwRegister } from "@/components/pwa/sw-register";
 import { MotionProvider } from "@/components/motion/motion";
 import "./globals.css";
@@ -8,6 +8,13 @@ const display = Instrument_Sans({
   subsets: ["latin"],
   weight: ["600", "700"],
   variable: "--font-display-face",
+  display: "swap",
+});
+
+const sans = DM_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-sans-face",
   display: "swap",
 });
 
@@ -37,7 +44,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="light" className={display.variable}>
+    <html lang="en" data-theme="light" className={`${display.variable} ${sans.variable}`}>
       <body className="bg-background text-foreground">
         <MotionProvider>{children}</MotionProvider>
         <SwRegister />

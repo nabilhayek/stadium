@@ -101,7 +101,7 @@ function Sheet({ sections, draft, onClose, onConfirm }: Omit<Props, "open">) {
             </p>
 
             <div className="spot mt-5 px-4 py-4">
-              <SpotGradient speed={0.5} scrim={0.4} />
+              <SpotGradient scrim={0.4} />
               <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/70">Delivering to</p>
               <AnimatePresence mode="wait" initial={false}>
                 <m.p

@@ -3,59 +3,47 @@
 import { AnimatePresence, m } from "framer-motion";
 import { useCartQty } from "@/lib/cart/use-cart";
 import { getCartStore, type AddableProduct } from "@/lib/cart/store";
-import { SPRING } from "@/components/motion/variants";
 
 type Props = {
   stadiumSlug: string;
   product: AddableProduct;
+  /** Tighter control for the popular rail. */
+  dense?: boolean;
 };
 
-/** "Add" pill that morphs into a −/qty/+ stepper once the product is in the cart. */
-export function AddToCartButton({ stadiumSlug, product }: Props) {
+/** "Add" pill that swaps to a −/qty/+ stepper once the product is in the cart. */
+export function AddToCartButton({ stadiumSlug, product, dense = false }: Props) {
   const qty = useCartQty(stadiumSlug, product.productId);
   const store = getCartStore(stadiumSlug);
+  const hit = dense ? "size-7 text-[16px]" : "size-8 text-[18px]";
 
   return (
-    <AnimatePresence mode="popLayout" initial={false}>
+    <div className={dense ? "flex shrink-0 justify-end" : "flex w-[6.75rem] shrink-0 justify-end"}>
       {qty === 0 ? (
-        <m.button
-          key="add"
+        <button
           type="button"
-          layout
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
-          whileTap={{ scale: 0.92 }}
-          transition={SPRING}
           onClick={() => store.add(product)}
           aria-label={`Add ${product.name} to cart`}
-          className="button button--primary button--sm shrink-0"
+          className="button button--primary button--sm shrink-0 active:scale-[0.92]"
         >
           Add
-        </m.button>
+        </button>
       ) : (
-        <m.div
-          key="stepper"
-          layout
-          initial={{ opacity: 0, scale: 0.85 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.85 }}
-          transition={SPRING}
+        <div
           className="flex shrink-0 items-center gap-0.5 rounded-full bg-foreground p-0.5 text-background"
           role="group"
           aria-label={`${product.name} quantity`}
         >
-          <m.button
+          <button
             type="button"
-            whileTap={{ scale: 0.85 }}
             onClick={() => store.setQty(product.productId, qty - 1)}
             aria-label={qty === 1 ? `Remove ${product.name}` : `Decrease ${product.name}`}
-            className="grid size-8 place-items-center rounded-full text-[18px] leading-none"
+            className={`grid ${hit} place-items-center rounded-full leading-none active:scale-90`}
           >
             −
-          </m.button>
+          </button>
           <span className="relative block h-5 min-w-5 overflow-hidden text-center text-[14px] font-semibold tabular-nums">
-            <AnimatePresence mode="popLayout" initial={false}>
+            <AnimatePresence mode="wait" initial={false}>
               <m.span
                 key={qty}
                 initial={{ y: 14, opacity: 0 }}
@@ -69,17 +57,16 @@ export function AddToCartButton({ stadiumSlug, product }: Props) {
               </m.span>
             </AnimatePresence>
           </span>
-          <m.button
+          <button
             type="button"
-            whileTap={{ scale: 0.85 }}
             onClick={() => store.add(product)}
             aria-label={`Increase ${product.name}`}
-            className="grid size-8 place-items-center rounded-full text-[18px] leading-none"
+            className={`grid ${hit} place-items-center rounded-full leading-none active:scale-90`}
           >
             +
-          </m.button>
-        </m.div>
+          </button>
+        </div>
       )}
-    </AnimatePresence>
+    </div>
   );
 }
