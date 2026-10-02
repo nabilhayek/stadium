@@ -3,10 +3,11 @@
  * here on purpose — this file runs in both worlds.
  */
 
-import type { Fulfillment, Receipt, ReceiptLine, Timing } from "./receipt";
+import type { Fulfillment, KitchenStatus, Receipt, ReceiptLine, Timing } from "./receipt";
 
 const FULFILLMENT = new Set<Fulfillment>(["delivery", "pickup"]);
 const TIMING = new Set<Timing>(["asap", "scheduled"]);
+const KITCHEN = new Set<KitchenStatus>(["new", "accepted", "ready", "done", "declined"]);
 const MAX_LINES = 60;
 const MAX_TEXT = 200;
 
@@ -28,10 +29,6 @@ function line(v: unknown): ReceiptLine | null {
   const out: ReceiptLine = { productId, name, qty: Math.floor(qty) };
   const note = str(o.note);
   if (note) out.note = note;
-  const vendorId = str(o.vendorId);
-  if (vendorId) out.vendorId = vendorId;
-  const vendorName = str(o.vendorName);
-  if (vendorName) out.vendorName = vendorName;
   const unitCents = num(o.unitCents);
   if (unitCents !== null) out.unitCents = Math.floor(unitCents);
   return out;
@@ -95,6 +92,12 @@ export function toReceipt(input: unknown): Receipt | null {
   if (deviceId) receipt.deviceId = deviceId;
   const token = str(o.token, 64);
   if (token) receipt.token = token;
+  const kitchenStatus = str(o.kitchenStatus, 16);
+  if (kitchenStatus && KITCHEN.has(kitchenStatus as KitchenStatus)) {
+    receipt.kitchenStatus = kitchenStatus as KitchenStatus;
+  }
+  const declineReason = str(o.declineReason);
+  if (declineReason) receipt.declineReason = declineReason;
 
   return receipt;
 }

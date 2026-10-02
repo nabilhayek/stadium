@@ -7,6 +7,7 @@ import { m } from "framer-motion";
 import { useMounted, useStorageValue } from "@/lib/hooks/use-storage";
 import { useNow } from "@/lib/hooks/use-now";
 import { isOrderLive, parseReceipt, receiptKey } from "@/lib/orders/receipt";
+import { parsePastOrders, pastOrdersKey } from "@/lib/orders/past";
 import { fadeUp, stagger } from "@/components/motion/variants";
 
 type Props = { stadiumSlug: string };
@@ -19,13 +20,20 @@ export function OrderView({ stadiumSlug }: Props) {
   const router = useRouter();
   const mounted = useMounted();
   const now = useNow(1000);
-  const raw = useStorageValue("session", receiptKey(stadiumSlug));
-  const receipt = useMemo(() => parseReceipt(raw), [raw]);
-  const live = receipt && now ? isOrderLive(receipt, now) : false;
+  const sessionRaw = useStorageValue("session", receiptKey(stadiumSlug));
+  const pastRaw = useStorageValue("local", pastOrdersKey(stadiumSlug));
+
+  // The tracked order first; otherwise the newest receipt in history that is still live.
+  const live = useMemo(() => {
+    if (!now) return null;
+    const session = parseReceipt(sessionRaw);
+    if (session && isOrderLive(session, now)) return session;
+    return parsePastOrders(pastRaw).find((o) => isOrderLive(o, now)) ?? null;
+  }, [sessionRaw, pastRaw, now]);
 
   useEffect(() => {
-    if (receipt && live) router.replace(`/${stadiumSlug}/order/${encodeURIComponent(receipt.orderNumber)}`);
-  }, [receipt, live, router, stadiumSlug]);
+    if (live) router.replace(`/${stadiumSlug}/order/${encodeURIComponent(live.orderNumber)}`);
+  }, [live, router, stadiumSlug]);
 
   if (!mounted || !now || live) return null;
 

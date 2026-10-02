@@ -11,7 +11,7 @@ export function secondRoundLeft(receipt: Receipt, now: number) {
   return Math.max(0, receipt.paidAt + SECOND_ROUND_MS - now);
 }
 
-export type RoundPick = Pick<CatalogItem, "productId" | "vendorId" | "vendorName" | "name" | "unitCents"> & {
+export type RoundPick = Pick<CatalogItem, "productId" | "name" | "unitCents"> & {
   qty: number;
 };
 
@@ -31,8 +31,6 @@ export function mergeSecondRound(receipt: Receipt, picks: RoundPick[]): Receipt 
       productId: pick.productId,
       name: pick.name,
       qty: pick.qty,
-      vendorId: pick.vendorId,
-      vendorName: pick.vendorName,
       unitCents: pick.unitCents,
     };
     if (i === -1) lines.push(next);

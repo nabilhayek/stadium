@@ -44,7 +44,7 @@ export default async function StadiumShopPage({ params, searchParams }: Props) {
 
   return (
     <main data-has-cart-bar className="mx-auto w-full max-w-md px-4">
-      <Hero name={menu.name} city={menu.city} vendorCount={menu.vendors.length}>
+      <Hero name={menu.name} city={menu.city}>
         <SeatStatus
           stadiumSlug={menu.slug}
           sections={menu.sections}
@@ -55,7 +55,7 @@ export default async function StadiumShopPage({ params, searchParams }: Props) {
       <Menu
         stadiumSlug={menu.slug}
         currency={menu.currency}
-        vendors={menu.vendors}
+        products={menu.products}
         categories={menu.categories}
       />
 

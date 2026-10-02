@@ -6,8 +6,6 @@
 
 export type CartLine = {
   productId: string;
-  vendorId: string;
-  vendorName: string;
   name: string;
   unitCents: number;
   qty: number;
@@ -22,6 +20,22 @@ export type CartState = {
 export type AddableProduct = Omit<CartLine, "qty">;
 
 const EMPTY: CartState = { lines: [] };
+
+/** Drops leftover stand fields from carts saved before the single-shop menu. */
+function asLine(raw: unknown): CartLine | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.productId !== "string" || typeof o.name !== "string") return null;
+  if (typeof o.unitCents !== "number" || typeof o.qty !== "number" || o.qty <= 0) return null;
+  const line: CartLine = {
+    productId: o.productId,
+    name: o.name,
+    unitCents: o.unitCents,
+    qty: Math.floor(o.qty),
+  };
+  if (typeof o.note === "string" && o.note) line.note = o.note;
+  return line;
+}
 const STORAGE_PREFIX = "cart:v1:";
 
 type Listener = () => void;
@@ -42,8 +56,10 @@ class CartStore {
     try {
       const raw = window.localStorage.getItem(this.key);
       if (raw) {
-        const parsed = JSON.parse(raw) as CartState;
-        if (Array.isArray(parsed?.lines)) this.state = parsed;
+        const parsed = JSON.parse(raw) as { lines?: unknown };
+        if (Array.isArray(parsed?.lines)) {
+          this.state = { lines: parsed.lines.map(asLine).filter((l): l is CartLine => l !== null) };
+        }
       }
     } catch {
       /* corrupted or unavailable storage: start empty */

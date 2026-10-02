@@ -113,7 +113,8 @@ function HistoryRow({
 }) {
   const href = `/${stadiumSlug}/order/${encodeURIComponent(order.orderNumber)}`;
   const count = lineCount(order);
-  const status = isOrderLive(order, now) ? statusTitle(order, now) : "Completed";
+  const status =
+    order.kitchenStatus === "declined" ? "Declined" : isOrderLive(order, now) ? statusTitle(order, now) : "Completed";
 
   return (
     <li className="rounded-[20px] border border-border bg-surface">

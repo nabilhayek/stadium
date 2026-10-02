@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getStadiumMenu } from "@/lib/queries/stadium";
 import { OrderPage } from "@/components/checkout/order-page";
-import { catalogFromVendors, drinksFromCatalog } from "@/lib/menu/catalog";
+import { catalogFromProducts, drinksFromCatalog } from "@/lib/menu/catalog";
 import { isOrderNumber } from "@/lib/orders/receipt";
 
 type Props = { params: Promise<{ stadium: string; orderNumber: string }> };
@@ -40,7 +40,7 @@ export default async function OrderNumberPage({ params }: Props) {
   const menu = await getStadiumMenu(slug);
   if (!menu) notFound();
 
-  const catalog = catalogFromVendors(menu.vendors);
+  const catalog = catalogFromProducts(menu.products);
 
   return (
     <main className="mx-auto w-full max-w-md px-4 pt-6">

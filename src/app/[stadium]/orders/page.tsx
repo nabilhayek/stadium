@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getStadiumMenu } from "@/lib/queries/stadium";
 import { OrderHistory } from "@/components/shop/order-history";
-import { catalogFromVendors } from "@/lib/menu/catalog";
+import { catalogFromProducts } from "@/lib/menu/catalog";
 
 type Props = { params: Promise<{ stadium: string }> };
 
@@ -26,7 +26,7 @@ export default async function OrdersPage({ params }: Props) {
 
   return (
     <main className="mx-auto w-full max-w-md px-4 pt-6">
-      <OrderHistory stadiumSlug={menu.slug} currency={menu.currency} catalog={catalogFromVendors(menu.vendors)} />
+      <OrderHistory stadiumSlug={menu.slug} currency={menu.currency} catalog={catalogFromProducts(menu.products)} />
     </main>
   );
 }

@@ -4,27 +4,19 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { historyKey, parseHistory } from "@/lib/orders/history";
 import { useStorageValue } from "@/lib/hooks/use-storage";
-import type { MenuCategory, MenuProduct, MenuVendor } from "@/lib/queries/stadium";
+import type { MenuCategory, MenuProduct } from "@/lib/queries/stadium";
 import { useEntrance } from "@/components/motion/entrance";
 import { EASE, SPRING, fadeUp, stagger } from "@/components/motion/variants";
 import { Search, X } from "lucide-react";
 import { ProductCard } from "./product-card";
 import { PopularRail } from "./popular-rail";
 
-type Flat = MenuProduct & { vendorId: string; vendorName: string };
-
 type Props = {
   stadiumSlug: string;
   currency: string;
-  vendors: MenuVendor[];
+  products: MenuProduct[];
   categories: MenuCategory[];
 };
-
-function flatten(vendors: MenuVendor[]): Flat[] {
-  return vendors.flatMap((v) =>
-    v.products.map((p) => ({ ...p, vendorId: v.id, vendorName: v.name })),
-  );
-}
 
 const SEARCH_ALIASES: Record<string, string[]> = {
   coke: ["cola", "coca"],
@@ -43,10 +35,10 @@ function tokensOf(value: string) {
   return normalize(value).split(/[^a-z0-9]+/).filter(Boolean);
 }
 
-function matchesQuery(p: Flat, q: string) {
+function matchesQuery(p: MenuProduct, q: string) {
   const query = normalize(q);
   if (!query) return true;
-  const hay = normalize(`${p.name} ${p.description ?? ""} ${p.vendorName}`);
+  const hay = normalize(`${p.name} ${p.description ?? ""}`);
   const tokens = tokensOf(hay);
   if (hay.includes(query) || tokens.some((t) => t.startsWith(query))) return true;
 
@@ -60,23 +52,22 @@ function matchesQuery(p: Flat, q: string) {
 }
 
 /**
- * Search + category filter + vendor sections. Filtering is client-side so a tap
- * never hits the network — stadiums have terrible connectivity.
+ * Search + category filter. Filtering is client-side so a tap never hits the network.
  */
-export function Menu({ stadiumSlug, currency, vendors, categories }: Props) {
+export function Menu({ stadiumSlug, currency, products, categories }: Props) {
   const entrance = useEntrance();
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const historyRaw = useStorageValue("local", historyKey(stadiumSlug));
   const history = useMemo(() => parseHistory(historyRaw), [historyRaw]);
 
-  const all = useMemo(() => flatten(vendors), [vendors]);
+  const all = products;
   const q = query.trim().toLowerCase();
   const searching = q.length >= 3;
 
   const popular = useMemo(() => {
     const byId = new Map(all.map((p) => [p.id, p]));
-    const picked: Flat[] = [];
+    const picked: MenuProduct[] = [];
     const seen = new Set<string>();
     const push = (id: string) => {
       const p = byId.get(id);
@@ -93,22 +84,26 @@ export function Menu({ stadiumSlug, currency, vendors, categories }: Props) {
     return picked.slice(0, 6);
   }, [all, history]);
 
-  const visibleVendors = useMemo(
-    () =>
-      vendors
-        .map((v) => ({
-          ...v,
-          products: v.products.filter((p) => {
-            if (categoryId && p.categoryId !== categoryId) return false;
-            if (searching && !matchesQuery({ ...p, vendorId: v.id, vendorName: v.name }, q)) return false;
-            return true;
-          }),
-        }))
-        .filter((v) => v.products.length > 0),
-    [vendors, categoryId, searching, q],
-  );
+  const visible = useMemo(() => {
+    return all.filter((p) => {
+      if (categoryId && p.categoryId !== categoryId) return false;
+      if (searching && !matchesQuery(p, q)) return false;
+      return true;
+    });
+  }, [all, categoryId, searching, q]);
 
-  const matchCount = visibleVendors.reduce((n, v) => n + v.products.length, 0);
+  const groups = useMemo(() => {
+    if (searching || categoryId) return [{ id: "results", name: "", products: visible }];
+    return categories
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        products: visible.filter((p) => p.categoryId === c.id),
+      }))
+      .filter((g) => g.products.length > 0);
+  }, [categories, categoryId, searching, visible]);
+
+  const matchCount = visible.length;
   const lastSet = new Set(history.lastIds);
   const railTitle = history.lastIds.length > 0 ? "Last ordered" : "Popular";
   const resultsKey = `${searching ? q : ""}|${categoryId ?? "all"}`;
@@ -263,7 +258,7 @@ export function Menu({ stadiumSlug, currency, vendors, categories }: Props) {
           exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.22, ease: EASE }}
         >
-          {visibleVendors.length === 0 ? (
+          {groups.every((g) => g.products.length === 0) ? (
             <div className="py-16 text-center">
               <p className="font-display text-[22px] font-semibold tracking-tight">Nothing here</p>
               <p className="mt-1 text-[15px] text-muted">
@@ -271,45 +266,28 @@ export function Menu({ stadiumSlug, currency, vendors, categories }: Props) {
               </p>
             </div>
           ) : (
-            visibleVendors.map((vendor, i) => (
+            groups.map((group) => (
               <m.section
-                key={vendor.id}
-                aria-labelledby={`vendor-${vendor.id}`}
+                key={group.id}
+                aria-labelledby={group.name ? `cat-${group.id}` : undefined}
                 variants={stagger(0.04, 0.05)}
                 initial={entrance ? "hidden" : false}
                 whileInView="show"
                 viewport={{ once: true, margin: "0px 0px -60px 0px" }}
                 className="mt-7"
               >
-                <m.header variants={fadeUp} className="mb-3 flex items-end justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-                      Stand {String(i + 1).padStart(2, "0")}
-                    </p>
-                    <h2
-                      id={`vendor-${vendor.id}`}
-                      className="font-display mt-1 text-[22px] font-semibold leading-none tracking-tight"
-                    >
-                      {vendor.name}
-                    </h2>
-                    {vendor.description ? (
-                      <p className="mt-1 text-[13px] text-muted">{vendor.description}</p>
-                    ) : null}
-                  </div>
-                  <span className="shrink-0 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-muted tabular-nums">
-                    {vendor.products.length} items
-                  </span>
-                </m.header>
+                {group.name ? (
+                  <m.h2
+                    id={`cat-${group.id}`}
+                    variants={fadeUp}
+                    className="mb-3 font-display text-[22px] font-semibold leading-none tracking-tight"
+                  >
+                    {group.name}
+                  </m.h2>
+                ) : null}
                 <ul className="flex flex-col gap-2">
-                  {vendor.products.map((p) => (
-                    <ProductCard
-                      key={p.id}
-                      stadiumSlug={stadiumSlug}
-                      currency={currency}
-                      vendorId={vendor.id}
-                      vendorName={vendor.name}
-                      product={p}
-                    />
+                  {group.products.map((p) => (
+                    <ProductCard key={p.id} stadiumSlug={stadiumSlug} currency={currency} product={p} />
                   ))}
                 </ul>
               </m.section>

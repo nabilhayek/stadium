@@ -8,7 +8,7 @@ import { PillButton } from "@/components/ui/pill-button";
 import { fadeUp, stagger } from "@/components/motion/variants";
 import { useMounted, useStorageValue } from "@/lib/hooks/use-storage";
 import { useNow } from "@/lib/hooks/use-now";
-import { isOrderLive, parseReceipt, readReceipt, receiptKey, writeReceipt } from "@/lib/orders/receipt";
+import { isOrderLive, parseReceipt, readReceipt, receiptKey, writeReceipt, type Receipt } from "@/lib/orders/receipt";
 import { parsePastOrders, pastOrdersKey, recordPastOrder } from "@/lib/orders/past";
 import { fetchReceipt } from "@/lib/orders/sync";
 import type { CatalogItem } from "@/lib/menu/catalog";
@@ -24,6 +24,19 @@ type Props = {
 };
 
 type Remote = "idle" | "loading" | "missing" | "offline";
+
+/** The kitchen-owned fields of the server copy, applied to the local receipt. Null when nothing moved. */
+function mergeKitchen(local: Receipt, server: Receipt): Receipt | null {
+  if (!server.kitchenStatus) return null;
+  const same =
+    server.kitchenStatus === local.kitchenStatus &&
+    server.readyAt === local.readyAt &&
+    (server.declineReason ?? null) === (local.declineReason ?? null);
+  if (same) return null;
+  const next: Receipt = { ...local, kitchenStatus: server.kitchenStatus, readyAt: server.readyAt };
+  if (server.declineReason) next.declineReason = server.declineReason;
+  return next;
+}
 
 /**
  * /[stadium]/order/[orderNumber] — local first, server second.
@@ -47,6 +60,32 @@ export function OrderPage({ stadiumSlug, orderNumber, currency, catalog, drinks 
   const [remote, setRemote] = useState<Remote>("idle");
   const asked = useRef<string | null>(null);
 
+  // A live order found only in history (restored, or a new tab) becomes the one
+  // the shop's tracker pill follows.
+  useEffect(() => {
+    if (!mounted || !local) return;
+    if (isOrderLive(local, Date.now()) && !readReceipt(stadiumSlug)) writeReceipt(local);
+  }, [mounted, local, stadiumSlug]);
+
+  // Kitchen decisions (status, prep time, a decline) land on the server. Pull
+  // them onto the phone while the order is live; everything else stays local.
+  useEffect(() => {
+    if (!mounted || !local || !isOrderLive(local, Date.now())) return;
+    if (local.kitchenStatus === "done" || local.kitchenStatus === "declined") return;
+    const tick = () => {
+      void fetchReceipt(stadiumSlug, orderNumber).then((result) => {
+        if (result.status !== "found") return;
+        const kitchen = mergeKitchen(local, result.receipt);
+        if (!kitchen) return;
+        if (readReceipt(stadiumSlug)?.orderNumber === orderNumber) writeReceipt(kitchen);
+        recordPastOrder(kitchen);
+      });
+    };
+    tick();
+    const id = window.setInterval(tick, 10_000);
+    return () => window.clearInterval(id);
+  }, [mounted, local, orderNumber, stadiumSlug]);
+
   useEffect(() => {
     // `remote` is a dependency so "Try again" (which resets it) re-runs the lookup.
     if (!mounted || local || remote !== "idle" || asked.current === orderNumber) return;
@@ -68,7 +107,8 @@ export function OrderPage({ stadiumSlug, orderNumber, currency, catalog, drinks 
   if (!mounted) return null;
 
   if (local) {
-    const live = isOrderLive(local, now || local.paidAt);
+    // A declined order keeps its notice; there is no receipt to fall back to.
+    const live = local.kitchenStatus === "declined" || isOrderLive(local, now || local.paidAt);
     return live ? (
       <OnTheWay key={local.orderNumber} receipt={local} drinks={drinks} />
     ) : (

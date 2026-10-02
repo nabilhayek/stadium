@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AnimatePresence, m } from "framer-motion";
 import { BackLink } from "@/components/ui/back-link";
 import { PillButton } from "@/components/ui/pill-button";
-import { Bike, Check, Mail } from "lucide-react";
+import { Bike, Check, Mail, X } from "lucide-react";
 import { SpotGradient } from "@/components/ui/spot-gradient";
 import { EASE, SPRING, fadeUp, stagger } from "@/components/motion/variants";
 import { useNow } from "@/lib/hooks/use-now";
@@ -16,11 +16,11 @@ import {
   formatRemain,
   isValidEmail,
   statusTitle,
+  type KitchenStatus,
   type Receipt,
 } from "@/lib/orders/receipt";
 import { commitReceipt } from "@/lib/orders/sync";
 import type { CatalogItem } from "@/lib/menu/catalog";
-import { LiveLock } from "./live-lock";
 import { SecondRound } from "./second-round";
 
 type Props = {
@@ -30,6 +30,12 @@ type Props = {
 
 export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
   const [receipt, setReceipt] = useState(initial);
+  // Storage is the source of truth: kitchen updates pulled by the page arrive as a new prop.
+  const [seen, setSeen] = useState(initial);
+  if (seen !== initial) {
+    setSeen(initial);
+    setReceipt(initial);
+  }
   const tick = useNow(1000);
   // Server snapshot is 0 — fall back to paidAt so SSR shows the full countdown.
   const now = tick || initial.paidAt;
@@ -42,15 +48,27 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
   const total = Math.max(1, receipt.readyAt - receipt.paidAt);
   const left = Math.max(0, receipt.readyAt - now);
   const progress = Math.min(1, 1 - left / total);
-  const arrived = left === 0;
   const delivery = receipt.fulfillment === "delivery";
+  const declined = receipt.kitchenStatus === "declined";
+  const kitchenIndex = kitchenStep(receipt.kitchenStatus, delivery);
+  const arrived = receipt.kitchenStatus === "done" || (kitchenIndex === null && left === 0);
 
   const steps = delivery
     ? ["Paid", "Preparing", "On the way", "At your seat"]
     : ["Paid", "Preparing", "Ready"];
-  const stepIndex = arrived
-    ? steps.length - 1
-    : Math.min(steps.length - 2, Math.floor(progress * (steps.length - 1)));
+  // Position along the step row, in step units. Segment i fills from circle i to
+  // i + 1, and circle i + 1 lights the moment that segment is full.
+  const stepPos =
+    kitchenIndex !== null
+      ? kitchenIndex
+      : arrived
+        ? steps.length - 1
+        : progress * (steps.length - 1);
+  const stepIndex = arrived ? steps.length - 1 : Math.min(steps.length - 2, Math.floor(stepPos));
+  const segmentFill = (i: number) => Math.min(1, Math.max(0, stepPos - i));
+
+  const stepLabel = steps[stepIndex];
+  const canAddMore = !declined && (stepLabel === "Paid" || stepLabel === "Preparing");
 
   function update(patch: Partial<Receipt>) {
     const next = { ...receipt, ...patch };
@@ -77,6 +95,57 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
   }
 
   const title = statusTitle(receipt, now);
+
+  if (declined) {
+    return (
+      <m.div variants={stagger(0.08, 0.5)} initial="hidden" animate="show" className="flex flex-col gap-5 pb-10">
+        <header className="flex flex-col items-start pr-12">
+          <m.div variants={fadeUp}>
+            <BackLink href={`/${receipt.stadiumSlug}`}>Back</BackLink>
+          </m.div>
+          <m.div variants={fadeUp} className="mt-5">
+            <DeclinedMark />
+          </m.div>
+          <m.p variants={fadeUp} className="mt-5 text-[11px] font-medium uppercase tracking-[0.16em] text-muted">
+            {receipt.stadiumName} · Order {receipt.orderNumber}
+          </m.p>
+          <m.h1
+            variants={fadeUp}
+            className="font-display mt-2 text-[32px] font-semibold leading-[0.95] tracking-[-0.045em]"
+          >
+            {title}
+          </m.h1>
+          <m.p variants={fadeUp} className="mt-2 text-[15px] text-muted">
+            The kitchen couldn’t take this one. You won’t be charged — the payment goes back to your card.
+          </m.p>
+        </header>
+
+        <m.section variants={fadeUp} className="rounded-[20px] border border-border bg-surface p-5" aria-label="Reason">
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">From the kitchen</p>
+          <p className="mt-2 text-[17px] font-medium leading-snug">{receipt.declineReason ?? "No reason given."}</p>
+        </m.section>
+
+        <m.section variants={fadeUp} className="rounded-[20px] border border-border bg-surface px-4">
+          <ul className="rule">
+            {receipt.lines.map((l) => (
+              <li key={l.productId} className="flex items-baseline gap-2 py-3 text-[15px] text-muted">
+                <span className="inline-block min-w-5 rounded-md bg-surface-secondary px-1 text-center text-[12px] font-semibold tabular-nums">
+                  {l.qty}
+                </span>
+                <span className="line-through">{l.name}</span>
+              </li>
+            ))}
+          </ul>
+        </m.section>
+
+        <m.div variants={fadeUp} className="pt-1">
+          <Link href={`/${receipt.stadiumSlug}`} className="button button--primary button--lg w-full text-center">
+            Order something else
+          </Link>
+        </m.div>
+      </m.div>
+    );
+  }
 
   return (
     <m.div
@@ -112,12 +181,16 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
           </AnimatePresence>
         </m.h1>
         <m.p variants={fadeUp} className="mt-2 text-[15px] text-muted">
-          {delivery && receipt.seat ? (
-            <>
-              Heading to <span className="font-medium text-foreground">{formatSeat(receipt.seat, true)}</span>
-            </>
+          {delivery ? (
+            receipt.seat ? (
+              <>
+                Heading to <span className="font-medium text-foreground">{formatSeat(receipt.seat, true)}</span>
+              </>
+            ) : (
+              "A runner brings it to you."
+            )
           ) : (
-            "Show your order number at the counter."
+            "Collect at the counter."
           )}
         </m.p>
       </header>
@@ -128,15 +201,14 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
         aria-label="Hand-off code"
       >
         <p className="text-center text-[11px] font-medium uppercase tracking-[0.16em] text-muted">
-          Show this to the runner
+          {delivery ? "Show this to the runner" : "Show this at the counter"}
         </p>
         <HandOffCode code={receipt.confirmCode} fallback={receipt.orderNumber} />
         <p className="mt-4 text-center text-[13px] leading-snug text-muted">
-          They type these four digits to confirm the order reached you.
+          {delivery
+            ? "They type these four digits to confirm the order reached you."
+            : "Staff type these four digits to hand your order over."}
         </p>
-        <div className="mt-4">
-          <LiveLock receipt={receipt} now={now} />
-        </div>
       </m.section>
 
       <m.section variants={fadeUp} className="spot px-5 py-5">
@@ -149,7 +221,13 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
           </Ring>
           <div className="min-w-0">
             <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/60">
-              {receipt.timing === "scheduled" ? "Scheduled for" : arrived ? "Status" : "Arriving"}
+              {receipt.timing === "scheduled"
+                ? "Scheduled for"
+                : arrived
+                  ? "Status"
+                  : delivery
+                    ? "Arriving"
+                    : "Ready around"}
             </p>
             <p className="font-display mt-1 text-[22px] font-semibold tracking-tight text-white">
               {formatClock(receipt.readyAt)}
@@ -160,22 +238,33 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
           </div>
         </div>
 
-        <ol className="relative mt-5">
-          <span className="pointer-events-none absolute left-1.5 right-1.5 top-[5.5px] h-[2px] overflow-hidden rounded-full bg-white/25">
-            <m.span
-              className="absolute inset-y-0 left-0 bg-white"
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.round((arrived ? 1 : progress) * 100)}%` }}
-              transition={{ duration: 0.8, ease: EASE }}
-            />
-          </span>
-          <div className="relative flex justify-between">
-            {steps.map((s, i) => {
-              const done = i <= stepIndex;
-              const current = i === stepIndex;
-              const align = i === 0 ? "items-start" : i === steps.length - 1 ? "items-end" : "items-center";
-              return (
-                <li key={s} className={`flex min-w-0 flex-col ${align}`}>
+        {/* One line per gap. Each fills on its own, so a dot never lags the line reaching it. */}
+        <ol className="mt-5 flex items-center pb-6" aria-label="Order progress">
+          {steps.map((s, i) => {
+            const done = i <= stepIndex;
+            const current = i === stepIndex;
+            const last = i === steps.length - 1;
+            const labelPos = i === 0 ? "left-0" : last ? "right-0" : "left-1/2 -translate-x-1/2";
+            return (
+              <li
+                key={s}
+                className={["relative flex items-center", i === 0 ? "shrink-0" : "flex-1"].join(" ")}
+                aria-current={current ? "step" : undefined}
+              >
+                {i > 0 ? (
+                  <span
+                    aria-hidden
+                    className="relative mx-1.5 h-[2px] flex-1 overflow-hidden rounded-full bg-white/25"
+                  >
+                    <m.span
+                      className="absolute inset-y-0 left-0 bg-white"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.round(segmentFill(i - 1) * 100)}%` }}
+                      transition={{ duration: 0.8, ease: EASE }}
+                    />
+                  </span>
+                ) : null}
+                <span className="relative shrink-0">
                   <m.span
                     className="relative z-10 grid size-3 place-items-center rounded-full"
                     animate={{ backgroundColor: done ? "#ffffff" : "rgba(255,255,255,0.35)", scale: current ? 1.15 : 1 }}
@@ -185,17 +274,25 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
                       <span className="absolute inset-0 rounded-full bg-white/60 [animation:ping_1.8s_ease-out_infinite]" />
                     ) : null}
                   </m.span>
-                  <span className={["mt-2 text-[11px] font-medium", done ? "text-white" : "text-white/45"].join(" ")}>
+                  <span
+                    className={[
+                      "absolute top-full mt-2 whitespace-nowrap text-[11px] font-medium",
+                      labelPos,
+                      done ? "text-white" : "text-white/45",
+                    ].join(" ")}
+                  >
                     {s}
                   </span>
-                </li>
-              );
-            })}
-          </div>
+                </span>
+              </li>
+            );
+          })}
         </ol>
       </m.section>
 
-      <SecondRound receipt={receipt} drinks={drinks} now={now} onUpdate={setReceipt} />
+      {canAddMore ? (
+        <SecondRound receipt={receipt} drinks={drinks} now={now} onUpdate={setReceipt} />
+      ) : null}
 
       {delivery ? (
         <m.section variants={fadeUp} className="rounded-[20px] border border-border bg-surface p-5">
@@ -341,6 +438,36 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
           Back to the shop
         </Link>
       </m.div>
+    </m.div>
+  );
+}
+
+/** Kitchen column wins over the countdown once the desk has moved the order. */
+function kitchenStep(status: KitchenStatus | undefined, delivery: boolean): number | null {
+  switch (status) {
+    case "new":
+      return 0;
+    case "accepted":
+      return 1;
+    case "ready":
+      return 2;
+    case "done":
+      return delivery ? 3 : 2;
+    default:
+      return null;
+  }
+}
+
+function DeclinedMark() {
+  return (
+    <m.div
+      initial={{ scale: 0.6, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ ...SPRING, delay: 0.05 }}
+      className="grid size-14 place-items-center rounded-full bg-danger text-white"
+      aria-hidden
+    >
+      <X className="size-7" strokeWidth={2.4} />
     </m.div>
   );
 }

@@ -17,8 +17,6 @@ export function cartLinesFromReceipt(order: Receipt, catalog: CatalogItem[]) {
     }
     lines.push({
       productId: hit.productId,
-      vendorId: line.vendorId ?? hit.vendorId,
-      vendorName: line.vendorName ?? hit.vendorName,
       name: hit.name,
       unitCents: line.unitCents ?? hit.unitCents,
       qty: line.qty,

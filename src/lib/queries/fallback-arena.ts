@@ -1,3 +1,16 @@
+import { descriptionFor } from "@/lib/menu/nutrition";
+
+function item(id: string, name: string, priceCents: number, categoryId: string) {
+  return {
+    id,
+    name,
+    description: descriptionFor(name),
+    imageUrl: null as null,
+    priceCents,
+    categoryId,
+  };
+}
+
 /** Used when the local Postgres pool is down so the shop/checkout still render in dev. */
 export const FALLBACK_ARENA = {
   id: "fallback-arena",
@@ -12,45 +25,21 @@ export const FALLBACK_ARENA = {
     { id: "W", code: "W", name: "West Stand" },
     { id: "G", code: "G", name: "Section G" },
   ],
-  vendors: [
-    {
-      id: "v-grill",
-      slug: "north-stand-grill",
-      name: "North Stand Grill",
-      description: "Burgers, hot dogs and fries — fast.",
-      products: [
-        { id: "p-dog", name: "Classic Hot Dog", description: "Grilled sausage, mustard, ketchup.", imageUrl: null, priceCents: 550, categoryId: "c-hot" },
-        { id: "p-burger", name: "Cheeseburger", description: "Beef patty, cheddar, pickles.", imageUrl: null, priceCents: 850, categoryId: "c-hot" },
-        { id: "p-loaded", name: "Loaded Fries", description: "Cheese sauce, jalapeños.", imageUrl: null, priceCents: 600, categoryId: "c-snacks" },
-        { id: "p-fries", name: "Fries", description: null, imageUrl: null, priceCents: 400, categoryId: "c-snacks" },
-        { id: "p-cola", name: "Cola 0.5L", description: null, imageUrl: null, priceCents: 350, categoryId: "c-drinks" },
-        { id: "p-water", name: "Water 0.5L", description: null, imageUrl: null, priceCents: 250, categoryId: "c-drinks" },
-      ],
-    },
-    {
-      id: "v-tap",
-      slug: "tap-house",
-      name: "Tap House",
-      description: "Cold draught beer, delivered to your seat.",
-      products: [
-        { id: "p-lager", name: "Lager 0.5L", description: null, imageUrl: null, priceCents: 650, categoryId: "c-beer" },
-        { id: "p-ipa", name: "IPA 0.4L", description: null, imageUrl: null, priceCents: 700, categoryId: "c-beer" },
-        { id: "p-af", name: "Alcohol-free 0.33L", description: null, imageUrl: null, priceCents: 500, categoryId: "c-beer" },
-        { id: "p-nuts", name: "Salted Peanuts", description: null, imageUrl: null, priceCents: 300, categoryId: "c-snacks" },
-      ],
-    },
-    {
-      id: "v-sweet",
-      slug: "sweet-corner",
-      name: "Sweet Corner",
-      description: "Ice cream, popcorn and candy.",
-      products: [
-        { id: "p-pop", name: "Popcorn (large)", description: null, imageUrl: null, priceCents: 500, categoryId: "c-sweets" },
-        { id: "p-cone", name: "Soft Serve Cone", description: null, imageUrl: null, priceCents: 400, categoryId: "c-sweets" },
-        { id: "p-candy", name: "Candy Mix 200g", description: null, imageUrl: null, priceCents: 450, categoryId: "c-sweets" },
-        { id: "p-tea", name: "Iced Tea 0.5L", description: null, imageUrl: null, priceCents: 350, categoryId: "c-drinks" },
-      ],
-    },
+  products: [
+    item("p-cola", "Cola 0.5L", 350, "c-drinks"),
+    item("p-water", "Water 0.5L", 250, "c-drinks"),
+    item("p-tea", "Iced Tea 0.5L", 350, "c-drinks"),
+    item("p-lager", "Lager 0.5L", 650, "c-beer"),
+    item("p-ipa", "IPA 0.4L", 700, "c-beer"),
+    item("p-af", "Alcohol-free 0.33L", 500, "c-beer"),
+    item("p-fries", "Fries", 400, "c-snacks"),
+    item("p-loaded", "Loaded Fries", 600, "c-snacks"),
+    item("p-nuts", "Salted Peanuts", 300, "c-snacks"),
+    item("p-dog", "Classic Hot Dog", 550, "c-hot"),
+    item("p-burger", "Cheeseburger", 850, "c-hot"),
+    item("p-pop", "Popcorn (large)", 500, "c-sweets"),
+    item("p-cone", "Soft Serve Cone", 400, "c-sweets"),
+    item("p-candy", "Candy Mix 200g", 450, "c-sweets"),
   ],
   categories: [
     { id: "c-drinks", slug: "drinks", name: "Drinks", icon: null },

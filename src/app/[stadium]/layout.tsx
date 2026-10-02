@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import { ShopNav } from "@/components/shop/shop-nav";
-import { OrderSync } from "@/components/orders/order-sync";
+import { StadiumFrame } from "@/components/stadium-frame";
 
 type Props = {
   children: ReactNode;
@@ -9,11 +8,5 @@ type Props = {
 
 export default async function StadiumLayout({ children, params }: Props) {
   const { stadium } = await params;
-  return (
-    <>
-      {children}
-      <ShopNav stadiumSlug={stadium} />
-      <OrderSync />
-    </>
-  );
+  return <StadiumFrame stadiumSlug={stadium}>{children}</StadiumFrame>;
 }

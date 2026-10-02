@@ -55,13 +55,24 @@ export async function putReceipt(receipt: Receipt): Promise<PutResult> {
     if (!stadium) return "no-stadium";
 
     const where = { stadiumId_orderNumber: { stadiumId: stadium.id, orderNumber: receipt.orderNumber } };
-    const existing = await db.receipt.findUnique({ where, select: { token: true } });
+    const existing = await db.receipt.findUnique({ where, select: { token: true, body: true } });
     if (existing && existing.token !== token) return "forbidden";
 
-    const body = publicReceipt(receipt) as unknown as Prisma.InputJsonValue;
+    // Once the kitchen has touched an order it owns the status, the ETA and any
+    // decline reason. A phone re-syncing its copy must not roll those back.
+    const previous = existing ? toReceipt(existing.body) : null;
+    const kitchenOwned = previous?.kitchenStatus
+      ? {
+          kitchenStatus: previous.kitchenStatus,
+          readyAt: previous.readyAt,
+          ...(previous.declineReason ? { declineReason: previous.declineReason } : {}),
+        }
+      : {};
+    const merged = { ...receipt, ...kitchenOwned };
+    const body = publicReceipt(merged) as unknown as Prisma.InputJsonValue;
     const columns = {
-      paidAt: new Date(receipt.paidAt),
-      readyAt: new Date(receipt.readyAt),
+      paidAt: new Date(merged.paidAt),
+      readyAt: new Date(merged.readyAt),
       totalCents: receipt.totalCents ?? 0,
       currency: receipt.currency ?? "EUR",
       body,

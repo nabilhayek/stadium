@@ -40,7 +40,7 @@ export function OrderReceipt({ order, stadiumSlug, currency, catalog }: Props) {
         <p className="mt-3 text-[13px] leading-snug text-muted">
           {order.fulfillment === "delivery" && order.seat
             ? `Delivered to ${formatSeat(order.seat, true)}`
-            : "Collected at the stand"}
+            : "Collected at the counter"}
           {order.timing === "scheduled" ? ` · Scheduled for ${formatClock(order.readyAt)}` : ""}
         </p>
       </m.section>

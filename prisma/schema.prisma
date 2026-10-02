@@ -1,5 +1,7 @@
 // Stadium food delivery — data model foundation.
 // Connection URL lives in prisma.config.ts (Prisma 7).
+// Auth tables (User, Session, Account, Verification) are Better Auth's. They sit
+// beside the shop models; they do not replace them.
 
 datasource db {
   provider = "postgresql"
@@ -24,7 +26,7 @@ model Stadium {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  vendors  Vendor[]
+  products Product[]
   sections Section[]
   orders   Order[]
   receipts Receipt[]
@@ -32,34 +34,47 @@ model Stadium {
   @@index([isActive])
 }
 
+/// Where a paid order sits on the kitchen desk. NEW, ACCEPTED (in progress) and
+/// READY are the board columns; DONE and DECLINED have left the board.
+enum KitchenStatus {
+  NEW
+  ACCEPTED
+  READY
+  DONE
+  DECLINED
+}
+
 /// Customer-facing order document. Local-first: the phone writes it to its own
 /// storage first, then syncs it here so `/[stadium]/order/[orderNumber]` resolves
 /// on a fresh device. `body` is the receipt exactly as the client stores it;
 /// the columns beside it exist for lookups only.
 model Receipt {
-  id          String   @id @default(cuid())
-  stadiumId   String
+  id            String        @id @default(cuid())
+  stadiumId     String
   /// Short code shown to the customer, e.g. "A-K7M2". Unique per stadium.
-  orderNumber String
+  orderNumber   String
   /// Anonymous per-install id so a phone can restore its own history.
-  deviceId    String
+  deviceId      String
   /// Client-generated write secret. Updates must present it; reads never return it.
-  token       String
-  paidAt      DateTime
-  readyAt     DateTime
-  totalCents  Int
-  currency    String
-  body        Json
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  token         String
+  paidAt        DateTime
+  readyAt       DateTime
+  totalCents    Int
+  currency      String
+  /// Kitchen board column. The phone does not own this.
+  kitchenStatus KitchenStatus @default(NEW)
+  body          Json
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   stadium Stadium @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
 
   @@unique([stadiumId, orderNumber])
   @@index([stadiumId, deviceId, paidAt])
+  @@index([stadiumId, kitchenStatus, paidAt])
 }
 
-/// A seating block / stand. Used for "confirm seat" and delivery routing.
+/// A seating block. Used for "confirm seat" and delivery routing.
 model Section {
   id        String   @id @default(cuid())
   stadiumId String
@@ -74,27 +89,6 @@ model Section {
 
   @@unique([stadiumId, code])
   @@index([stadiumId, sortOrder])
-}
-
-/// A food/drink outlet inside a stadium.
-model Vendor {
-  id          String   @id @default(cuid())
-  stadiumId   String
-  slug        String
-  name        String
-  description String?
-  imageUrl    String?
-  isOpen      Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  stadium  Stadium   @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
-  products Product[]
-  orders   Order[]
-
-  @@unique([stadiumId, slug])
-  @@index([stadiumId, isOpen, sortOrder])
 }
 
 /// Global product category (Drinks, Snacks, Hot food...). Shared across stadiums.
@@ -115,7 +109,7 @@ model Category {
 
 model Product {
   id          String   @id @default(cuid())
-  vendorId    String
+  stadiumId   String
   categoryId  String
   name        String
   description String?
@@ -127,11 +121,11 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  vendor     Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  stadium    Stadium     @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
   category   Category    @relation(fields: [categoryId], references: [id])
   orderItems OrderItem[]
 
-  @@index([vendorId, isAvailable, sortOrder])
+  @@index([stadiumId, isAvailable, sortOrder])
   @@index([categoryId])
 }
 
@@ -146,13 +140,12 @@ enum OrderStatus {
   CANCELLED
 }
 
-/// One order = one vendor (keeps prep + delivery simple). Multi-vendor carts split into several orders.
+/// Legacy payment record. The live shop uses Receipt.
 model Order {
   id         String      @id @default(cuid())
   /// Short human-readable code shown to runners and customers, e.g. "A7K2".
   code       String      @unique
   stadiumId  String
-  vendorId   String
   sectionId  String?
   seatRow    String?
   seatNumber String?
@@ -164,12 +157,10 @@ model Order {
   updatedAt  DateTime    @updatedAt
 
   stadium Stadium     @relation(fields: [stadiumId], references: [id])
-  vendor  Vendor      @relation(fields: [vendorId], references: [id])
   section Section?    @relation(fields: [sectionId], references: [id])
   items   OrderItem[]
 
   @@index([stadiumId, status, createdAt])
-  @@index([vendorId, status])
 }
 
 model OrderItem {
@@ -187,4 +178,68 @@ model OrderItem {
   product Product @relation(fields: [productId], references: [id])
 
   @@index([orderId])
+}
+
+/// Better Auth user. Table name is lowercase so the adapter finds `user`.
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
 }

@@ -3,14 +3,17 @@ import { writeStorage } from "@/lib/hooks/use-storage";
 
 export type Fulfillment = "delivery" | "pickup";
 export type Timing = "asap" | "scheduled";
+/**
+ * Kitchen desk state. Absent on receipts the kitchen has not touched.
+ * new → accepted (in progress) → ready → done, or declined at any point.
+ */
+export type KitchenStatus = "new" | "accepted" | "ready" | "done" | "declined";
 
 export type ReceiptLine = {
   productId: string;
   name: string;
   qty: number;
   note?: string;
-  vendorId?: string;
-  vendorName?: string;
   unitCents?: number;
 };
 
@@ -35,6 +38,9 @@ export type Receipt = {
   currency?: string;
   totalCents?: number;
   lines: ReceiptLine[];
+  kitchenStatus?: KitchenStatus;
+  /** Why the kitchen declined. Shown to the customer as-is. */
+  declineReason?: string;
   /** Anonymous install id the order was placed from. Lets that phone restore its history. */
   deviceId?: string;
   /** Write secret for the server copy. Missing on receipts restored from a bare URL. */
@@ -152,10 +158,22 @@ export function formatRemain(ms: number) {
   return `${mm}:${ss.toString().padStart(2, "0")}`;
 }
 
-/** Headline for the current stage of an order. */
+/** Headline for the current stage of an order. The kitchen's word wins over the clock. */
 export function statusTitle(receipt: Receipt, now: number) {
-  const arrived = receipt.readyAt - now <= 0;
   const delivery = receipt.fulfillment === "delivery";
+  switch (receipt.kitchenStatus) {
+    case "declined":
+      return "Order declined";
+    case "new":
+      return "Order received";
+    case "accepted":
+      return "Being prepared";
+    case "ready":
+      return delivery ? "On the way" : "Ready for pickup";
+    case "done":
+      return delivery ? "At your seat" : "Picked up";
+  }
+  const arrived = receipt.readyAt - now <= 0;
   if (arrived) return delivery ? "At your seat" : "Ready for pickup";
   return delivery ? "On the way" : "Being prepared";
 }

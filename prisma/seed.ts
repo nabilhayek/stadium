@@ -1,6 +1,7 @@
 import { config } from "dotenv";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { descriptionFor } from "../src/lib/menu/nutrition";
 
 config();
 config({ path: ".env.local", override: true });
@@ -26,49 +27,21 @@ type SeedProduct = {
   description?: string;
 };
 
-type SeedVendor = {
-  slug: string;
-  name: string;
-  description: string;
-  products: SeedProduct[];
-};
-
-const vendors: SeedVendor[] = [
-  {
-    slug: "north-stand-grill",
-    name: "North Stand Grill",
-    description: "Burgers, hot dogs and fries — fast.",
-    products: [
-      { name: "Classic Hot Dog", category: "hot-food", priceCents: 550, description: "Grilled sausage, mustard, ketchup." },
-      { name: "Cheeseburger", category: "hot-food", priceCents: 850, description: "Beef patty, cheddar, pickles." },
-      { name: "Loaded Fries", category: "snacks", priceCents: 600, description: "Cheese sauce, jalapeños." },
-      { name: "Fries", category: "snacks", priceCents: 400 },
-      { name: "Cola 0.5L", category: "drinks", priceCents: 350 },
-      { name: "Water 0.5L", category: "drinks", priceCents: 250 },
-    ],
-  },
-  {
-    slug: "tap-house",
-    name: "Tap House",
-    description: "Cold draught beer, delivered to your seat.",
-    products: [
-      { name: "Lager 0.5L", category: "beer", priceCents: 650 },
-      { name: "IPA 0.4L", category: "beer", priceCents: 700 },
-      { name: "Alcohol-free 0.33L", category: "beer", priceCents: 500 },
-      { name: "Salted Peanuts", category: "snacks", priceCents: 300 },
-    ],
-  },
-  {
-    slug: "sweet-corner",
-    name: "Sweet Corner",
-    description: "Ice cream, popcorn and candy.",
-    products: [
-      { name: "Popcorn (large)", category: "sweets", priceCents: 500 },
-      { name: "Soft Serve Cone", category: "sweets", priceCents: 400 },
-      { name: "Candy Mix 200g", category: "sweets", priceCents: 450 },
-      { name: "Iced Tea 0.5L", category: "drinks", priceCents: 350 },
-    ],
-  },
+const products: SeedProduct[] = [
+  { name: "Cola 0.5L", category: "drinks", priceCents: 350 },
+  { name: "Water 0.5L", category: "drinks", priceCents: 250 },
+  { name: "Iced Tea 0.5L", category: "drinks", priceCents: 350 },
+  { name: "Lager 0.5L", category: "beer", priceCents: 650 },
+  { name: "IPA 0.4L", category: "beer", priceCents: 700 },
+  { name: "Alcohol-free 0.33L", category: "beer", priceCents: 500 },
+  { name: "Fries", category: "snacks", priceCents: 400 },
+  { name: "Loaded Fries", category: "snacks", priceCents: 600, description: "Cheese sauce, jalapeños." },
+  { name: "Salted Peanuts", category: "snacks", priceCents: 300 },
+  { name: "Classic Hot Dog", category: "hot-food", priceCents: 550, description: "Grilled sausage, mustard, ketchup." },
+  { name: "Cheeseburger", category: "hot-food", priceCents: 850, description: "Beef patty, cheddar, pickles." },
+  { name: "Popcorn (large)", category: "sweets", priceCents: 500 },
+  { name: "Soft Serve Cone", category: "sweets", priceCents: 400 },
+  { name: "Candy Mix 200g", category: "sweets", priceCents: 450 },
 ];
 
 async function main() {
@@ -115,31 +88,36 @@ async function main() {
     categoryIds.set(c.slug, row.id);
   }
 
-  for (const [vi, v] of vendors.entries()) {
-    const vendor = await prisma.vendor.upsert({
-      where: { stadiumId_slug: { stadiumId: stadium.id, slug: v.slug } },
-      update: { name: v.name, description: v.description, sortOrder: vi },
-      create: {
-        stadiumId: stadium.id,
-        slug: v.slug,
-        name: v.name,
-        description: v.description,
-        sortOrder: vi,
-      },
-    });
+  const existing = await prisma.product.findMany({
+    where: { stadiumId: stadium.id },
+    select: { id: true, name: true },
+  });
+  const byName = new Map<string, string[]>();
+  for (const row of existing) {
+    const ids = byName.get(row.name) ?? [];
+    ids.push(row.id);
+    byName.set(row.name, ids);
+  }
 
-    // Products have no natural unique key; reset per vendor to keep the seed idempotent.
-    await prisma.product.deleteMany({ where: { vendorId: vendor.id } });
-    await prisma.product.createMany({
-      data: v.products.map((p, pi) => ({
-        vendorId: vendor.id,
-        categoryId: categoryIds.get(p.category)!,
-        name: p.name,
-        description: p.description,
-        priceCents: p.priceCents,
-        sortOrder: pi,
-      })),
-    });
+  for (const [pi, p] of products.entries()) {
+    const data = {
+      stadiumId: stadium.id,
+      categoryId: categoryIds.get(p.category)!,
+      name: p.name,
+      description: p.description ?? descriptionFor(p.name),
+      priceCents: p.priceCents,
+      sortOrder: pi,
+    };
+    const ids = byName.get(p.name) ?? [];
+    const [keep, ...dupes] = ids;
+    if (keep) {
+      await prisma.product.update({ where: { id: keep }, data });
+      if (dupes.length > 0) {
+        await prisma.product.updateMany({ where: { id: { in: dupes } }, data: { isAvailable: false } });
+      }
+    } else {
+      await prisma.product.create({ data });
+    }
   }
 
   console.log(`Seeded stadium "${stadium.name}" → /${stadium.slug}`);

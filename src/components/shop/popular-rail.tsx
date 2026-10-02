@@ -6,7 +6,7 @@ import type { MenuProduct } from "@/lib/queries/stadium";
 import { SPRING, stagger } from "@/components/motion/variants";
 import { ProductCard } from "./product-card";
 
-type Item = MenuProduct & { vendorId: string; vendorName: string };
+type Item = MenuProduct;
 
 type Props = {
   stadiumSlug: string;
@@ -148,8 +148,6 @@ export function PopularRail({ stadiumSlug, currency, items, lastIds, animateIn }
             key={p.id}
             stadiumSlug={stadiumSlug}
             currency={currency}
-            vendorId={p.vendorId}
-            vendorName={p.vendorName}
             product={p}
             badge={lastIds.has(p.id) ? "Last time" : undefined}
             className={`w-[168px] shrink-0 ${i === last ? "snap-end" : "snap-start"}`}

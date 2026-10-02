@@ -13,7 +13,7 @@ import { SeatConfirm } from "@/components/shop/seat-confirm";
 import { useEntrance } from "@/components/motion/entrance";
 import { EASE, SPRING, fadeUp, stagger } from "@/components/motion/variants";
 import { useCart } from "@/lib/cart/use-cart";
-import { cartTotals, type CartLine, type CartState } from "@/lib/cart/store";
+import { cartTotals, type CartState } from "@/lib/cart/store";
 import { useSeat } from "@/lib/seat/use-seat";
 import { formatSeat, getSeatStore, type Seat } from "@/lib/seat/store";
 import { arrivalClock, estimateDelivery } from "@/lib/checkout/eta";
@@ -42,7 +42,6 @@ import type { SeatSection } from "@/components/shop/seat-status";
 import { BackLink } from "@/components/ui/back-link";
 import { Armchair, Check, ChevronDown, Loader2, ShoppingBag } from "lucide-react";
 import { ApplePayMark, CardMark, GooglePayMark } from "./pay-marks";
-import { requestLiveLock, pushLiveLock } from "@/lib/orders/live-lock";
 
 type Method = "apple" | "google" | "card";
 
@@ -109,15 +108,6 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
   }, [storedRaw, now]);
 
   const eta = estimateDelivery(state, fulfillment);
-  const byVendor = useMemo(() => {
-    const map = new Map<string, CartLine[]>();
-    for (const line of state.lines) {
-      const arr = map.get(line.vendorId) ?? [];
-      arr.push(line);
-      map.set(line.vendorId, arr);
-    }
-    return [...map.values()];
-  }, [state.lines]);
 
   const scheduleOk = timing !== "scheduled" || isValidSchedule(scheduledAt, now);
 
@@ -147,7 +137,6 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
     const orderNumber = makeOrderNumber();
     // Warm the order page while the wallet sheet is up, so the hand-off is instant.
     router.prefetch(`/${stadiumSlug}/order/${encodeURIComponent(orderNumber)}`);
-    const lock = requestLiveLock();
     await new Promise((r) => setTimeout(r, 1100));
     const paidAt = stampPaidAt();
     const readyAt = timing === "scheduled" ? scheduledAt : paidAt + eta.max * 60_000;
@@ -174,8 +163,6 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
         name: l.name,
         qty: l.qty,
         note: l.note,
-        vendorId: l.vendorId,
-        vendorName: l.vendorName,
         unitCents: l.unitCents,
       })),
     };
@@ -186,7 +173,6 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
       state.lines.flatMap((l) => Array.from({ length: l.qty }, () => l.productId)),
     );
     setPaid({ receipt: next, cart: state });
-    if (await lock) pushLiveLock(next, paidAt);
   }
 
   if (count === 0) {
@@ -236,7 +222,7 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
       ? fulfillment === "delivery"
         ? "Runner arrives at that time"
         : "Ready at the counter then"
-      : `Around ${arrivalClock(eta.max)} · ${byVendor.length > 1 ? `${byVendor.length} stands` : "one stand"}`;
+      : `Around ${arrivalClock(eta.max)}`;
 
   return (
     <m.form
@@ -263,7 +249,7 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
           onChange={changeFulfillment}
           options={[
             { id: "delivery", label: "Delivery", hint: "To your seat" },
-            { id: "pickup", label: "Pickup", hint: "At the stand" },
+            { id: "pickup", label: "Pickup", hint: "At the counter" },
           ]}
         />
 
@@ -315,9 +301,7 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
                     </span>
                     <div className="min-w-0">
                       <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Collect at</p>
-                      <p className="mt-0.5 text-[15px] font-medium">
-                        {byVendor.map((lines) => lines[0].vendorName).join(" · ")}
-                      </p>
+                      <p className="mt-0.5 text-[15px] font-medium">{stadiumName}</p>
                     </div>
                   </div>
                   <p className="mt-3 text-[13px] leading-snug text-muted">
@@ -404,10 +388,9 @@ export function CheckoutView({ stadiumSlug, stadiumName, currency, sections }: P
                   </span>
                   {line.name}
                 </span>
-                <span className="mt-0.5 block text-[13px] text-muted">
-                  {line.vendorName}
-                  {line.note ? ` · ${line.note}` : ""}
-                </span>
+                {line.note ? (
+                  <span className="mt-0.5 block text-[13px] text-muted">{line.note}</span>
+                ) : null}
               </span>
               <span className="shrink-0 text-[15px] tabular-nums">
                 {formatCents(line.qty * line.unitCents, currency)}

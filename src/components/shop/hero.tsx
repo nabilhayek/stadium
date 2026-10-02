@@ -9,12 +9,11 @@ import { EASE, fadeUp, stagger } from "@/components/motion/variants";
 type Props = {
   name: string;
   city: string | null;
-  vendorCount: number;
   children: ReactNode;
 };
 
 /** Dark spotlight hero on the light canvas — venue name, seat chip, drifting glows. */
-export function Hero({ name, city, vendorCount, children }: Props) {
+export function Hero({ name, city, children }: Props) {
   const entrance = useEntrance();
   return (
     <m.section
@@ -38,9 +37,11 @@ export function Hero({ name, city, vendorCount, children }: Props) {
         >
           {name}
         </m.h1>
-        <m.p variants={fadeUp} className="mt-2 text-[13px] text-white/75">
-          {[city, `${vendorCount} stands open`].filter(Boolean).join(" · ")}
-        </m.p>
+        {city ? (
+          <m.p variants={fadeUp} className="mt-2 text-[13px] text-white/75">
+            {city}
+          </m.p>
+        ) : null}
         <m.div variants={fadeUp} className="mt-5">
           {children}
         </m.div>

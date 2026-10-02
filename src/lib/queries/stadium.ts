@@ -19,35 +19,23 @@ export async function getStadiumMenu(slug: string) {
         orderBy: { sortOrder: "asc" },
         select: { id: true, code: true, name: true },
       },
-      vendors: {
-        where: { isOpen: true },
+      products: {
+        where: { isAvailable: true },
         orderBy: { sortOrder: "asc" },
         select: {
           id: true,
-          slug: true,
           name: true,
           description: true,
-          products: {
-            where: { isAvailable: true },
-            orderBy: { sortOrder: "asc" },
-            select: {
-              id: true,
-              name: true,
-              description: true,
-              imageUrl: true,
-              priceCents: true,
-              categoryId: true,
-            },
-          },
+          imageUrl: true,
+          priceCents: true,
+          categoryId: true,
         },
       },
     },
   });
   if (!stadium) return null;
 
-  const usedCategoryIds = new Set(
-    stadium.vendors.flatMap((v) => v.products.map((p) => p.categoryId)),
-  );
+  const usedCategoryIds = new Set(stadium.products.map((p) => p.categoryId));
   const categories = await db.category.findMany({
     where: { id: { in: [...usedCategoryIds] } },
     orderBy: { sortOrder: "asc" },
@@ -66,9 +54,15 @@ export async function getStadiumMenu(slug: string) {
 }
 
 export type StadiumMenu = NonNullable<Awaited<ReturnType<typeof getStadiumMenu>>>;
-export type MenuVendor = StadiumMenu["vendors"][number];
-export type MenuProduct = MenuVendor["products"][number];
+export type MenuProduct = StadiumMenu["products"][number];
 export type MenuCategory = StadiumMenu["categories"][number];
+
+export function findMenuProduct(menu: StadiumMenu, productId: string) {
+  const product = menu.products.find((p) => p.id === productId);
+  if (!product) return null;
+  const category = menu.categories.find((c) => c.id === product.categoryId) ?? null;
+  return { product, category };
+}
 
 export function getActiveStadiums() {
   return withDb((db) =>

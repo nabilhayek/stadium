@@ -22,14 +22,6 @@ export function CartDrawer({ stadiumSlug, currency, isOpen, onOpenChange }: Prop
   const { state, store } = useCart(stadiumSlug);
   const { count, cents } = cartTotals(state);
 
-  // One order per vendor downstream, so show the cart grouped the same way.
-  const byVendor = new Map<string, CartLine[]>();
-  for (const line of state.lines) {
-    const arr = byVendor.get(line.vendorId) ?? [];
-    arr.push(line);
-    byVendor.set(line.vendorId, arr);
-  }
-
   return (
     <Drawer.Backdrop isOpen={isOpen} onOpenChange={onOpenChange}>
       {/* Height cap belongs on the dialog, not Content — Content is `fixed inset-0`,
@@ -48,24 +40,17 @@ export function CartDrawer({ stadiumSlug, currency, isOpen, onOpenChange }: Prop
             {count === 0 ? (
               <p className="py-8 text-center text-muted">Your cart is empty.</p>
             ) : (
-              [...byVendor.entries()].map(([vendorId, lines]) => (
-                <section key={vendorId} aria-label={lines[0].vendorName}>
-                  <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
-                    {lines[0].vendorName}
-                  </h3>
-                  <ul className="flex flex-col gap-2">
-                    {lines.map((line) => (
-                      <CartLineRow
-                        key={line.productId}
-                        line={line}
-                        currency={currency}
-                        onQty={(qty) => store.setQty(line.productId, qty)}
-                        onNote={(note) => store.setNote(line.productId, note)}
-                      />
-                    ))}
-                  </ul>
-                </section>
-              ))
+              <ul className="flex flex-col gap-2">
+                {state.lines.map((line) => (
+                  <CartLineRow
+                    key={line.productId}
+                    line={line}
+                    currency={currency}
+                    onQty={(qty) => store.setQty(line.productId, qty)}
+                    onNote={(note) => store.setNote(line.productId, note)}
+                  />
+                ))}
+              </ul>
             )}
           </Drawer.Body>
 

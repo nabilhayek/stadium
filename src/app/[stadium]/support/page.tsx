@@ -24,7 +24,7 @@ const TOPICS = [
     body: "Open Order history and tap the live order to see the tracker, ETA, and the four-digit hand-off code.",
   },
   {
-    title: "Wrong seat or stand",
+    title: "Wrong seat",
     body: "Change your seat from the chip on the shop before you pay. After pay, tell the runner with a note on the tracker.",
   },
   {
