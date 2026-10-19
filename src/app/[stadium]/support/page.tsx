@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getStadiumMenu } from "@/lib/queries/stadium";
+import { api } from "@/server/trpc/server";
 import { BackLink } from "@/components/ui/back-link";
 
 type Props = { params: Promise<{ stadium: string }> };
@@ -10,7 +10,7 @@ export const dynamicParams = true;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { stadium } = await params;
-  const menu = await getStadiumMenu(stadium);
+  const menu = await api.stadium.menu({ slug: stadium });
   if (!menu) return { title: "Support" };
   return {
     title: `Support · ${menu.name}`,
@@ -29,7 +29,7 @@ const TOPICS = [
   },
   {
     title: "Payment",
-    body: "Charges are taken when you confirm. Wallet and card are both simulated in this build — nothing is billed.",
+    body: "Your card or wallet is charged when you confirm, on this page. If the bank declines it, nothing is taken and you can try again. If the kitchen can’t make the order, the charge is refunded.",
   },
   {
     title: "Allergies",
@@ -39,7 +39,7 @@ const TOPICS = [
 
 export default async function SupportPage({ params }: Props) {
   const { stadium: slug } = await params;
-  const menu = await getStadiumMenu(slug);
+  const menu = await api.stadium.menu({ slug });
   if (!menu) notFound();
 
   return (

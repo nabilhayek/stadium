@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
     // Small device set for a phone-first product; fewer variants = smaller srcset.
     deviceSizes: [360, 414, 640, 828],
     imageSizes: [64, 96, 128, 192],
+    // Product photos uploaded from the kitchen desk.
+    remotePatterns: [{ protocol: "https", hostname: "*.public.blob.vercel-storage.com", pathname: "/products/**" }],
   },
 
   async headers() {

@@ -1,76 +1,85 @@
-/** Per-serving facts shown on the product page. */
+/** Facts shown on the product page. Stored on `Product.nutrition`; every number is per `per`. */
 export type Nutrition = {
-  serving: string;
-  calories: number;
-  proteinG: number;
-  carbsG: number;
+  per: { amount: number; unit: NutritionUnit };
+  kcal: number;
   fatG: number;
-  allergens: string[];
+  carbsG: number;
+  sugarG?: number;
+  proteinG: number;
+  saltG?: number;
 };
 
-const BY_NAME: Record<string, { description: string; nutrition: Nutrition }> = {
-  "Classic Hot Dog": {
-    description: "Grilled sausage in a soft bun, with mustard and ketchup.",
-    nutrition: { serving: "1 hot dog", calories: 290, proteinG: 11, carbsG: 24, fatG: 16, allergens: ["Gluten", "Mustard"] },
-  },
-  Cheeseburger: {
-    description: "Beef patty, cheddar, pickles and sauce in a toasted bun.",
-    nutrition: { serving: "1 burger", calories: 540, proteinG: 28, carbsG: 38, fatG: 29, allergens: ["Gluten", "Milk"] },
-  },
-  "Loaded Fries": {
-    description: "Fries with warm cheese sauce and jalapeños.",
-    nutrition: { serving: "1 tray", calories: 480, proteinG: 8, carbsG: 52, fatG: 26, allergens: ["Milk"] },
-  },
-  Fries: {
-    description: "Salted fries, served hot.",
-    nutrition: { serving: "1 tray", calories: 320, proteinG: 4, carbsG: 42, fatG: 15, allergens: [] },
-  },
-  "Cola 0.5L": {
-    description: "Chilled cola.",
-    nutrition: { serving: "500 ml", calories: 210, proteinG: 0, carbsG: 53, fatG: 0, allergens: [] },
-  },
-  "Water 0.5L": {
-    description: "Still water.",
-    nutrition: { serving: "500 ml", calories: 0, proteinG: 0, carbsG: 0, fatG: 0, allergens: [] },
-  },
-  "Lager 0.5L": {
-    description: "Cold draught lager.",
-    nutrition: { serving: "500 ml", calories: 215, proteinG: 2, carbsG: 17, fatG: 0, allergens: ["Gluten"] },
-  },
-  "IPA 0.4L": {
-    description: "Hoppy draught IPA.",
-    nutrition: { serving: "400 ml", calories: 220, proteinG: 2, carbsG: 18, fatG: 0, allergens: ["Gluten"] },
-  },
-  "Alcohol-free 0.33L": {
-    description: "Draught beer without the alcohol.",
-    nutrition: { serving: "330 ml", calories: 70, proteinG: 1, carbsG: 14, fatG: 0, allergens: ["Gluten"] },
-  },
-  "Salted Peanuts": {
-    description: "Roasted and salted.",
-    nutrition: { serving: "50 g", calories: 290, proteinG: 12, carbsG: 8, fatG: 25, allergens: ["Peanuts"] },
-  },
-  "Popcorn (large)": {
-    description: "Freshly popped, lightly salted.",
-    nutrition: { serving: "1 large tub", calories: 430, proteinG: 6, carbsG: 48, fatG: 24, allergens: [] },
-  },
-  "Soft Serve Cone": {
-    description: "Vanilla soft serve in a wafer cone.",
-    nutrition: { serving: "1 cone", calories: 180, proteinG: 4, carbsG: 28, fatG: 6, allergens: ["Milk", "Gluten"] },
-  },
-  "Candy Mix 200g": {
-    description: "A mix of sweets.",
-    nutrition: { serving: "200 g", calories: 760, proteinG: 2, carbsG: 180, fatG: 4, allergens: [] },
-  },
-  "Iced Tea 0.5L": {
-    description: "Peach iced tea.",
-    nutrition: { serving: "500 ml", calories: 160, proteinG: 0, carbsG: 40, fatG: 0, allergens: [] },
-  },
+export const NUTRITION_UNITS = ["g", "ml", "serving"] as const;
+export type NutritionUnit = (typeof NUTRITION_UNITS)[number];
+
+/** The 14 allergens EU food law requires venues to declare. */
+export const ALLERGENS = [
+  "Gluten",
+  "Crustaceans",
+  "Eggs",
+  "Fish",
+  "Peanuts",
+  "Soy",
+  "Milk",
+  "Nuts",
+  "Celery",
+  "Mustard",
+  "Sesame",
+  "Sulphites",
+  "Lupin",
+  "Molluscs",
+] as const;
+export type Allergen = (typeof ALLERGENS)[number];
+
+function amount(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null;
+}
+
+/** Strict read of the JSON column. Anything malformed shows no nutrition rather than wrong numbers. */
+export function toNutrition(value: unknown): Nutrition | null {
+  if (!value || typeof value !== "object") return null;
+  const o = value as Record<string, unknown>;
+  const per = o.per as Record<string, unknown> | undefined;
+  const perAmount = amount(per?.amount);
+  const unit = per?.unit as NutritionUnit;
+  if (!perAmount || !NUTRITION_UNITS.includes(unit)) return null;
+  const kcal = amount(o.kcal);
+  const fatG = amount(o.fatG);
+  const carbsG = amount(o.carbsG);
+  const proteinG = amount(o.proteinG);
+  if (kcal === null || fatG === null || carbsG === null || proteinG === null) return null;
+  const out: Nutrition = { per: { amount: perAmount, unit }, kcal, fatG, carbsG, proteinG };
+  const sugarG = amount(o.sugarG);
+  if (sugarG !== null) out.sugarG = sugarG;
+  const saltG = amount(o.saltG);
+  if (saltG !== null) out.saltG = saltG;
+  return out;
+}
+
+/** "100 g", "500 ml", "serving". */
+export function formatPer(per: Nutrition["per"]) {
+  if (per.unit === "serving") return per.amount === 1 ? "serving" : `${per.amount} servings`;
+  return `${per.amount} ${per.unit}`;
+}
+
+/** Seed and offline-menu copy. The live menu reads descriptions from the database. */
+const DESCRIPTIONS: Record<string, string> = {
+  "Classic Hot Dog": "Grilled sausage in a soft bun, with mustard and ketchup.",
+  Cheeseburger: "Beef patty, cheddar, pickles and sauce in a toasted bun.",
+  "Loaded Fries": "Fries with warm cheese sauce and jalapeños.",
+  Fries: "Salted fries, served hot.",
+  "Cola 0.5L": "Chilled cola.",
+  "Water 0.5L": "Still water.",
+  "Lager 0.5L": "Cold draught lager.",
+  "IPA 0.4L": "Hoppy draught IPA.",
+  "Alcohol-free 0.33L": "Draught beer without the alcohol.",
+  "Salted Peanuts": "Roasted and salted.",
+  "Popcorn (large)": "Freshly popped, lightly salted.",
+  "Soft Serve Cone": "Vanilla soft serve in a wafer cone.",
+  "Candy Mix 200g": "A mix of sweets.",
+  "Iced Tea 0.5L": "Peach iced tea.",
 };
 
 export function descriptionFor(name: string): string | null {
-  return BY_NAME[name]?.description ?? null;
-}
-
-export function nutritionFor(name: string): Nutrition | null {
-  return BY_NAME[name]?.nutrition ?? null;
+  return DESCRIPTIONS[name] ?? null;
 }

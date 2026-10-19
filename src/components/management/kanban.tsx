@@ -1,14 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useNow } from "@/lib/hooks/use-now";
-import { updateKitchenOrder } from "@/lib/management/actions";
-import { BOARD_COLUMNS, type BoardStatus, type DeskOrder, type KitchenChange } from "@/lib/management/board";
+import { useMutation } from "@tanstack/react-query";
+import { useTRPC } from "@/lib/trpc/react";
+import {
+  BOARD_COLUMNS,
+  DEFAULT_PREP_MINUTES,
+  previewAccept,
+  type BoardStatus,
+  type DeskOrder,
+  type KitchenChange,
+} from "@/lib/management/board";
 import { DeclineDialog } from "./decline-dialog";
 import { OrderCard } from "./order-card";
+import { useToast } from "@/components/toast/toast-provider";
 
 type Props = { stadiumSlug: string; orders: DeskOrder[] };
+
+const COLUMN_DOT: Record<BoardStatus, string> = {
+  new: "bg-blue-500",
+  accepted: "bg-amber-500",
+  ready: "bg-green-500",
+};
 
 /** Ask the server for fresh cards this often while nobody is mid-gesture. */
 const REFRESH_MS = 8_000;
@@ -31,16 +46,23 @@ type Drag = {
 };
 
 /** Where a card should appear before the server confirms. `null` means it left the board. */
-type Override = BoardStatus | null;
+type Override = { status: BoardStatus; readyAt?: number; acceptedAt?: number } | null;
 
 export function Kanban({ stadiumSlug, orders }: Props) {
   const router = useRouter();
+  const trpc = useTRPC();
+  const { mutateAsync: updateOrder } = useMutation(trpc.kitchen.update.mutationOptions());
   const now = useNow(1000);
   const [overrides, setOverrides] = useState<Record<string, Override>>({});
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
   const [drag, setDrag] = useState<Drag | null>(null);
   const [declining, setDeclining] = useState<string | null>(null);
   const inflight = useRef(0);
+  const [preps, setPreps] = useState<Record<string, number>>({});
+  const prepsRef = useRef(preps);
+  useEffect(() => {
+    prepsRef.current = preps;
+  }, [preps]);
   const columnRefs = useRef<Partial<Record<BoardStatus, HTMLElement | null>>>({});
 
   // Server truth arrived — drop the optimistic layer.
@@ -54,7 +76,15 @@ export function Kanban({ stadiumSlug, orders }: Props) {
     return orders.flatMap((o) => {
       const override = overrides[o.orderNumber];
       if (override === null) return [];
-      return [override ? { ...o, status: override } : o];
+      if (!override) return [o];
+      return [
+        {
+          ...o,
+          status: override.status,
+          ...(override.readyAt != null ? { readyAt: override.readyAt } : {}),
+          ...(override.acceptedAt != null ? { acceptedAt: override.acceptedAt } : {}),
+        },
+      ];
     });
   }, [orders, overrides]);
 
@@ -65,6 +95,13 @@ export function Kanban({ stadiumSlug, orders }: Props) {
   }, [visible]);
 
   useNewOrderChime(byColumn.new.length);
+
+  const query = (useSearchParams().get("q") ?? "").toLowerCase();
+  const matches = (o: DeskOrder) =>
+    !query ||
+    [o.orderNumber, o.seat ?? "", ...o.lines.flatMap((l) => [l.name, ...(l.options ?? [])])].some((s) =>
+      s.toLowerCase().includes(query),
+    );
 
   // Keep the board live. Pause while a card is in hand or a dialog is open.
   const busy = drag !== null || declining !== null;
@@ -78,30 +115,44 @@ export function Kanban({ stadiumSlug, orders }: Props) {
 
   const apply = useCallback(
     (order: DeskOrder, change: KitchenChange) => {
-      setError(null);
-      const next: Override = change.to === "done" || change.to === "declined" ? null : change.to;
+      const nowMs = Date.now();
+      const clock = change.to === "accepted" ? previewAccept(order, change.prepMinutes, nowMs) : null;
+      const next: Override =
+        change.to === "done" || change.to === "declined"
+          ? null
+          : {
+              status: change.to,
+              ...(clock ? { readyAt: clock.readyAt, acceptedAt: clock.acceptedAt } : {}),
+            };
       setOverrides((prev) => ({ ...prev, [order.orderNumber]: next }));
       inflight.current += 1;
-      void updateKitchenOrder(stadiumSlug, order.orderNumber, change)
+      const revert = (message: string) => {
+        toast({ message, status: "error" });
+        setOverrides((prev) => {
+          const copy = { ...prev };
+          delete copy[order.orderNumber];
+          return copy;
+        });
+      };
+      updateOrder({ stadium: stadiumSlug, orderNumber: order.orderNumber, change })
         .then((result) => {
-          if (!result.ok) {
-            setError(result.error);
-            setOverrides((prev) => {
-              const copy = { ...prev };
-              delete copy[order.orderNumber];
-              return copy;
-            });
-          }
+          if (!result.ok) revert(result.error);
+        })
+        .catch((error: unknown) => {
+          revert(error instanceof Error && error.message ? error.message : "The connection dropped. Try again.");
         })
         .finally(() => {
           inflight.current -= 1;
         });
     },
-    [stadiumSlug],
+    [stadiumSlug, toast, updateOrder],
   );
 
-  /** Dropping onto a column is the same as pressing that column's button, minus the prep picker. */
-  function dropChange(to: BoardStatus): KitchenChange {
+  /** A new order dropped on In progress keeps the prep chosen on that card. */
+  function dropChange(order: DeskOrder, to: BoardStatus): KitchenChange {
+    if (to === "accepted" && order.status === "new" && order.scheduledAt == null) {
+      return { to: "accepted", prepMinutes: prepsRef.current[order.orderNumber] ?? DEFAULT_PREP_MINUTES };
+    }
     return to === "accepted" ? { to: "accepted" } : { to };
   }
 
@@ -176,7 +227,7 @@ export function Kanban({ stadiumSlug, orders }: Props) {
       if (ev.pointerId !== id) return;
       if (active) {
         const to = columnAt(ev.clientX, ev.clientY);
-        if (to && to !== order.status) apply(order, dropChange(to));
+        if (to && to !== order.status) apply(order, dropChange(order, to));
       }
       cleanup();
     };
@@ -197,36 +248,41 @@ export function Kanban({ stadiumSlug, orders }: Props) {
 
   return (
     <div className={drag ? "cursor-grabbing" : undefined}>
-      {error ? (
-        <p role="alert" className="mb-3 rounded-2xl bg-danger/10 px-4 py-2.5 text-[13px] font-medium text-danger">
-          {error}
-        </p>
-      ) : null}
-
       <div className="grid gap-3 md:grid-cols-3">
         {BOARD_COLUMNS.map((column) => {
-          const cards = byColumn[column.id];
+          const all = byColumn[column.id];
+          const cards = query ? all.filter(matches) : all;
           const over = drag?.over === column.id && drag.from !== column.id;
           return (
             <section
               key={column.id}
+              id={`column-${column.id}`}
               ref={(el) => {
                 columnRefs.current[column.id] = el;
               }}
               aria-label={column.label}
               className={[
-                "flex min-h-[60dvh] flex-col gap-2 rounded-[24px] p-2 transition-colors",
-                over ? "bg-foreground/8 ring-2 ring-foreground/40" : "bg-surface-secondary/70",
+                "flex min-h-[60dvh] scroll-mt-20 flex-col gap-2 rounded-xl border p-2 transition-colors duration-150",
+                over ? "border-blue-500 bg-blue-50" : "border-neutral-200 bg-neutral-50",
               ].join(" ")}
             >
-              <header className="flex items-center gap-2 px-2 pt-1.5 pb-1">
-                <h2 className="text-[15px] font-semibold">{column.label}</h2>
-                <span className="rounded-full bg-surface px-2 py-0.5 text-[12px] font-semibold tabular-nums">{cards.length}</span>
+              <header className="flex h-8 items-center gap-2 px-2">
+                <span className={["size-2 rounded-full", COLUMN_DOT[column.id]].join(" ")} aria-hidden />
+                <h2 className="text-[14px] font-medium text-neutral-900">{column.label}</h2>
+                <span className="ml-auto text-[13px] tabular-nums text-neutral-500">
+                  {query ? `${cards.length} of ${all.length}` : all.length}
+                </span>
               </header>
 
               {cards.length === 0 ? (
-                <p className="px-2 py-6 text-center text-[13px] text-muted">
-                  {column.id === "new" ? "No new orders." : column.id === "accepted" ? "Nothing cooking." : "Nothing waiting."}
+                <p className="px-2 py-10 text-center text-[13px] text-neutral-500">
+                  {query && all.length > 0
+                    ? "No matches in this column."
+                    : column.id === "new"
+                      ? "No new orders."
+                      : column.id === "accepted"
+                        ? "Nothing cooking."
+                        : "Nothing waiting."}
                 </p>
               ) : null}
 
@@ -241,6 +297,8 @@ export function Kanban({ stadiumSlug, orders }: Props) {
                     <OrderCard
                       order={order}
                       now={now}
+                      prep={preps[order.orderNumber] ?? DEFAULT_PREP_MINUTES}
+                      onPrep={(minutes) => setPreps((prev) => ({ ...prev, [order.orderNumber]: minutes }))}
                       onChange={(change) => apply(order, change)}
                       onDecline={() => setDeclining(order.orderNumber)}
                     />
@@ -258,7 +316,15 @@ export function Kanban({ stadiumSlug, orders }: Props) {
           className="pointer-events-none fixed z-50 rotate-1 scale-[1.02]"
           style={{ left: drag.x - drag.dx, top: drag.y - drag.dy, width: drag.width }}
         >
-          <OrderCard order={dragging} now={now} ghost onChange={() => undefined} onDecline={() => undefined} />
+          <OrderCard
+            order={dragging}
+            now={now}
+            prep={preps[dragging.orderNumber] ?? DEFAULT_PREP_MINUTES}
+            onPrep={() => undefined}
+            ghost
+            onChange={() => undefined}
+            onDecline={() => undefined}
+          />
         </div>
       ) : null}
 

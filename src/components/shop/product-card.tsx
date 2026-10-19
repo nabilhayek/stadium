@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { m } from "framer-motion";
 import { formatCents } from "@/lib/money";
+import { useProductQty } from "@/lib/cart/use-cart";
 import type { MenuProduct } from "@/lib/queries/stadium";
 import { fadeUp } from "@/components/motion/variants";
 import { AddToCartButton } from "./add-to-cart-button";
@@ -29,7 +30,14 @@ export function ProductCard({
   inList = true,
   compact = false,
 }: Props) {
-  const add = (
+  const href = `/${stadiumSlug}/product/${encodeURIComponent(product.id)}`;
+  const add = product.isSoldOut ? (
+    <span className={compact ? "flex shrink-0 justify-end" : "flex w-[6.75rem] shrink-0 justify-end"}>
+      <span className="button button--secondary button--sm pointer-events-none shrink-0 opacity-60">Sold out</span>
+    </span>
+  ) : product.optionGroups.length > 0 ? (
+    <ChooseLink stadiumSlug={stadiumSlug} productId={product.id} name={product.name} href={href} dense={compact} />
+  ) : (
     <AddToCartButton
       stadiumSlug={stadiumSlug}
       dense={compact}
@@ -40,8 +48,6 @@ export function ProductCard({
       }}
     />
   );
-
-  const href = `/${stadiumSlug}/product/${encodeURIComponent(product.id)}`;
   const tile = (
     <ProductMark
       name={product.name}
@@ -122,5 +128,38 @@ export function ProductCard({
 
       {add}
     </m.li>
+  );
+}
+
+/** Products with options are configured on their own page. Shows how many are already in the cart. */
+function ChooseLink({
+  stadiumSlug,
+  productId,
+  name,
+  href,
+  dense,
+}: {
+  stadiumSlug: string;
+  productId: string;
+  name: string;
+  href: string;
+  dense: boolean;
+}) {
+  const inCart = useProductQty(stadiumSlug, productId);
+  return (
+    <span className={dense ? "flex shrink-0 justify-end" : "flex w-[6.75rem] shrink-0 justify-end"}>
+      <Link
+        href={href}
+        aria-label={inCart ? `${name}, ${inCart} in cart. Add another` : `Choose options for ${name}`}
+        className="button button--primary button--sm shrink-0 gap-1.5 active:scale-[0.92]"
+      >
+        {inCart ? (
+          <span className="grid size-5 place-items-center rounded-full bg-white/20 text-[12px] font-semibold tabular-nums">
+            {inCart}
+          </span>
+        ) : null}
+        Add
+      </Link>
+    </span>
   );
 }

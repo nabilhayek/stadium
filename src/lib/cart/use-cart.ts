@@ -15,11 +15,21 @@ export function useCart(stadiumSlug: string) {
 }
 
 /** Cheaper subscription for a single line — product cards re-render only when their own qty changes. */
-export function useCartQty(stadiumSlug: string, productId: string): number {
+export function useCartQty(stadiumSlug: string, key: string): number {
   const store = getCartStore(stadiumSlug);
   return useSyncExternalStore(
     store.subscribe,
-    () => store.getSnapshot().lines.find((l) => l.productId === productId)?.qty ?? 0,
+    () => store.getSnapshot().lines.find((l) => l.key === key)?.qty ?? 0,
+    () => 0,
+  );
+}
+
+/** Every line of one product, whatever the options. */
+export function useProductQty(stadiumSlug: string, productId: string): number {
+  const store = getCartStore(stadiumSlug);
+  return useSyncExternalStore(
+    store.subscribe,
+    () => store.getSnapshot().lines.reduce((n, l) => (l.productId === productId ? n + l.qty : n), 0),
     () => 0,
   );
 }

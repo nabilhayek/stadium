@@ -34,7 +34,7 @@ export function ProductMark({ name, categoryId, imageUrl, className, sizes, prio
         height={600}
         sizes={sizes}
         priority={priority}
-        className={["object-cover", className].join(" ")}
+        className={["bg-photo object-contain", className].join(" ")}
       />
     );
   }

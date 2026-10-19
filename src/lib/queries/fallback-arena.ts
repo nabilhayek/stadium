@@ -1,13 +1,18 @@
-import { descriptionFor } from "@/lib/menu/nutrition";
+import { descriptionFor, type Nutrition } from "@/lib/menu/nutrition";
+import type { MenuOptionGroup } from "@/lib/menu/options";
 
 function item(id: string, name: string, priceCents: number, categoryId: string) {
   return {
     id,
     name,
     description: descriptionFor(name),
-    imageUrl: null as null,
+    imageUrl: null as string | null,
     priceCents,
     categoryId,
+    isSoldOut: false,
+    nutrition: null as Nutrition | null,
+    allergens: [] as string[],
+    optionGroups: [] as MenuOptionGroup[],
   };
 }
 

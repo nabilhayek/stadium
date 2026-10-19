@@ -3,12 +3,13 @@ import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaClient } from "@/generated/prisma/client";
+import { postgresConnectionString } from "@/lib/pg-url";
 
 const globalForAuth = globalThis as unknown as { authPrisma?: PrismaClient };
 
 function createPrisma() {
   return new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+    adapter: new PrismaPg({ connectionString: postgresConnectionString(process.env.DATABASE_URL) }),
   });
 }
 
@@ -21,7 +22,7 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL,
-  trustedOrigins: [baseURL],
+  trustedOrigins: process.env.NODE_ENV === "production" ? [baseURL] : [baseURL, "http://localhost:3000"],
   emailAndPassword: { enabled: true },
   databaseHooks: {
     user: {

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getStadiumMenu } from "@/lib/queries/stadium";
+import { api } from "@/server/trpc/server";
 import { OrderHistory } from "@/components/shop/order-history";
 import { catalogFromProducts } from "@/lib/menu/catalog";
 
@@ -11,7 +11,7 @@ export const dynamicParams = true;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { stadium } = await params;
-  const menu = await getStadiumMenu(stadium);
+  const menu = await api.stadium.menu({ slug: stadium });
   if (!menu) return { title: "Order history" };
   return {
     title: `Order history · ${menu.name}`,
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function OrdersPage({ params }: Props) {
   const { stadium: slug } = await params;
-  const menu = await getStadiumMenu(slug);
+  const menu = await api.stadium.menu({ slug });
   if (!menu) notFound();
 
   return (

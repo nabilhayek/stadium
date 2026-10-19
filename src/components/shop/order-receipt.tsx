@@ -9,6 +9,7 @@ import { fadeUp, stagger } from "@/components/motion/variants";
 import { BackLink } from "@/components/ui/back-link";
 import { SameAgain } from "./same-again";
 import type { CatalogItem } from "@/lib/menu/catalog";
+import { optionSummary } from "@/lib/menu/options";
 
 type Props = {
   order: Receipt;
@@ -47,12 +48,15 @@ export function OrderReceipt({ order, stadiumSlug, currency, catalog }: Props) {
 
       <m.section variants={fadeUp} className="rounded-[20px] border border-border bg-surface px-5 py-4">
         <ul className="rule">
-          {order.lines.map((line) => (
-            <li key={line.productId} className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+          {order.lines.map((line, i) => (
+            <li key={`${line.productId}-${i}`} className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
               <span className="min-w-0">
                 <span className="block truncate text-[15px] font-medium">
                   {line.qty} × {line.name}
                 </span>
+                {line.options?.length ? (
+                  <span className="block text-[13px] text-muted">{optionSummary(line.options)}</span>
+                ) : null}
                 {line.note ? <span className="block truncate text-[13px] text-muted">{line.note}</span> : null}
               </span>
             </li>

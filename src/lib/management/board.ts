@@ -61,7 +61,7 @@ export function fromDbStatus(status: string): KitchenStatus {
   return "new";
 }
 
-export type DeskLine = { qty: number; name: string; note?: string };
+export type DeskLine = { qty: number; name: string; options?: string[]; note?: string; unitCents?: number };
 
 export type DeskOrder = {
   orderNumber: string;
@@ -69,6 +69,8 @@ export type DeskOrder = {
   paidAt: number;
   /** Kitchen-owned ETA. Moves when the desk picks a prep time. */
   readyAt: number;
+  /** When this order entered In progress. Null until then. */
+  acceptedAt: number | null;
   scheduledAt: number | null;
   totalCents: number;
   currency: string;
@@ -86,3 +88,22 @@ export type KitchenChange =
   | { to: "ready" }
   | { to: "done" }
   | { to: "declined"; reason: string };
+
+/**
+ * The in-progress clock, shared by the desk button and the server.
+ * The ring is this window: full at `acceptedAt`, empty at `readyAt`.
+ */
+export function previewAccept(
+  order: { readyAt: number; scheduledAt: number | null },
+  prepMinutes: number | undefined,
+  now: number,
+): { readyAt: number; acceptedAt: number } | null {
+  if (order.scheduledAt != null) return { readyAt: order.scheduledAt, acceptedAt: now };
+  if (prepMinutes !== undefined) {
+    const prep = Math.floor(prepMinutes);
+    if (!Number.isFinite(prep) || prep < 1 || prep > 120) return null;
+    return { readyAt: now + prep * 60_000, acceptedAt: now };
+  }
+  if (order.readyAt <= now) return { readyAt: now + DEFAULT_PREP_MINUTES * 60_000, acceptedAt: now };
+  return { readyAt: order.readyAt, acceptedAt: now };
+}

@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { LoginForm } from "@/components/management/login-form";
 import { authPrisma } from "@/lib/auth";
 import { kitchenSession } from "@/lib/management/session";
-import { getStadiumMenu } from "@/lib/queries/stadium";
+import { api } from "@/server/trpc/server";
 
 type Props = { params: Promise<{ stadium: string }> };
 
@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Kitchen sign in" };
 
 export default async function KitchenLoginPage({ params }: Props) {
   const { stadium } = await params;
-  const menu = await getStadiumMenu(stadium);
+  const menu = await api.stadium.menu({ slug: stadium });
   if (!menu) notFound();
 
   const session = await kitchenSession();

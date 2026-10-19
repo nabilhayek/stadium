@@ -10,16 +10,11 @@
 
 import { getDeviceId } from "@/lib/device";
 import { writeStorage } from "@/lib/hooks/use-storage";
+import { httpStatus, trpc } from "@/lib/trpc/client";
 import { readPastOrders, recordPastOrder } from "./past";
 import { writeReceipt, type Receipt } from "./receipt";
-import { toReceipt } from "./shape";
 
 const QUEUE_KEY = "order-sync:v1";
-
-function orderUrl(orderNumber: string, stadiumSlug?: string) {
-  const base = `/api/orders/${encodeURIComponent(orderNumber)}`;
-  return stadiumSlug ? `${base}?stadium=${encodeURIComponent(stadiumSlug)}` : base;
-}
 
 function readQueue(): string[] {
   try {
@@ -69,18 +64,14 @@ export function flushOrderSync(): Promise<void> {
         continue;
       }
       try {
-        const res = await fetch(orderUrl(orderNumber), {
-          method: "PUT",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(receipt),
-          keepalive: true,
-        });
-        const settled = res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429);
-        if (!settled) return;
-        writeQueue(readQueue().filter((k) => k !== key));
-      } catch {
-        return; // offline — the `online` event will call us again
+        await trpc.orders.put.mutate(receipt);
+      } catch (error) {
+        // A 4xx means the server will never take this copy; anything else is worth another go.
+        const status = httpStatus(error);
+        const settled = status !== null && status >= 400 && status < 500 && status !== 429;
+        if (!settled) return; // offline — the `online` event will call us again
       }
+      writeQueue(readQueue().filter((k) => k !== key));
     }
   })().finally(() => {
     inflight = null;
@@ -97,14 +88,10 @@ export type FetchResult =
 /** Server fallback for one order. Saves nothing — the caller decides what to keep. */
 export async function fetchReceipt(stadiumSlug: string, orderNumber: string): Promise<FetchResult> {
   try {
-    const res = await fetch(orderUrl(orderNumber, stadiumSlug), { cache: "no-store" });
-    if (res.status === 404 || res.status === 400) return { status: "missing" };
-    if (!res.ok) return { status: "offline" };
-    const data = (await res.json()) as { receipt?: unknown };
-    const receipt = toReceipt(data.receipt);
+    const receipt = await trpc.orders.get.query({ stadium: stadiumSlug, orderNumber });
     return receipt ? { status: "found", receipt } : { status: "missing" };
-  } catch {
-    return { status: "offline" };
+  } catch (error) {
+    return httpStatus(error) === 400 ? { status: "missing" } : { status: "offline" };
   }
 }
 
@@ -116,11 +103,7 @@ export async function restoreDeviceHistory(stadiumSlug: string): Promise<number 
   const device = getDeviceId();
   if (!device) return null;
   try {
-    const url = `/api/orders?stadium=${encodeURIComponent(stadiumSlug)}&device=${encodeURIComponent(device)}`;
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { receipts?: unknown[] };
-    const remote = (data.receipts ?? []).map(toReceipt).filter((r): r is Receipt => r !== null);
+    const remote = await trpc.orders.history.query({ stadium: stadiumSlug, device });
     const local = new Set(readPastOrders(stadiumSlug).map((o) => o.orderNumber));
     let restored = 0;
     for (const receipt of remote) {

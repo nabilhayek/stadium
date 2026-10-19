@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, signUp } from "@/lib/auth-client";
+import { useToast } from "@/components/toast/toast-provider";
 
 type Props = { stadiumSlug: string; canRegister: boolean };
 
@@ -12,13 +13,12 @@ export function LoginForm({ stadiumSlug, canRegister }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const { toast } = useToast();
   const next = `/${stadiumSlug}/management`;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
     setPending(true);
     const result =
       mode === "create"
@@ -26,7 +26,7 @@ export function LoginForm({ stadiumSlug, canRegister }: Props) {
         : await signIn.email({ email, password, callbackURL: next });
     setPending(false);
     if (result.error) {
-      setError(result.error.message ?? "Could not sign in.");
+      toast({ message: result.error.message ?? "Could not sign in.", status: "error" });
       return;
     }
     router.push(next);
@@ -70,7 +70,6 @@ export function LoginForm({ stadiumSlug, canRegister }: Props) {
           className="input input--secondary mt-1.5 min-h-12 w-full rounded-2xl border border-border bg-surface px-4 text-[15px]"
         />
       </label>
-      {error ? <p className="text-[13px] text-danger">{error}</p> : null}
       <button type="submit" disabled={pending} className="button button--primary button--lg mt-2 w-full">
         {pending ? "Please wait" : mode === "create" ? "Create kitchen account" : "Sign in"}
       </button>

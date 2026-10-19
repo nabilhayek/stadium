@@ -36,6 +36,9 @@
 
     --muted: #6b6b66;
 
+    /* Behind product photos, which are shown whole (contain) and letterboxed. */
+    --photo: var(--surface-secondary);
+
     --default: #ecece8;
     --default-foreground: var(--foreground);
 
@@ -58,6 +61,27 @@
 @theme inline {
   --font-sans: var(--font-sans-face), sans-serif;
   --font-display: var(--font-display-face), var(--font-sans-face), sans-serif;
+  --color-photo: var(--photo);
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
 }
 
 @layer base {
@@ -156,6 +180,43 @@
   100% {
     transform: scale(2.6);
     opacity: 0;
+  }
+}
+
+/* Kitchen desk overlays: sheet, dialogs. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes sheet-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+@keyframes sheet-out {
+  to {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+@keyframes pop-in {
+  from {
+    transform: translate(-50%, -48%) scale(0.97);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="sheet-content"],
+  [data-slot="sheet-overlay"],
+  [data-slot="alert-dialog-content"] {
+    animation-duration: 1ms !important;
   }
 }
 

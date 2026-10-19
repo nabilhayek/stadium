@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { getActiveStadiums } from "@/lib/queries/stadium";
+import { api } from "@/server/trpc/server";
 
 export const revalidate = 60;
 
@@ -9,7 +9,7 @@ export const revalidate = 60;
  * This page is a plain fallback / directory.
  */
 export default async function HomePage() {
-  const stadiums = await getActiveStadiums();
+  const stadiums = await api.stadium.active();
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 py-12">

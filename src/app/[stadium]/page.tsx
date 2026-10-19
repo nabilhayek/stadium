@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getActiveStadiums, getStadiumMenu } from "@/lib/queries/stadium";
+import { api } from "@/server/trpc/server";
 import { Menu } from "@/components/shop/menu";
 import { CartBar } from "@/components/shop/cart-bar";
 import { Hero } from "@/components/shop/hero";
@@ -18,7 +18,7 @@ export const dynamicParams = true;
 
 export async function generateStaticParams() {
   try {
-    const stadiums = await getActiveStadiums();
+    const stadiums = await api.stadium.active();
     return stadiums.map((s) => ({ stadium: s.slug }));
   } catch {
     // No DB at build time (e.g. CI) — fall back to on-demand rendering.
@@ -28,7 +28,7 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { stadium } = await params;
-  const menu = await getStadiumMenu(stadium);
+  const menu = await api.stadium.menu({ slug: stadium });
   if (!menu) return { title: "Not found" };
   return {
     title: menu.name,
@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function StadiumShopPage({ params, searchParams }: Props) {
   const { stadium: slug } = await params;
   const query = await searchParams;
-  const menu = await getStadiumMenu(slug);
+  const menu = await api.stadium.menu({ slug });
   if (!menu) notFound();
 
   return (

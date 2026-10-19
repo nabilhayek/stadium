@@ -30,8 +30,27 @@ model Stadium {
   sections Section[]
   orders   Order[]
   receipts Receipt[]
+  payments Payment[]
+  seatMap  SeatMap?
 
   @@index([isActive])
+}
+
+/// The 2D venue drawing. One per stadium. `draft` is what the designer edits;
+/// `published` is what other surfaces read. Both hold a versioned document
+/// validated by src/lib/seatmap/schema.ts.
+model SeatMap {
+  id          String    @id @default(cuid())
+  stadiumId   String    @unique
+  draft       Json
+  published   Json?
+  publishedAt DateTime?
+  /// Bumped on every draft save; a stale tab can't overwrite newer work.
+  revision    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  stadium Stadium @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
 }
 
 /// Where a paid order sits on the kitchen desk. NEW, ACCEPTED (in progress) and
@@ -116,17 +135,106 @@ model Product {
   imageUrl    String?
   /// Minor units (cents). Never store floats for money.
   priceCents  Int
+  /// False hides the product from the shop. The kitchen calls this "disabled".
   isAvailable Boolean  @default(true)
+  /// Still listed, but cannot be added to a cart.
+  isSoldOut   Boolean  @default(false)
+  /// `{ per: { amount, unit }, kcal, fatG, carbsG, sugarG?, proteinG, saltG? }`, see lib/menu/nutrition.ts.
+  nutrition   Json?
+  allergens   String[] @default([])
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  stadium    Stadium     @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
-  category   Category    @relation(fields: [categoryId], references: [id])
-  orderItems OrderItem[]
+  stadium      Stadium       @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
+  category     Category      @relation(fields: [categoryId], references: [id])
+  orderItems   OrderItem[]
+  optionGroups OptionGroup[]
 
   @@index([stadiumId, isAvailable, sortOrder])
   @@index([categoryId])
+}
+
+enum OptionSelection {
+  /// Radio buttons: at most one option.
+  SINGLE
+  /// Checkboxes: any number, up to `maxSelect`.
+  MULTIPLE
+}
+
+/// A set of choices on a product, e.g. "Sauces" or "Drink".
+model OptionGroup {
+  id        String          @id @default(cuid())
+  productId String
+  name      String
+  selection OptionSelection
+  /// SINGLE: one option must be picked. MULTIPLE: at least one.
+  required  Boolean         @default(false)
+  /// MULTIPLE only. Null means no limit.
+  maxSelect Int?
+  sortOrder Int             @default(0)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  product Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  options Option[]
+
+  @@index([productId, sortOrder])
+}
+
+model Option {
+  id         String   @id @default(cuid())
+  groupId    String
+  name       String
+  /// Added to the product price. Negative lowers it, zero leaves it.
+  priceCents Int      @default(0)
+  /// Pre-selected on the product page.
+  isDefault  Boolean  @default(false)
+  isSoldOut  Boolean  @default(false)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  group OptionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, sortOrder])
+}
+
+/// Where a Stripe PaymentIntent sits. The phone never decides this.
+enum PaymentState {
+  REQUIRES_PAYMENT
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELED
+  REFUNDED
+}
+
+/// One Stripe charge. Checkout creates the first; a second-round drink creates another.
+/// `draft` is the server-priced order so a webhook can finish it if the phone drops.
+model Payment {
+  id               String       @id @default(cuid())
+  stadiumId        String
+  paymentIntentId  String       @unique
+  /// Same key on retry, so a flaky request cannot open a second charge.
+  idempotencyKey   String       @unique
+  orderNumber      String
+  amountCents      Int
+  currency         String
+  state            PaymentState @default(REQUIRES_PAYMENT)
+  stripeStatus     String
+  declineCode      String?
+  stripeCustomerId String?
+  draft            Json
+  /// Set once this charge has been written onto the receipt.
+  applied          Boolean      @default(false)
+  refundId         String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  stadium Stadium @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
+
+  @@index([stadiumId, orderNumber])
 }
 
 enum OrderStatus {

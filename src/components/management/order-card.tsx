@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bike, CalendarClock, MoreHorizontal, ShoppingBag, X } from "lucide-react";
+import { AlertTriangle, Bike, CalendarClock, Check, MessageSquare, MoreHorizontal, ShoppingBag } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { formatCents } from "@/lib/money";
-import { formatClock, formatRemain } from "@/lib/orders/receipt";
+import { formatRemain } from "@/lib/orders/receipt";
 import {
   ACCEPT_WINDOW_MS,
   DEFAULT_PREP_MINUTES,
@@ -15,176 +16,202 @@ import {
 type Props = {
   order: DeskOrder;
   now: number;
+  /** Prep chosen on this card. A drag uses the same value as Accept. */
+  prep: number;
+  onPrep: (minutes: number) => void;
   /** Ghost cards follow the pointer and take no input. */
   ghost?: boolean;
   onChange: (change: KitchenChange) => void;
   onDecline: () => void;
 };
 
-export function OrderCard({ order, now, ghost = false, onChange, onDecline }: Props) {
-  const [prep, setPrep] = useState<number>(DEFAULT_PREP_MINUTES);
+export function OrderCard({ order, now, prep, onPrep, ghost = false, onChange, onDecline }: Props) {
   const [menu, setMenu] = useState(false);
   const items = order.lines.reduce((n, l) => n + l.qty, 0);
   const delivery = order.fulfillment === "delivery";
+  const slot = order.scheduledAt;
+  const scheduled = slot != null;
+  const asapLate = !scheduled && order.status === "new" && now > 0 && now - order.paidAt > ACCEPT_WINDOW_MS;
+  const slotLeft = slot != null && now > 0 ? slot - now : null;
+  const dueSoon = scheduled && order.status === "new" && slotLeft != null && slotLeft <= DEFAULT_PREP_MINUTES * 60_000;
+  const slotOverdue = scheduled && order.status !== "ready" && slotLeft != null && slotLeft <= 0;
+  const prepOverdue = !scheduled && order.status === "accepted" && now > 0 && now >= order.readyAt;
+  const warned = asapLate || dueSoon || slotOverdue || prepOverdue;
+  const actionFill =
+    order.status === "new" && (asapLate || dueSoon) ? "bg-orange-500!" : order.status === "ready" ? "bg-green-500!" : "bg-blue-500!";
 
   return (
     <article
       aria-label={`Order ${order.orderNumber}`}
       className={[
-        "relative select-none rounded-[20px] border border-border bg-surface p-3.5 shadow-[var(--surface-shadow)]",
-        ghost ? "shadow-[0_18px_40px_-16px_rgba(17,17,17,0.45)]" : "",
+        "relative select-none rounded-[20px] border-2 bg-surface shadow-surface",
+        warned ? "border-orange-500" : "border-neutral-300",
+        ghost ? "shadow-2xl" : "",
       ].join(" ")}
       style={{ WebkitTouchCallout: "none" }}
     >
-      <header className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="font-display text-[19px] font-semibold leading-none tracking-tight">#{order.orderNumber}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <Chip>
-              {delivery ? (
-                <Bike className="size-3.5" strokeWidth={2} aria-hidden />
-              ) : (
-                <ShoppingBag className="size-3.5" strokeWidth={2} aria-hidden />
-              )}
-              {delivery ? "Delivery" : "Pickup"}
-            </Chip>
-            {order.scheduledAt ? (
-              <Chip tone="violet">
-                <CalendarClock className="size-3.5" strokeWidth={2} aria-hidden />
-                Scheduled {formatClock(order.scheduledAt)}
+      <div className="p-3.5">
+        <header className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-display text-[19px] font-semibold leading-none tracking-tight">#{order.orderNumber}</p>
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              <Chip className={delivery ? "bg-blue-600 text-white" : "bg-emerald-600 text-white"}>
+                {delivery ? (
+                  <Bike className="size-3.5" strokeWidth={2.2} aria-hidden />
+                ) : (
+                  <ShoppingBag className="size-3.5" strokeWidth={2.2} aria-hidden />
+                )}
+                {delivery ? "Delivery" : "Pick-up"}
               </Chip>
-            ) : null}
-            <Chip>{formatClock(order.paidAt)}</Chip>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-start gap-1.5">
-          <Timer order={order} now={now} />
-          {!ghost ? (
-            <div className="relative" data-no-drag>
-              <button
-                type="button"
-                aria-label="More actions"
-                aria-haspopup="menu"
-                aria-expanded={menu}
-                onClick={() => setMenu((v) => !v)}
-                className="grid size-8 place-items-center rounded-full bg-surface-secondary text-foreground"
-              >
-                <MoreHorizontal className="size-4" strokeWidth={2} aria-hidden />
-              </button>
-              {menu ? (
-                <Menu onClose={() => setMenu(false)}>
-                  {order.status !== "new" ? (
-                    <MenuItem
-                      onSelect={() => {
-                        setMenu(false);
-                        onChange({ to: order.status === "ready" ? "accepted" : "new" });
-                      }}
-                    >
-                      {order.status === "ready" ? "Back to in progress" : "Back to new"}
-                    </MenuItem>
-                  ) : null}
-                  <MenuItem
-                    tone="danger"
-                    onSelect={() => {
-                      setMenu(false);
-                      onDecline();
-                    }}
-                  >
-                    Decline order
-                  </MenuItem>
-                </Menu>
+              {scheduled && order.scheduledAt ? (
+                <Chip className="bg-violet-600 text-white">
+                  <CalendarClock className="size-3.5" strokeWidth={2.2} aria-hidden />
+                  Scheduled
+                </Chip>
               ) : null}
             </div>
-          ) : null}
-        </div>
-      </header>
+          </div>
+          <Timer order={order} now={now} late={asapLate} />
+        </header>
 
-      {delivery ? (
-        <p className="mt-2.5 text-[13px] text-muted">
-          {order.seat ?? "Seat delivery"}
-          {order.runnerNote ? <span className="block text-foreground">“{order.runnerNote}”</span> : null}
-        </p>
-      ) : null}
+        {order.runnerNote ? (
+          <div className="mt-3 flex gap-2 rounded-2xl bg-neutral-100 px-3 py-2.5 text-[13px] leading-snug text-neutral-600">
+            <MessageSquare className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+            <p>{order.runnerNote}</p>
+          </div>
+        ) : null}
 
-      <ul className="rule mt-3 border-y border-separator">
-        {order.lines.map((line, i) => (
-          <li key={i} className="flex gap-2 py-2 text-[14px]">
-            <span className="inline-block min-w-6 shrink-0 rounded-md bg-surface-secondary px-1 text-center text-[12px] font-semibold leading-5 tabular-nums">
-              {line.qty}×
-            </span>
-            <span className="min-w-0">
-              <span className="block font-medium leading-5">{line.name}</span>
-              {line.note ? <span className="block text-[12px] text-muted">{line.note}</span> : null}
-            </span>
-          </li>
-        ))}
-      </ul>
+        {asapLate ? (
+          <div className="mt-3 flex items-center gap-2 rounded-2xl bg-orange-100 px-3 py-2.5 text-[13px] font-medium text-orange-600">
+            <AlertTriangle className="size-4 shrink-0" strokeWidth={2.2} aria-hidden />
+            Waiting for {formatWait(now - order.paidAt)}
+          </div>
+        ) : null}
+        {scheduled && (dueSoon || slotOverdue) && slotLeft != null ? (
+          <div className="mt-3 flex items-center gap-2 rounded-2xl bg-orange-100 px-3 py-2.5 text-[13px] font-medium text-orange-600">
+            <AlertTriangle className="size-4 shrink-0" strokeWidth={2.2} aria-hidden />
+            {dueText(slotLeft)}
+          </div>
+        ) : null}
 
-      <div className="mt-2.5 flex items-center justify-between text-[12px] text-muted">
-        <span className="tabular-nums">
-          {formatCents(order.totalCents, order.currency)} · {items} item{items === 1 ? "" : "s"}
-        </span>
-        <span className="tabular-nums">
-          Code <span className="font-semibold text-foreground">{order.confirmCode}</span>
-        </span>
-      </div>
-
-      {!ghost ? (
-        <div className="mt-3" data-no-drag>
-          {order.status === "new" ? (
-            <>
-              <div role="radiogroup" aria-label="Preparation time" className="grid grid-cols-3 gap-1.5">
-                {PREP_MINUTES.map((minutes) => {
-                  const on = prep === minutes;
-                  return (
-                    <button
-                      key={minutes}
-                      type="button"
-                      role="radio"
-                      aria-checked={on}
-                      onClick={() => setPrep(minutes)}
+        <Accordion type="single" collapsible className="mt-3 border-t border-separator" data-no-drag>
+          <AccordionItem value="items" className="border-b-0">
+            <AccordionTrigger className="text-neutral-900 hover:no-underline">
+              <span className="tabular-nums">
+                {formatCents(order.totalCents, order.currency)}
+                <span className="font-normal text-neutral-500">
+                  {" "}
+                  · {items} item{items === 1 ? "" : "s"}
+                </span>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="pb-1">
+              <ul>
+                {order.lines.map((line, i) => (
+                  <li key={i} className="flex gap-2.5 border-t border-separator py-2.5 first:border-t-0">
+                    <span
                       className={[
-                        "rounded-xl py-2 text-center leading-none",
-                        on ? "bg-foreground text-background" : "bg-surface-secondary text-foreground",
+                        "inline-flex h-6 min-w-8 shrink-0 items-center justify-center rounded-lg px-1.5 text-[12px] font-semibold tabular-nums",
+                        line.qty > 1 ? "bg-orange-100 text-orange-600" : "bg-neutral-100 text-neutral-900",
                       ].join(" ")}
                     >
-                      <span className="block text-[17px] font-semibold tabular-nums">{minutes}</span>
-                      <span className={["mt-0.5 block text-[10px] uppercase tracking-wide", on ? "text-background/70" : "text-muted"].join(" ")}>
-                        min
+                      {line.qty}×
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[14px] font-medium leading-5">{line.name}</span>
+                      {line.options?.length ? (
+                        <span className="mt-0.5 block text-[12px] leading-4 text-neutral-700">{line.options.join(" · ")}</span>
+                      ) : null}
+                      {line.note ? <span className="mt-0.5 block text-[12px] leading-4 text-neutral-500">{line.note}</span> : null}
+                    </span>
+                    {line.unitCents != null ? (
+                      <span className="shrink-0 text-[13px] tabular-nums text-neutral-600">
+                        {formatCents(line.unitCents * line.qty, order.currency)}
                       </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="mt-1.5 flex gap-1.5">
-                <button
-                  type="button"
-                  aria-label="Decline order"
-                  onClick={onDecline}
-                  className="grid size-11 shrink-0 place-items-center rounded-full bg-danger/10 text-danger"
-                >
-                  <X className="size-4" strokeWidth={2.4} aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onChange({ to: "accepted", prepMinutes: prep })}
-                  className="button button--primary button--md flex-1"
-                >
-                  Accept
-                </button>
-              </div>
-            </>
-          ) : order.status === "accepted" ? (
-            <button type="button" onClick={() => onChange({ to: "ready" })} className="button button--primary button--md w-full">
-              Ready
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
+        {!ghost ? (
+          <div className="relative mt-3 flex items-center gap-2" data-no-drag>
+            <button
+              type="button"
+              onClick={() =>
+                order.status === "new"
+                  ? onChange(scheduled ? { to: "accepted" } : { to: "accepted", prepMinutes: prep })
+                  : order.status === "accepted"
+                    ? onChange({ to: "ready" })
+                    : onChange({ to: "done" })
+              }
+              className={["flex-1 rounded-xl p-3 text-[17px] font-semibold text-white!", actionFill].join(" ")}
+            >
+              {order.status === "new" ? "Accept" : order.status === "accepted" ? "Ready" : "Picked up"}
             </button>
-          ) : (
-            <button type="button" onClick={() => onChange({ to: "done" })} className="button button--primary button--md w-full">
-              {delivery ? "Handed to runner" : "Picked up"}
+            <button
+              type="button"
+              aria-label="Order details"
+              aria-haspopup="menu"
+              aria-expanded={menu}
+              onClick={() => setMenu((v) => !v)}
+              className="grid shrink-0 place-items-center rounded-xl bg-slate-100! p-3 text-neutral-900!"
+            >
+              <MoreHorizontal className="size-5" strokeWidth={2.2} aria-hidden />
             </button>
-          )}
-        </div>
-      ) : null}
+            {menu ? (
+              <Menu onClose={() => setMenu(false)}>
+                {order.status === "new" && !scheduled ? (
+                  <div className="px-1 p-1">
+                    <p className="px-1.5 pb-1.5 text-[12px] font-semibold text-neutral-500">Prep time</p>
+                    <div role="radiogroup" aria-label="Preparation time" className="grid grid-cols-3 gap-1.5">
+                      {PREP_MINUTES.map((minutes) => {
+                        const selected = prep === minutes;
+                        return (
+                          <button
+                            key={minutes}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            onClick={() => onPrep(minutes)}
+                            className={[
+                              "rounded-xl py-2.5 text-[14px] font-semibold tabular-nums",
+                              selected ? "bg-blue-500! text-white!" : "bg-slate-100! text-neutral-900!",
+                            ].join(" ")}
+                          >
+                            {minutes} min
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+                {order.status !== "new" ? (
+                  <MenuItem
+                    onSelect={() => {
+                      setMenu(false);
+                      onChange({ to: order.status === "ready" ? "accepted" : "new" });
+                    }}
+                  >
+                    {order.status === "ready" ? "Back to in progress" : "Back to new"}
+                  </MenuItem>
+                ) : null}
+                <MenuItem
+                  tone="danger"
+                  onSelect={() => {
+                    setMenu(false);
+                    onDecline();
+                  }}
+                >
+                  Decline order
+                </MenuItem>
+              </Menu>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </article>
   );
 }
@@ -196,62 +223,134 @@ function formatWait(ms: number) {
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 }
 
-/** Column-specific clock: how long a new order has waited, or how long until it's due. */
-function Timer({ order, now }: { order: DeskOrder; now: number }) {
-  if (!now) return null;
-  if (order.status === "new") {
-    const waited = now - order.paidAt;
-    const late = waited > ACCEPT_WINDOW_MS;
-    return (
-      <span
-        className={[
-          "rounded-full px-2.5 py-1.5 text-[12px] font-semibold tabular-nums leading-none",
-          late ? "bg-danger/10 text-danger" : "bg-surface-secondary text-foreground",
-        ].join(" ")}
-        aria-label={`Waiting ${formatWait(waited)}`}
-      >
-        {formatWait(waited)}
-      </span>
-    );
+function dueText(leftMs: number) {
+  if (leftMs <= 0) {
+    const lateMin = Math.floor(-leftMs / 60_000);
+    return lateMin < 1 ? "Due now" : `${lateMin} min late`;
   }
-  if (order.status === "accepted") {
-    const total = Math.max(60_000, order.readyAt - order.paidAt);
-    const left = order.readyAt - now;
-    const progress = Math.min(1, Math.max(0, 1 - left / total));
-    const minutes = Math.ceil(left / 60_000);
-    return (
-      <span className="flex items-center gap-1.5" aria-label={left > 0 ? `${minutes} minutes left` : "Due now"}>
-        <span className="text-[12px] tabular-nums text-muted">{formatClock(order.readyAt)}</span>
-        <Ring progress={progress} late={left <= 0}>
-          <span className={["text-[13px] font-semibold tabular-nums leading-none", left <= 0 ? "text-danger" : ""].join(" ")}>
-            {left > 0 ? minutes : "!"}
-          </span>
-        </Ring>
-      </span>
-    );
-  }
-  return <span className="rounded-full bg-[#22c55e]/15 px-2.5 py-1.5 text-[12px] font-semibold leading-none text-[#15803d]">Ready</span>;
+  const minutes = Math.max(1, Math.ceil(leftMs / 60_000));
+  return `Due in ${minutes} min`;
 }
 
-function Ring({ progress, late, children }: { progress: number; late: boolean; children: React.ReactNode }) {
-  const size = 36;
-  const stroke = 3.5;
+/** Prep ring on the right. Scheduled tickets count down to the picked time. */
+function Timer({ order, now, late }: { order: DeskOrder; now: number; late: boolean }) {
+  if (!now) return null;
+  if (order.status === "ready") {
+    return (
+      <StatusDisc className="bg-green-500" label="Ready">
+        <Check className="size-6" strokeWidth={2.6} aria-hidden />
+      </StatusDisc>
+    );
+  }
+  if (order.scheduledAt != null && order.status === "new") {
+    const left = order.scheduledAt - now;
+    const overdue = left <= 0;
+    const minutes = Math.max(0, Math.ceil(left / 60_000));
+    const total = Math.max(60_000, order.scheduledAt - order.paidAt);
+    return (
+      <ClockRing
+        minutes={overdue ? null : minutes}
+        progress={Math.min(1, Math.max(0, left / total))}
+        clock={ticketClock(order.scheduledAt)}
+        label={overdue ? "Due now" : `${minutes} minutes until ${ticketClock(order.scheduledAt)}`}
+      />
+    );
+  }
+  if (order.status === "new") {
+    const waited = now - order.paidAt;
+    const left = ACCEPT_WINDOW_MS - waited;
+    const minutes = Math.max(0, Math.ceil(left / 60_000));
+    return (
+      <ClockRing
+        minutes={late ? null : minutes}
+        progress={Math.min(1, Math.max(0, left / ACCEPT_WINDOW_MS))}
+        clock={ticketClock(order.paidAt)}
+        label={late ? `Waiting ${formatWait(waited)}` : `${minutes} minutes to accept`}
+      />
+    );
+  }
+  const due = order.scheduledAt ?? order.readyAt;
+  const started = order.acceptedAt != null && order.acceptedAt < due ? order.acceptedAt : due - DEFAULT_PREP_MINUTES * 60_000;
+  const total = Math.max(60_000, due - started);
+  const left = due - now;
+  const overdue = left <= 0;
+  const windowMin = Math.max(1, Math.round(total / 60_000));
+  const minutes = Math.min(windowMin, Math.max(0, Math.ceil(left / 60_000)));
+  return (
+    <ClockRing
+      minutes={overdue ? null : minutes}
+      progress={Math.min(1, Math.max(0, left / total))}
+      clock={ticketClock(due)}
+      label={overdue ? "Due now" : `${minutes} minutes left`}
+    />
+  );
+}
+
+function ClockRing({
+  minutes,
+  progress,
+  clock,
+  label,
+}: {
+  minutes: number | null;
+  progress: number;
+  clock: string;
+  label: string;
+}) {
+  return (
+    <span className="flex w-12 flex-col items-center" aria-label={label}>
+      {minutes == null ? (
+        <StatusDisc className="bg-orange-500">
+          <AlertTriangle className="size-6" strokeWidth={2.4} aria-hidden />
+        </StatusDisc>
+      ) : (
+        <Ring progress={progress}>
+          <span
+            className={[
+              "font-semibold tabular-nums leading-none text-neutral-900",
+              minutes >= 100 ? "text-[13px]" : "text-[15px]",
+            ].join(" ")}
+          >
+            {minutes}
+          </span>
+        </Ring>
+      )}
+      <span className="mt-2 text-[12px] font-semibold tabular-nums leading-none text-neutral-400">{clock}</span>
+    </span>
+  );
+}
+
+function ticketClock(ms: number) {
+  return new Date(ms).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+
+function StatusDisc({ children, className, label }: { children: React.ReactNode; className: string; label?: string }) {
+  return (
+    <span className={["grid size-12 shrink-0 place-items-center rounded-full text-white", className].join(" ")} aria-label={label}>
+      {children}
+    </span>
+  );
+}
+
+function Ring({ progress, children }: { progress: number; children: React.ReactNode }) {
+  const size = 48;
+  const stroke = 6;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   return (
-    <span className="relative grid shrink-0 place-items-center" style={{ width: size, height: size }}>
+    <span className="relative grid size-12 shrink-0 place-items-center">
       <svg width={size} height={size} className="-rotate-90" aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--surface-tertiary)" strokeWidth={stroke} fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={r} className="stroke-green-100" strokeWidth={stroke} fill="none" />
         <circle
           cx={size / 2}
           cy={size / 2}
           r={r}
-          stroke={late ? "var(--color-danger, #dc2626)" : "#22c55e"}
+          className="stroke-green-400"
           strokeWidth={stroke}
           strokeLinecap="round"
           fill="none"
           strokeDasharray={c}
-          strokeDashoffset={c * (1 - progress)}
+          strokeDashoffset={-c * (1 - progress)}
           style={{ transition: "stroke-dashoffset 1s linear" }}
         />
       </svg>
@@ -260,14 +359,9 @@ function Ring({ progress, late, children }: { progress: number; late: boolean; c
   );
 }
 
-function Chip({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "violet" }) {
+function Chip({ children, className }: { children: React.ReactNode; className: string }) {
   return (
-    <span
-      className={[
-        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium leading-none",
-        tone === "violet" ? "bg-[#6a4cf5]/12 text-[#4b34c4]" : "bg-surface-secondary text-foreground",
-      ].join(" ")}
-    >
+    <span className={["inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[12px] font-semibold leading-none", className].join(" ")}>
       {children}
     </span>
   );
@@ -293,7 +387,7 @@ function Menu({ children, onClose }: { children: React.ReactNode; onClose: () =>
     <div
       ref={ref}
       role="menu"
-      className="absolute right-0 top-full z-20 mt-1.5 min-w-44 overflow-hidden rounded-2xl border border-border bg-overlay p-1 shadow-[var(--overlay-shadow)]"
+      className="absolute right-0 top-full z-20 mt-1.5 min-w-60 overflow-hidden rounded-2xl border border-border bg-overlay p-1 shadow-overlay"
     >
       {children}
     </div>

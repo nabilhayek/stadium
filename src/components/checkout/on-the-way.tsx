@@ -21,7 +21,9 @@ import {
 } from "@/lib/orders/receipt";
 import { commitReceipt } from "@/lib/orders/sync";
 import type { CatalogItem } from "@/lib/menu/catalog";
+import { optionSummary } from "@/lib/menu/options";
 import { SecondRound } from "./second-round";
+import { useToast } from "@/components/toast/toast-provider";
 
 type Props = {
   receipt: Receipt;
@@ -42,7 +44,8 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
   const [note, setNote] = useState(initial.runnerNote);
   const [savedNote, setSavedNote] = useState(false);
   const [email, setEmail] = useState(initial.email ?? "");
-  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailInvalid, setEmailInvalid] = useState(false);
+  const { toast } = useToast();
   const [editingEmail, setEditingEmail] = useState(!initial.email);
 
   const total = Math.max(1, receipt.readyAt - receipt.paidAt);
@@ -85,10 +88,11 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
   function saveEmail(e: FormEvent) {
     e.preventDefault();
     if (!isValidEmail(email)) {
-      setEmailError("That email does not look right.");
+      setEmailInvalid(true);
+      toast({ message: "That email does not look right.", status: "error" });
       return;
     }
-    setEmailError(null);
+    setEmailInvalid(false);
     // Sending is wired up later — for now the address travels with the receipt.
     update({ email: email.trim() });
     setEditingEmail(false);
@@ -127,8 +131,8 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
 
         <m.section variants={fadeUp} className="rounded-[20px] border border-border bg-surface px-4">
           <ul className="rule">
-            {receipt.lines.map((l) => (
-              <li key={l.productId} className="flex items-baseline gap-2 py-3 text-[15px] text-muted">
+            {receipt.lines.map((l, i) => (
+              <li key={`${l.productId}-${i}`} className="flex items-baseline gap-2 py-3 text-[15px] text-muted">
                 <span className="inline-block min-w-5 rounded-md bg-surface-secondary px-1 text-center text-[12px] font-semibold tabular-nums">
                   {l.qty}
                 </span>
@@ -374,28 +378,15 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
-                    if (emailError) setEmailError(null);
+                    if (emailInvalid) setEmailInvalid(false);
                   }}
-                  aria-invalid={emailError ? true : undefined}
+                  aria-invalid={emailInvalid || undefined}
                   className="input input--secondary input--full-width min-h-11 rounded-xl"
                 />
                 <PillButton type="submit" size="md" variant="primary" className="shrink-0">
                   Send
                 </PillButton>
               </div>
-              <AnimatePresence>
-                {emailError ? (
-                  <m.p
-                    key="err"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="overflow-hidden text-[13px] text-danger"
-                  >
-                    <span className="block pt-2">{emailError}</span>
-                  </m.p>
-                ) : null}
-              </AnimatePresence>
             </m.form>
           ) : (
             <m.div
@@ -419,13 +410,16 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
 
       <m.section variants={fadeUp} className="rounded-[20px] border border-border bg-surface px-4">
         <ul className="rule">
-          {receipt.lines.map((l) => (
-            <li key={l.productId} className="flex items-baseline justify-between gap-3 py-3 text-[15px]">
+          {receipt.lines.map((l, i) => (
+            <li key={`${l.productId}-${i}`} className="flex items-baseline justify-between gap-3 py-3 text-[15px]">
               <span className="min-w-0">
                 <span className="mr-1 inline-block min-w-5 rounded-md bg-surface-secondary px-1 text-center text-[12px] font-semibold tabular-nums">
                   {l.qty}
                 </span>
                 <span className="font-medium">{l.name}</span>
+                {l.options?.length ? (
+                  <span className="mt-0.5 block text-[13px] text-muted">{optionSummary(l.options)}</span>
+                ) : null}
                 {l.note ? <span className="mt-0.5 block text-[13px] text-muted">{l.note}</span> : null}
               </span>
             </li>

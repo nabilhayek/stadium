@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart/use-cart";
 import { cartTotals, type CartLine } from "@/lib/cart/store";
 import { formatCents } from "@/lib/money";
+import { optionSummary } from "@/lib/menu/options";
 import { EASE } from "@/components/motion/variants";
 
 type Props = {
@@ -43,11 +44,11 @@ export function CartDrawer({ stadiumSlug, currency, isOpen, onOpenChange }: Prop
               <ul className="flex flex-col gap-2">
                 {state.lines.map((line) => (
                   <CartLineRow
-                    key={line.productId}
+                    key={line.key}
                     line={line}
                     currency={currency}
-                    onQty={(qty) => store.setQty(line.productId, qty)}
-                    onNote={(note) => store.setNote(line.productId, note)}
+                    onQty={(qty) => store.setQty(line.key, qty)}
+                    onNote={(note) => store.setNote(line.key, note)}
                   />
                 ))}
               </ul>
@@ -108,6 +109,9 @@ function CartLineRow({
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-medium">{line.name}</p>
+          {line.options?.length ? (
+            <p className="line-clamp-2 text-[13px] leading-snug text-muted">{optionSummary(line.options)}</p>
+          ) : null}
           <p className="text-[13px] tabular-nums text-muted">{formatCents(line.unitCents, currency)}</p>
         </div>
         <button
@@ -168,7 +172,7 @@ function CartLineRow({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.22, ease: EASE }}
-            className="block overflow-hidden"
+            className="block overflow-hidden p-1"
           >
             <span className="sr-only">Special instructions for {line.name}</span>
             <input

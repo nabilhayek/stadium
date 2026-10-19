@@ -1,19 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, Instrument_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import { SwRegister } from "@/components/pwa/sw-register";
 import { MotionProvider } from "@/components/motion/motion";
+import { ToastProvider } from "@/components/toast/toast-provider";
+import { TRPCReactProvider } from "@/lib/trpc/react";
 import "./globals.css";
 
-const display = Instrument_Sans({
-  subsets: ["latin"],
-  weight: ["600", "700"],
+const display = localFont({
+  src: "../fonts/instrument-sans-latin.woff2",
+  weight: "600 700",
   variable: "--font-display-face",
   display: "swap",
 });
 
-const sans = DM_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+const sans = localFont({
+  src: "../fonts/dm-sans-latin.woff2",
+  weight: "400 700",
   variable: "--font-sans-face",
   display: "swap",
 });
@@ -46,7 +48,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" data-theme="light" className={`${display.variable} ${sans.variable}`}>
       <body className="bg-background text-foreground">
-        <MotionProvider>{children}</MotionProvider>
+        <TRPCReactProvider>
+          <MotionProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </MotionProvider>
+        </TRPCReactProvider>
         <SwRegister />
       </body>
     </html>

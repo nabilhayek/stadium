@@ -3,6 +3,7 @@
  * here on purpose — this file runs in both worlds.
  */
 
+import type { ChosenOption } from "@/lib/menu/options";
 import type { Fulfillment, KitchenStatus, Receipt, ReceiptLine, Timing } from "./receipt";
 
 const FULFILLMENT = new Set<Fulfillment>(["delivery", "pickup"]);
@@ -10,6 +11,7 @@ const TIMING = new Set<Timing>(["asap", "scheduled"]);
 const KITCHEN = new Set<KitchenStatus>(["new", "accepted", "ready", "done", "declined"]);
 const MAX_LINES = 60;
 const MAX_TEXT = 200;
+const MAX_OPTIONS = 30;
 
 function str(v: unknown, max = MAX_TEXT): string | null {
   return typeof v === "string" && v.length <= max ? v : null;
@@ -31,7 +33,24 @@ function line(v: unknown): ReceiptLine | null {
   if (note) out.note = note;
   const unitCents = num(o.unitCents);
   if (unitCents !== null) out.unitCents = Math.floor(unitCents);
+  if (Array.isArray(o.options) && o.options.length > 0) {
+    if (o.options.length > MAX_OPTIONS) return null;
+    const options = o.options.map(option);
+    if (options.some((x) => x === null)) return null;
+    out.options = options as ChosenOption[];
+  }
   return out;
+}
+
+function option(v: unknown): ChosenOption | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const id = str(o.id, 64);
+  const group = str(o.group, 80);
+  const name = str(o.name, 80);
+  const cents = num(o.cents);
+  if (!id || !group || !name || cents === null) return null;
+  return { id, group, name, cents: Math.floor(cents) };
 }
 
 function seat(v: unknown): Receipt["seat"] {
@@ -98,6 +117,8 @@ export function toReceipt(input: unknown): Receipt | null {
   }
   const declineReason = str(o.declineReason);
   if (declineReason) receipt.declineReason = declineReason;
+  const acceptedAt = num(o.acceptedAt);
+  if (acceptedAt !== null) receipt.acceptedAt = acceptedAt;
 
   return receipt;
 }

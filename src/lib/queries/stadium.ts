@@ -1,4 +1,6 @@
 import { withDb } from "@/lib/db";
+import { toNutrition } from "@/lib/menu/nutrition";
+import type { MenuOptionGroup } from "@/lib/menu/options";
 import { FALLBACK_ARENA } from "./fallback-arena";
 
 export const MENU_REVALIDATE_SECONDS = 60;
@@ -29,6 +31,23 @@ export async function getStadiumMenu(slug: string) {
           imageUrl: true,
           priceCents: true,
           categoryId: true,
+          isSoldOut: true,
+          nutrition: true,
+          allergens: true,
+          optionGroups: {
+            orderBy: { sortOrder: "asc" },
+            select: {
+              id: true,
+              name: true,
+              selection: true,
+              required: true,
+              maxSelect: true,
+              options: {
+                orderBy: { sortOrder: "asc" },
+                select: { id: true, name: true, priceCents: true, isDefault: true, isSoldOut: true },
+              },
+            },
+          },
         },
       },
     },
@@ -42,7 +61,13 @@ export async function getStadiumMenu(slug: string) {
     select: { id: true, slug: true, name: true, icon: true },
   });
 
-    return { ...stadium, categories };
+    const products = stadium.products.map(({ nutrition, allergens, optionGroups, ...p }) => ({
+      ...p,
+      nutrition: toNutrition(nutrition),
+      allergens: allergens ?? [],
+      optionGroups: optionGroups satisfies MenuOptionGroup[],
+    }));
+    return { ...stadium, products, categories };
     });
   } catch (e) {
     if (slug === FALLBACK_ARENA.slug) {

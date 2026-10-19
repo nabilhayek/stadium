@@ -1,14 +1,17 @@
 import { config } from "dotenv";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { descriptionFor } from "../src/lib/menu/nutrition";
+import { descriptionFor, type Allergen, type Nutrition, type NutritionUnit } from "../src/lib/menu/nutrition";
+import { postgresConnectionString } from "../src/lib/pg-url";
 
 config();
 config({ path: ".env.local", override: true });
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({
-    connectionString: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL,
+    connectionString: postgresConnectionString(
+      process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL,
+    ),
   }),
 });
 
@@ -25,23 +28,52 @@ type SeedProduct = {
   category: string;
   priceCents: number;
   description?: string;
+  nutrition: Nutrition;
+  allergens: Allergen[];
 };
 
+/** kcal, protein, carbs, fat — per serving or per `amount` of `unit`. */
+function per(amount: number, unit: NutritionUnit, kcal: number, proteinG: number, carbsG: number, fatG: number): Nutrition {
+  return { per: { amount, unit }, kcal, proteinG, carbsG, fatG };
+}
+const serving = (kcal: number, proteinG: number, carbsG: number, fatG: number) => per(1, "serving", kcal, proteinG, carbsG, fatG);
+
 const products: SeedProduct[] = [
-  { name: "Cola 0.5L", category: "drinks", priceCents: 350 },
-  { name: "Water 0.5L", category: "drinks", priceCents: 250 },
-  { name: "Iced Tea 0.5L", category: "drinks", priceCents: 350 },
-  { name: "Lager 0.5L", category: "beer", priceCents: 650 },
-  { name: "IPA 0.4L", category: "beer", priceCents: 700 },
-  { name: "Alcohol-free 0.33L", category: "beer", priceCents: 500 },
-  { name: "Fries", category: "snacks", priceCents: 400 },
-  { name: "Loaded Fries", category: "snacks", priceCents: 600, description: "Cheese sauce, jalapeños." },
-  { name: "Salted Peanuts", category: "snacks", priceCents: 300 },
-  { name: "Classic Hot Dog", category: "hot-food", priceCents: 550, description: "Grilled sausage, mustard, ketchup." },
-  { name: "Cheeseburger", category: "hot-food", priceCents: 850, description: "Beef patty, cheddar, pickles." },
-  { name: "Popcorn (large)", category: "sweets", priceCents: 500 },
-  { name: "Soft Serve Cone", category: "sweets", priceCents: 400 },
-  { name: "Candy Mix 200g", category: "sweets", priceCents: 450 },
+  { name: "Cola 0.5L", category: "drinks", priceCents: 350, nutrition: per(500, "ml", 210, 0, 53, 0), allergens: [] },
+  { name: "Water 0.5L", category: "drinks", priceCents: 250, nutrition: per(500, "ml", 0, 0, 0, 0), allergens: [] },
+  { name: "Iced Tea 0.5L", category: "drinks", priceCents: 350, nutrition: per(500, "ml", 160, 0, 40, 0), allergens: [] },
+  { name: "Lager 0.5L", category: "beer", priceCents: 650, nutrition: per(500, "ml", 215, 2, 17, 0), allergens: ["Gluten"] },
+  { name: "IPA 0.4L", category: "beer", priceCents: 700, nutrition: per(400, "ml", 220, 2, 18, 0), allergens: ["Gluten"] },
+  { name: "Alcohol-free 0.33L", category: "beer", priceCents: 500, nutrition: per(330, "ml", 70, 1, 14, 0), allergens: ["Gluten"] },
+  { name: "Fries", category: "snacks", priceCents: 400, nutrition: serving(320, 4, 42, 15), allergens: [] },
+  {
+    name: "Loaded Fries",
+    category: "snacks",
+    priceCents: 600,
+    description: "Cheese sauce, jalapeños.",
+    nutrition: serving(480, 8, 52, 26),
+    allergens: ["Milk"],
+  },
+  { name: "Salted Peanuts", category: "snacks", priceCents: 300, nutrition: per(50, "g", 290, 12, 8, 25), allergens: ["Peanuts"] },
+  {
+    name: "Classic Hot Dog",
+    category: "hot-food",
+    priceCents: 550,
+    description: "Grilled sausage, mustard, ketchup.",
+    nutrition: serving(290, 11, 24, 16),
+    allergens: ["Gluten", "Mustard"],
+  },
+  {
+    name: "Cheeseburger",
+    category: "hot-food",
+    priceCents: 850,
+    description: "Beef patty, cheddar, pickles.",
+    nutrition: serving(540, 28, 38, 29),
+    allergens: ["Gluten", "Milk"],
+  },
+  { name: "Popcorn (large)", category: "sweets", priceCents: 500, nutrition: serving(430, 6, 48, 24), allergens: [] },
+  { name: "Soft Serve Cone", category: "sweets", priceCents: 400, nutrition: serving(180, 4, 28, 6), allergens: ["Milk", "Gluten"] },
+  { name: "Candy Mix 200g", category: "sweets", priceCents: 450, nutrition: per(200, "g", 760, 2, 180, 4), allergens: [] },
 ];
 
 async function main() {
@@ -106,6 +138,8 @@ async function main() {
       name: p.name,
       description: p.description ?? descriptionFor(p.name),
       priceCents: p.priceCents,
+      nutrition: p.nutrition,
+      allergens: p.allergens,
       sortOrder: pi,
     };
     const ids = byName.get(p.name) ?? [];

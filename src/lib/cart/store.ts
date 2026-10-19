@@ -4,11 +4,17 @@
  * Consumed through `useSyncExternalStore` (see use-cart.ts).
  */
 
+import { lineKey, type ChosenOption } from "@/lib/menu/options";
+
 export type CartLine = {
+  /** Product id plus picked option ids. Two burgers with different sauces are two lines. */
+  key: string;
   productId: string;
   name: string;
+  /** Includes the option prices. */
   unitCents: number;
   qty: number;
+  options?: ChosenOption[];
   /** Allergies / extras for this line. */
   note?: string;
 };
@@ -17,9 +23,17 @@ export type CartState = {
   lines: CartLine[];
 };
 
-export type AddableProduct = Omit<CartLine, "qty">;
+export type AddableProduct = Omit<CartLine, "qty" | "key">;
 
 const EMPTY: CartState = { lines: [] };
+
+function asOption(raw: unknown): ChosenOption | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.id !== "string" || typeof o.group !== "string" || typeof o.name !== "string") return null;
+  if (typeof o.cents !== "number") return null;
+  return { id: o.id, group: o.group, name: o.name, cents: o.cents };
+}
 
 /** Drops leftover stand fields from carts saved before the single-shop menu. */
 function asLine(raw: unknown): CartLine | null {
@@ -27,15 +41,27 @@ function asLine(raw: unknown): CartLine | null {
   const o = raw as Record<string, unknown>;
   if (typeof o.productId !== "string" || typeof o.name !== "string") return null;
   if (typeof o.unitCents !== "number" || typeof o.qty !== "number" || o.qty <= 0) return null;
+  const options = Array.isArray(o.options)
+    ? o.options.map(asOption).filter((x): x is ChosenOption => x !== null)
+    : [];
   const line: CartLine = {
+    key: lineKey(o.productId, options.map((x) => x.id)),
     productId: o.productId,
     name: o.name,
     unitCents: o.unitCents,
     qty: Math.floor(o.qty),
   };
+  if (options.length) line.options = options;
   if (typeof o.note === "string" && o.note) line.note = o.note;
   return line;
 }
+
+export function toCartLine(p: AddableProduct, qty = 1): CartLine {
+  const line: CartLine = { ...p, key: lineKey(p.productId, (p.options ?? []).map((o) => o.id)), qty };
+  if (!line.options?.length) delete line.options;
+  return line;
+}
+
 const STORAGE_PREFIX = "cart:v1:";
 
 type Listener = () => void;
@@ -105,28 +131,29 @@ class CartStore {
 
   getServerSnapshot = (): CartState => EMPTY;
 
-  add = (p: AddableProduct) => {
+  add = (p: AddableProduct, qty = 1) => {
+    const next = toCartLine(p, qty);
     const lines = this.state.lines;
-    const i = lines.findIndex((l) => l.productId === p.productId);
-    if (i === -1) return this.set([...lines, { ...p, qty: 1 }]);
-    this.set(lines.map((l, idx) => (idx === i ? { ...l, qty: l.qty + 1 } : l)));
+    const i = lines.findIndex((l) => l.key === next.key);
+    if (i === -1) return this.set([...lines, next]);
+    this.set(lines.map((l, idx) => (idx === i ? { ...l, qty: l.qty + qty } : l)));
   };
 
-  setQty = (productId: string, qty: number) => {
-    if (qty <= 0) return this.set(this.state.lines.filter((l) => l.productId !== productId));
-    this.set(this.state.lines.map((l) => (l.productId === productId ? { ...l, qty } : l)));
+  setQty = (key: string, qty: number) => {
+    if (qty <= 0) return this.set(this.state.lines.filter((l) => l.key !== key));
+    this.set(this.state.lines.map((l) => (l.key === key ? { ...l, qty } : l)));
   };
 
-  setNote = (productId: string, note: string) => {
+  setNote = (key: string, note: string) => {
     const trimmed = note.trim();
     this.set(
       this.state.lines.map((l) =>
-        l.productId === productId ? { ...l, note: trimmed || undefined } : l,
+        l.key === key ? { ...l, note: trimmed || undefined } : l,
       ),
     );
   };
 
-  remove = (productId: string) => this.setQty(productId, 0);
+  remove = (key: string) => this.setQty(key, 0);
 
   /** Replace the whole cart — used by “Same again” from history. */
   replace = (lines: CartLine[]) => this.set(lines.filter((l) => l.qty > 0));
@@ -143,6 +170,16 @@ export function getCartStore(stadiumSlug: string): CartStore {
     stores.set(stadiumSlug, s);
   }
   return s;
+}
+
+/** What checkout sends: ids and quantities only. The server re-prices everything. */
+export function quoteLines(lines: readonly CartLine[]) {
+  return lines.map((line) => ({
+    productId: line.productId,
+    qty: line.qty,
+    note: line.note,
+    ...(line.options?.length ? { options: line.options.map((o) => o.id) } : {}),
+  }));
 }
 
 export function cartTotals(state: CartState) {

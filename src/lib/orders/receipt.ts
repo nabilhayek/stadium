@@ -1,5 +1,6 @@
 import type { Seat } from "@/lib/seat/store";
 import { writeStorage } from "@/lib/hooks/use-storage";
+import type { ChosenOption } from "@/lib/menu/options";
 
 export type Fulfillment = "delivery" | "pickup";
 export type Timing = "asap" | "scheduled";
@@ -14,7 +15,10 @@ export type ReceiptLine = {
   name: string;
   qty: number;
   note?: string;
+  /** Includes the option prices. */
   unitCents?: number;
+  /** Picks as they were when paid for. */
+  options?: ChosenOption[];
 };
 
 export type Receipt = {
@@ -29,6 +33,8 @@ export type Receipt = {
   etaMax: number;
   paidAt: number;
   readyAt: number;
+  /** When the in-progress clock started. The ring runs from here to `readyAt`. */
+  acceptedAt?: number;
   runnerNote: string;
   /** 4-digit hand-off code the runner confirms on their end. */
   confirmCode: string;

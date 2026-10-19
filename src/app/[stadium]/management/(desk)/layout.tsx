@@ -1,22 +1,21 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-import { DeskNav } from "@/components/management/desk-nav";
-import { kitchenSession } from "@/lib/management/session";
-import { getStadiumMenu } from "@/lib/queries/stadium";
+import { DeskShell } from "@/components/management/desk-shell";
+import { requireKitchen } from "@/lib/management/session";
+import { api } from "@/server/trpc/server";
 
 type Props = { children: ReactNode; params: Promise<{ stadium: string }> };
 
 export default async function DeskLayout({ children, params }: Props) {
   const { stadium } = await params;
-  const menu = await getStadiumMenu(stadium);
+  const menu = await api.stadium.menu({ slug: stadium });
   if (!menu) notFound();
-  const session = await kitchenSession();
-  if (!session) redirect(`/${menu.slug}/management/login`);
+  const session = await requireKitchen(menu.slug);
+  const { board, waiting } = await api.kitchen.summary({ stadium: menu.slug });
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6">
-      <DeskNav stadiumSlug={menu.slug} stadiumName={menu.name} />
-      <div className="mt-6">{children}</div>
-    </div>
+    <DeskShell stadiumSlug={menu.slug} stadiumName={menu.name} email={session.user.email} board={board} waiting={waiting}>
+      {children}
+    </DeskShell>
   );
 }

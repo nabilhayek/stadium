@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getStadiumMenu } from "@/lib/queries/stadium";
+import { api } from "@/server/trpc/server";
 import { OrderPage } from "@/components/checkout/order-page";
 import { catalogFromProducts, drinksFromCatalog } from "@/lib/menu/catalog";
 import { isOrderNumber } from "@/lib/orders/receipt";
@@ -18,7 +18,7 @@ function readNumber(raw: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { stadium, orderNumber } = await params;
   const number = readNumber(orderNumber) ?? "";
-  const menu = await getStadiumMenu(stadium);
+  const menu = await api.stadium.menu({ slug: stadium });
   if (!menu) return { title: `Order ${number}` };
   return {
     title: `Order ${number} · ${menu.name}`,
@@ -37,7 +37,7 @@ export default async function OrderNumberPage({ params }: Props) {
   const number = readNumber(orderNumber);
   if (!number) notFound();
 
-  const menu = await getStadiumMenu(slug);
+  const menu = await api.stadium.menu({ slug });
   if (!menu) notFound();
 
   const catalog = catalogFromProducts(menu.products);

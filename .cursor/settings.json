@@ -1,0 +1,7 @@
+{
+  "plugins": {
+    "magic-patterns": {
+      "enabled": true
+    }
+  }
+}

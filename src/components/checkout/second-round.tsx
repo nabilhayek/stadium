@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { PillButton } from "@/components/ui/pill-button";
 import { EASE, SPRING, fadeUp } from "@/components/motion/variants";
@@ -8,9 +8,12 @@ import { formatCents } from "@/lib/money";
 import type { Receipt } from "@/lib/orders/receipt";
 import { commitReceipt } from "@/lib/orders/sync";
 import { recordOrdered } from "@/lib/orders/history";
-import { mergeSecondRound, secondRoundLeft, type RoundPick } from "@/lib/orders/second-round";
+import { secondRoundLeft, type RoundPick } from "@/lib/orders/second-round";
 import type { CatalogItem } from "@/lib/menu/catalog";
 import { ChevronDown, CupSoda, Minus, Plus } from "lucide-react";
+import { useToast } from "@/components/toast/toast-provider";
+import { useMutation } from "@tanstack/react-query";
+import { useTRPC } from "@/lib/trpc/react";
 
 type Props = {
   receipt: Receipt;
@@ -34,7 +37,11 @@ export function SecondRound({ receipt, drinks, now, onUpdate }: Props) {
   const [showAll, setShowAll] = useState(false);
   const [qty, setQty] = useState<Record<string, number>>({});
   const [paying, setPaying] = useState(false);
+  const { toast } = useToast();
   const [added, setAdded] = useState<number | null>(null);
+  const chargeKey = useRef(crypto.randomUUID());
+  const trpc = useTRPC();
+  const extra = useMutation(trpc.payments.extra.mutationOptions());
 
   const ordered = useMemo(() => {
     const inOrder = new Set(receipt.lines.map((l) => l.productId));
@@ -60,21 +67,56 @@ export function SecondRound({ receipt, drinks, now, onUpdate }: Props) {
 
   async function pay() {
     if (count === 0 || paying) return;
+    if (!receipt.token) {
+      toast({ message: "This order can’t take another charge.", status: "error" });
+      return;
+    }
     setPaying(true);
-    await new Promise((r) => setTimeout(r, 700));
-    const next = mergeSecondRound(receipt, picks);
-    commitReceipt(next);
-    recordOrdered(
-      receipt.stadiumSlug,
-      picks.flatMap((p) => Array.from({ length: p.qty }, () => p.productId)),
-    );
-    onUpdate(next);
-    setQty({});
-    setPaying(false);
-    setOpen(false);
-    setAdded(count);
-    window.setTimeout(() => setAdded(null), 2400);
-    navigator.vibrate?.(12);
+    const addedCount = count;
+    let message = "The connection dropped. Try again — you won’t be charged twice.";
+    try {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const data = await extra.mutateAsync({
+            stadiumSlug: receipt.stadiumSlug,
+            orderNumber: receipt.orderNumber,
+            token: receipt.token,
+            idempotencyKey: chargeKey.current,
+            lines: picks.map((pick) => ({ productId: pick.productId, qty: pick.qty })),
+          });
+          if (data.ok) {
+            commitReceipt(data.receipt);
+            recordOrdered(
+              receipt.stadiumSlug,
+              picks.flatMap((pick) => Array.from({ length: pick.qty }, () => pick.productId)),
+            );
+            onUpdate(data.receipt);
+            setQty({});
+            setOpen(false);
+            setAdded(addedCount);
+            window.setTimeout(() => setAdded(null), 2400);
+            navigator.vibrate?.(12);
+            chargeKey.current = crypto.randomUUID();
+            return;
+          }
+          if (data.status === 202 || data.status >= 500) {
+            message = data.message || message;
+            await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
+            continue;
+          }
+          toast({
+            message: data.message || "The bank declined this card. You haven’t been charged.",
+            status: "error",
+          });
+          return;
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
+        }
+      }
+      toast({ message, status: "error" });
+    } finally {
+      setPaying(false);
+    }
   }
 
   const summary =

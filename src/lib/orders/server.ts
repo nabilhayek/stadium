@@ -43,10 +43,25 @@ export async function listReceipts(stadiumSlug: string, deviceId: string): Promi
   });
 }
 
-export type PutResult = "created" | "updated" | "forbidden" | "no-stadium";
+/** Receipt including its write token. Server-only — never return this from a public route. */
+export async function getOwnedReceipt(stadiumSlug: string, orderNumber: string): Promise<Receipt | null> {
+  return withDb(async (db) => {
+    const row = await db.receipt.findFirst({
+      where: { orderNumber, stadium: { slug: stadiumSlug } },
+      select: { body: true, token: true, deviceId: true },
+    });
+    return row ? fromRow(row) : null;
+  });
+}
 
-/** Upsert keyed by (stadium, orderNumber). Updates need the token the creator minted. */
-export async function putReceipt(receipt: Receipt): Promise<PutResult> {
+export type PutResult = "created" | "updated" | "forbidden" | "no-stadium" | "payment-required";
+
+/**
+ * Upsert keyed by (stadium, orderNumber). Updates need the token the creator minted.
+ * Phones can refresh a note or an email. Only a confirmed payment may create the order
+ * or change what was charged.
+ */
+export async function putReceipt(receipt: Receipt, opts?: { authoritative?: boolean }): Promise<PutResult> {
   const { token, deviceId } = receipt;
   if (!token || !deviceId) return "forbidden";
 
@@ -56,6 +71,7 @@ export async function putReceipt(receipt: Receipt): Promise<PutResult> {
 
     const where = { stadiumId_orderNumber: { stadiumId: stadium.id, orderNumber: receipt.orderNumber } };
     const existing = await db.receipt.findUnique({ where, select: { token: true, body: true } });
+    if (!existing && !opts?.authoritative) return "payment-required";
     if (existing && existing.token !== token) return "forbidden";
 
     // Once the kitchen has touched an order it owns the status, the ETA and any
@@ -68,13 +84,24 @@ export async function putReceipt(receipt: Receipt): Promise<PutResult> {
           ...(previous.declineReason ? { declineReason: previous.declineReason } : {}),
         }
       : {};
-    const merged = { ...receipt, ...kitchenOwned };
+    // Money and lines stay as the payment wrote them, unless this write is the payment itself.
+    const phoneSafe = previous && !opts?.authoritative
+      ? {
+          ...previous,
+          runnerNote: receipt.runnerNote,
+          seat: receipt.seat,
+          ...(receipt.email ? { email: receipt.email } : {}),
+          token,
+          deviceId,
+        }
+      : receipt;
+    const merged = { ...phoneSafe, ...kitchenOwned };
     const body = publicReceipt(merged) as unknown as Prisma.InputJsonValue;
     const columns = {
       paidAt: new Date(merged.paidAt),
       readyAt: new Date(merged.readyAt),
-      totalCents: receipt.totalCents ?? 0,
-      currency: receipt.currency ?? "EUR",
+      totalCents: merged.totalCents ?? 0,
+      currency: merged.currency ?? "EUR",
       body,
     };
 

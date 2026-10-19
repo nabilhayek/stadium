@@ -26,7 +26,7 @@ export function mergeSecondRound(receipt: Receipt, picks: RoundPick[]): Receipt 
   for (const pick of extras) {
     extraCents += pick.qty * pick.unitCents;
     extraQty += pick.qty;
-    const i = lines.findIndex((l) => l.productId === pick.productId);
+    const i = lines.findIndex((l) => l.productId === pick.productId && !l.options?.length);
     const next: ReceiptLine = {
       productId: pick.productId,
       name: pick.name,
