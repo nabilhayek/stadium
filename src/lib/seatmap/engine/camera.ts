@@ -1,11 +1,22 @@
 import type { Bounds } from "../geometry";
 
+/**
+ * Furthest zoom that still reads as a venue: 0.08 px per decimetre is 1 m = 0.8 px.
+ * A small drawing can reach this, and a bowl that already fills the screen is not
+ * pushed any further out than a little past fitting it.
+ */
+const VENUE_MIN_SCALE = 0.08;
+
+/** Designer opening scale. World units are decimetres, so px per metre is scale × 10. */
+export const DEFAULT_PX_PER_METRE = 6.7;
+export const DEFAULT_SCALE = DEFAULT_PX_PER_METRE / 10;
+
 /** screen = world * scale + (tx, ty), in CSS pixels. */
 export class Camera {
   scale = 1;
   tx = 0;
   ty = 0;
-  minScale = 0.02;
+  minScale = VENUE_MIN_SCALE;
   maxScale = 60;
 
   toWorld(sx: number, sy: number): [number, number] {
@@ -35,8 +46,7 @@ export class Camera {
     const h = Math.max(1, b.maxY - b.minY);
     const scale = Math.min((width - padding * 2) / w, (height - padding * 2) / h);
     this.scale = Math.min(this.maxScale, Math.max(0.001, scale));
-    // Zooming out stops a little past "whole venue" instead of shrinking it to a speck.
-    this.minScale = this.scale * 0.25;
+    this.minScale = zoomFloor(this.scale);
     this.tx = width / 2 - ((b.minX + b.maxX) / 2) * this.scale;
     this.ty = height / 2 - ((b.minY + b.maxY) / 2) * this.scale;
   }
@@ -51,4 +61,9 @@ export class Camera {
   snapshot() {
     return { scale: this.scale, tx: this.tx, ty: this.ty };
   }
+}
+
+/** How far zoom-out may go for content that fits at `fitted` px per decimetre. */
+export function zoomFloor(fitted: number) {
+  return Math.min(fitted * 0.85, VENUE_MIN_SCALE);
 }

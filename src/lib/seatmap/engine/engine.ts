@@ -1,6 +1,7 @@
 import type { Bounds, Rigid } from "../geometry";
-import { Camera } from "./camera";
-import { CanvasRenderer, lodFor, type Renderer, type RenderState, type Transient } from "./canvas-renderer";
+import type { SeatMapDoc } from "../schema";
+import { Camera, DEFAULT_SCALE, zoomFloor } from "./camera";
+import { CanvasRenderer, CRAFT_FALL_MS, CRAFT_FALL_REDUCED_MS, CRAFT_REVEAL_MS, CRAFT_REVEAL_REDUCED_MS, lodFor, type Renderer, type RenderState, type Transient } from "./canvas-renderer";
 import { hitTest, seatLabelsVisible, type MapHit } from "./hit";
 import { seatStatusArray, type Scene, type SeatStatus } from "./scene";
 
@@ -24,6 +25,8 @@ export interface Interaction {
   up(p: PointerInfo): void;
   cancel(): void;
   hover?(p: PointerInfo): void;
+  /** The pointer left the canvas. */
+  leave?(): void;
   dblclick?(p: PointerInfo): void;
 }
 
@@ -31,6 +34,11 @@ export type EngineOptions = {
   onHover?: (hit: MapHit | null, p: PointerInfo | null) => void;
   onTap?: (hit: MapHit | null, p: PointerInfo) => void;
   onCamera?: () => void;
+  /**
+   * fit frames the venue on open. metres opens at 1 m = 6.7 px, centered on the
+   * drawing, and does not zoom in to fill the screen.
+   */
+  opening?: "fit" | "metres";
 };
 
 type Mode = "idle" | "pan" | "pinch" | "interact";
@@ -53,9 +61,10 @@ export class SeatMapEngine {
     moving: false,
     grid: 0,
     design: false,
-    focalDrag: null,
     overlay: null,
     seatPop: [],
+    resize: null,
+    craft: null,
   };
   scene: Scene | null = null;
   lastFrameMs = 0;
@@ -83,6 +92,17 @@ export class SeatMapEngine {
   private space = false;
   private fitted = false;
   private seatStatusMap: ReadonlyMap<string, SeatStatus> | undefined;
+  /**
+   * Ids that stay put for this assistant turn: the map when the turn started,
+   * plus every object the turn has already introduced, so a later batch does not
+   * replay them.
+   */
+  private craftBaseline: Set<string> | null = null;
+  private craftBorn = new Map<string, number>();
+  /** When each placeholder starts turning into its real object. Set once the turn ends. */
+  private craftReveal = new Map<string, number>();
+  private craftBuilding = false;
+  private craftReduced = false;
   private observer: ResizeObserver;
   private cleanup: (() => void)[] = [];
 
@@ -112,7 +132,55 @@ export class SeatMapEngine {
     this.listen(window, "keyup", this.onKey as EventListener);
     this.listen(window, "blur", (() => (this.space = false)) as EventListener);
 
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    this.craftReduced = motion.matches;
+    const onMotion = () => {
+      this.craftReduced = motion.matches;
+      this.publishCraft();
+      this.invalidate();
+    };
+    motion.addEventListener("change", onMotion);
+    this.cleanup.push(() => motion.removeEventListener("change", onMotion));
+
     if (process.env.NODE_ENV !== "production") (canvas as HTMLCanvasElement & { __engine?: SeatMapEngine }).__engine = this;
+  }
+
+  /**
+   * While the assistant is working, objects that were not on the map when the turn
+   * started fall into place as grey placeholders. A batch shares one update, so each
+   * object starts a little after the last and neighbours are not in the same wave.
+   * When the turn ends, every placeholder blurs into its real object. Call this
+   * before replacing the scene.
+   */
+  syncCraft(building: boolean, doc: SeatMapDoc) {
+    if (building) {
+      if (!this.craftBaseline) this.craftBaseline = new Set(this.scene ? craftKeys(this.scene.doc) : []);
+      const now = performance.now();
+      const fresh = craftKeys(doc).filter((key) => !this.craftBaseline!.has(key) && !this.craftBorn.has(key));
+      const ordered = staggerOrder(fresh, doc);
+      const wave = Math.ceil(ordered.filter((key) => key.startsWith("s:")).length / 2) || 1;
+      // The second wave starts once the first has shrunk enough that neighbours no longer cover each other.
+      const step = this.craftReduced || ordered.length < 2 ? 0 : Math.min(CRAFT_STAGGER_MS, Math.round((CRAFT_FALL_MS * 0.55) / wave));
+      ordered.forEach((key, i) => {
+        this.craftBorn.set(key, now + i * step);
+        this.craftBaseline!.add(key);
+      });
+      this.craftBuilding = true;
+    } else if (this.craftBaseline || this.craftBorn.size > 0) {
+      const now = performance.now();
+      // The finishing update can carry the last objects. They still have to fade; they were not on the baseline.
+      if (this.craftBaseline) {
+        for (const key of craftKeys(doc)) {
+          if (!this.craftBaseline.has(key) && !this.craftBorn.has(key)) this.craftBorn.set(key, now);
+        }
+      }
+      // Everything reveals together. Objects still waiting for their staggered slot reveal as they land.
+      for (const [key, born] of this.craftBorn) if (!this.craftReveal.has(key)) this.craftReveal.set(key, Math.max(now, born));
+      this.craftBuilding = false;
+      this.craftBaseline = null;
+    }
+    this.publishCraft();
+    this.invalidate();
   }
 
   destroy() {
@@ -130,7 +198,11 @@ export class SeatMapEngine {
     this.pops = [];
     this.state.seatPop = [];
     if (this.state.hover && !this.hoverStillValid(scene)) this.state.hover = null;
-    if (fit || !this.fitted) this.fit(false);
+    if (fit || !this.fitted) {
+      if (!fit && this.options.opening === "metres") this.placeAtDefaultScale();
+      else this.fit(false);
+    }
+    this.syncZoomLimit();
     this.invalidate();
   }
 
@@ -190,6 +262,50 @@ export class SeatMapEngine {
     this.focus(this.scene.bounds, animate, 32);
   }
 
+  /**
+   * Zooms out, around the point currently in the middle of the canvas, until
+   * `bounds` sits fully on screen. Does nothing when it already does, and never
+   * zooms in.
+   */
+  reveal(bounds?: Bounds, padding = 24) {
+    if (!this.scene || !this.width || !this.height) return;
+    const b = bounds ?? this.scene.bounds;
+    const cx = this.width / 2;
+    const cy = this.height / 2;
+    const [wx, wy] = this.camera.toWorld(cx, cy);
+    let scale = this.camera.scale;
+    let outside = false;
+    const edge = (world: number, center: number, span: number) => {
+      const delta = Math.abs(world - center);
+      if (delta < 1e-6) return;
+      if (span / 2 / delta < this.camera.scale - 1e-4) outside = true;
+      const room = span / 2 - padding;
+      if (room <= 0) return;
+      const needed = room / delta;
+      if (needed < scale) scale = needed;
+    };
+    edge(b.minX, wx, this.width);
+    edge(b.maxX, wx, this.width);
+    edge(b.minY, wy, this.height);
+    edge(b.maxY, wy, this.height);
+    scale = Math.max(0.001, scale);
+    if (!outside || scale >= this.camera.scale - 1e-4) return;
+    if (scale < this.camera.minScale) this.camera.minScale = zoomFloor(scale);
+    this.animateTo(scale, cx - wx * scale, cy - wy * scale);
+  }
+
+  /** 1 m = 6.7 px, with the drawing's centre in the middle of the canvas. */
+  private placeAtDefaultScale() {
+    if (!this.scene || !this.width) return;
+    this.fitted = true;
+    const b = this.scene.bounds;
+    const s = DEFAULT_SCALE;
+    this.camera.scale = s;
+    this.camera.tx = this.width / 2 - ((b.minX + b.maxX) / 2) * s;
+    this.camera.ty = this.height / 2 - ((b.minY + b.maxY) / 2) * s;
+    this.touch();
+  }
+
   focus(b: Bounds, animate = true, padding = 48) {
     if (!this.width) return;
     const target = new Camera();
@@ -211,33 +327,39 @@ export class SeatMapEngine {
   }
 
   /** Moves seats/sections by `transform` without rebuilding the scene. */
-  beginTransient(sel: { sections: Set<number>; rows: Set<number>; decorations: Set<string>; pois: Set<string> }) {
+  beginTransient(sel: { sections: Set<number>; rows: Set<number>; decorations: Set<string>; pois: Set<string>; seats?: number[] }) {
     const scene = this.scene;
     if (!scene) return;
     const mask = new Uint8Array(scene.seatCount);
     const list: number[] = [];
-    const mark = (from: number, to: number) => {
-      for (let i = from; i < to; i++) {
-        if (!mask[i]) {
-          mask[i] = 1;
-          list.push(i);
-        }
-      }
+    const mark = (i: number) => {
+      if (i < 0 || i >= mask.length || mask[i]) return;
+      mask[i] = 1;
+      list.push(i);
     };
-    for (const s of sel.sections) mark(scene.sections[s].seatStart, scene.sections[s].seatEnd);
-    for (const r of sel.rows) mark(scene.rows[r].seatStart, scene.rows[r].seatEnd);
+    const span = (from: number, to: number) => {
+      for (let i = from; i < to; i++) mark(i);
+    };
+    for (const s of sel.sections) span(scene.sections[s].seatStart, scene.sections[s].seatEnd);
+    for (const r of sel.rows) span(scene.rows[r].seatStart, scene.rows[r].seatEnd);
+    for (const i of sel.seats ?? []) mark(i);
     const t: Transient = {
       transform: { angle: 0, px: 0, py: 0, dx: 0, dy: 0 },
-      ...sel,
+      sections: sel.sections,
+      rows: sel.rows,
+      decorations: sel.decorations,
+      pois: sel.pois,
       seatMask: mask,
       seats: Int32Array.from(list),
+      preview: null,
     };
     this.state.transient = t;
   }
 
-  updateTransient(transform: Rigid) {
+  updateTransient(transform: Rigid, preview: Transient["preview"] = null) {
     if (!this.state.transient) return;
     this.state.transient.transform = transform;
+    this.state.transient.preview = preview;
     this.touch();
   }
 
@@ -259,6 +381,18 @@ export class SeatMapEngine {
     return true;
   }
 
+  /** Zoom-out stops at the same venue scale whether the drawing is one section or a full bowl. */
+  private syncZoomLimit() {
+    if (!this.scene || !this.width) return;
+    const b = this.scene.bounds;
+    const w = Math.max(1, b.maxX - b.minX);
+    const h = Math.max(1, b.maxY - b.minY);
+    const fitted = Math.min(this.camera.maxScale, Math.max(0.001, Math.min((this.width - 64) / w, (this.height - 64) / h)));
+    const next = zoomFloor(fitted);
+    this.camera.minScale = next;
+    if (this.camera.scale < next) this.camera.zoomAt(this.width / 2, this.height / 2, next / this.camera.scale);
+  }
+
   private resize() {
     const rect = this.canvas.getBoundingClientRect();
     const w = Math.round(rect.width);
@@ -274,7 +408,11 @@ export class SeatMapEngine {
     this.dpr = dpr;
     this.canvas.width = Math.round(w * dpr);
     this.canvas.height = Math.round(h * dpr);
-    if (!this.fitted && this.scene) this.fit(false);
+    if (!this.fitted && this.scene) {
+      if (this.options.opening === "metres") this.placeAtDefaultScale();
+      else this.fit(false);
+    }
+    this.syncZoomLimit();
     this.render();
   }
 
@@ -316,8 +454,22 @@ export class SeatMapEngine {
     if (moving) this.invalidate();
   }
 
+  private publishCraft() {
+    const now = performance.now();
+    const fall = this.craftReduced ? CRAFT_FALL_REDUCED_MS : CRAFT_FALL_MS;
+    const reveal = this.craftReduced ? CRAFT_REVEAL_REDUCED_MS : CRAFT_REVEAL_MS;
+    for (const [key, born] of this.craftBorn) {
+      const start = this.craftReveal.get(key);
+      if (start === undefined || now - start < reveal || now - born < fall) continue;
+      this.craftBorn.delete(key);
+      this.craftReveal.delete(key);
+    }
+    this.state.craft = this.craftBorn.size > 0 ? { born: this.craftBorn, reveal: this.craftReveal, reduced: this.craftReduced } : null;
+  }
+
   private render() {
     if (!this.scene || !this.width) return;
+    this.publishCraft();
     this.stepSeatPop();
     const start = performance.now();
     this.renderer.draw({
@@ -331,6 +483,12 @@ export class SeatMapEngine {
       font: this.font,
     });
     this.lastFrameMs = performance.now() - start;
+    if (this.craftBorn.size > 0 && !this.frame) {
+      this.frame = requestAnimationFrame(() => {
+        this.frame = 0;
+        this.render();
+      });
+    }
   }
 
   private info(e: PointerEvent | MouseEvent): PointerInfo {
@@ -486,6 +644,7 @@ export class SeatMapEngine {
       this.state.hover = null;
       this.invalidate();
     }
+    this.interaction?.leave?.();
     this.options.onHover?.(null, null);
   };
 
@@ -575,6 +734,31 @@ export class SeatMapEngine {
     };
     this.animation = requestAnimationFrame(step);
   }
+}
+
+/** Longest pause between two objects in one update. Shorter when a wave already separates neighbours. */
+const CRAFT_STAGGER_MS = 220;
+
+function craftKeys(doc: SeatMapDoc): string[] {
+  const keys: string[] = [];
+  for (const s of doc.sections) keys.push(`s:${s.id}`);
+  for (const d of doc.decorations) keys.push(`d:${d.id}`);
+  for (const p of doc.pois) keys.push(`p:${p.id}`);
+  return keys;
+}
+
+/**
+ * Decorations first, then every other section, then the ones between them, then points.
+ * Neighbours around a ring land in different waves.
+ */
+function staggerOrder(keys: string[], doc: SeatMapDoc): string[] {
+  const byId = new Map(doc.sections.map((s) => [`s:${s.id}`, s.code]));
+  const sections = keys.filter((key) => byId.has(key));
+  sections.sort((a, b) => byId.get(a)!.localeCompare(byId.get(b)!, undefined, { numeric: true }));
+  const evens: string[] = [];
+  const odds: string[] = [];
+  sections.forEach((key, i) => (i % 2 === 0 ? evens : odds).push(key));
+  return [...keys.filter((key) => key.startsWith("d:")), ...evens, ...odds, ...keys.filter((key) => key.startsWith("p:"))];
 }
 
 function sameHit(a: MapHit | null, b: MapHit | null) {

@@ -1,4 +1,4 @@
-import { boundsIntersect, boxCorners, rigidMatrix, toRad, unionBounds, type Bounds, type Point, type Rigid } from "../geometry";
+import { boundsIntersect, boxCorners, centroid, rigidMatrix, toRad, unionBounds, type Bounds, type Point, type Rigid } from "../geometry";
 import { SEAT_RADIUS, type PoiKind, type SeatMapDecoration, type SeatMapPoi, type SeatMapSection } from "../schema";
 import type { Camera } from "./camera";
 import { POI_SCREEN_RADIUS, type MapHit } from "./hit";
@@ -27,6 +27,18 @@ export type Transient = {
   /** 1 for every seat that moves, so the culled pass can skip it. */
   seatMask: Uint8Array;
   seats: Int32Array;
+  /**
+   * Seats wrapped again at the dragged position, and outlines rebuilt around them.
+   * Absent for a plain move, which the rigid transform already draws correctly.
+   */
+  preview: {
+    x: Float32Array;
+    y: Float32Array;
+    live: Uint8Array;
+    outlines: ReadonlyMap<number, readonly Point[]>;
+    /** Objects that turn with a following section, drawn at this pose instead of the straight drag. */
+    rides: ReadonlyMap<string, { x: number; y: number; rotation: number }>;
+  } | null;
 };
 
 export type RenderState = {
@@ -39,11 +51,13 @@ export type RenderState = {
   moving: boolean;
   grid: number;
   design: boolean;
-  /** Focal point being dragged; drawn instead of the one stored on the map. */
-  focalDrag: Point | null;
   overlay: ((ctx: CanvasRenderingContext2D) => void) | null;
   /** Seats mid spring. `scale` is 1 at rest and a little over 1 while hovered. */
   seatPop: readonly { index: number; scale: number }[];
+  /** One box being resized. Drawn at this size until the pointer goes up. */
+  resize: { key: string; x: number; y: number; w: number; h: number } | null;
+  /** Objects the assistant just placed. They descend into scale 1, staggered when several arrive together. */
+  craft: Craft | null;
 };
 
 export type Frame = {
@@ -60,6 +74,219 @@ export type Frame = {
 /** The engine only talks to this, so a WebGL backend could replace the Canvas 2D one. */
 export interface Renderer {
   draw(frame: Frame): void;
+}
+
+/**
+ * Assistant placements. Keys are `s:`, `d:` and `p:` plus the object id. `born` may lie
+ * in the future when a batch is staggered. An object stays a grey placeholder until it
+ * has a `reveal` time, which the engine sets once the assistant has finished.
+ */
+export type Craft = {
+  born: ReadonlyMap<string, number>;
+  reveal: ReadonlyMap<string, number>;
+  reduced: boolean;
+};
+
+/**
+ * `alpha` is the real object, `ghost` the grey placeholder under it. `spread` is how many
+ * screen pixels the real object is smeared by while it comes into focus.
+ */
+type Arrival = { alpha: number; ghost: number; spread: number; scale: number; dy: number; settled: boolean };
+
+/** Timings for placed objects. The engine uses the same numbers to drop finished entries. */
+export const CRAFT_FALL_MS = 1250;
+export const CRAFT_FALL_REDUCED_MS = 280;
+export const CRAFT_REVEAL_MS = 1000;
+export const CRAFT_REVEAL_REDUCED_MS = 220;
+/** Screen pixels of smear an object starts its reveal with. */
+const REVEAL_BLUR = 18;
+/** How long the highlight takes to cross a placeholder. */
+const SHIMMER_MS = 1400;
+const GHOST = "#ebebeb";
+const GHOST_SHIMMER = "#f5f5f5";
+
+function clamp01(v: number) {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
+/** Scale about a point and drop in from above. `dy` is world units, negative is up. */
+function arrivedScreen(x: number, y: number, cx: number, cy: number, pose: Arrival, scale: number, tx: number, ty: number): [number, number] {
+  const wx = cx + (x - cx) * pose.scale;
+  const wy = cy + pose.dy + (y - cy) * pose.scale;
+  return [wx * scale + tx, wy * scale + ty];
+}
+
+/**
+ * The context an arrival callback should draw on. While a reveal is smeared this is the
+ * offscreen plate, so the geometry is built once and the blur is a few image copies.
+ */
+let pen: CanvasRenderingContext2D | null = null;
+let craftClock = 0;
+let craftUnit = 1;
+let shimmerOn = true;
+
+let plateCanvas: HTMLCanvasElement | null = null;
+let plateCtx: CanvasRenderingContext2D | null = null;
+let plateOn = false;
+let plateSpread = 0;
+
+function plateOf(main: CanvasRenderingContext2D) {
+  if (!plateCanvas) {
+    plateCanvas = document.createElement("canvas");
+    plateCtx = plateCanvas.getContext("2d");
+  }
+  const plate = plateCtx;
+  if (!plate || !plateCanvas) return null;
+  if (!plateOn) {
+    if (plateCanvas.width !== main.canvas.width || plateCanvas.height !== main.canvas.height) {
+      plateCanvas.width = main.canvas.width;
+      plateCanvas.height = main.canvas.height;
+    } else {
+      plate.setTransform(1, 0, 0, 1, 0, 0);
+      plate.clearRect(0, 0, plateCanvas.width, plateCanvas.height);
+    }
+    plateOn = true;
+    plateSpread = 0;
+  }
+  return plate;
+}
+
+/** One geometry pass onto the plate. The frame blits it a few times to make the smear. */
+function stagePlate(main: CanvasRenderingContext2D, alpha: number, spread: number, draw: () => void) {
+  const plate = plateOf(main);
+  if (!plate) {
+    pen = main;
+    draw();
+    return;
+  }
+  plateSpread = Math.max(plateSpread, spread);
+  plate.setTransform(main.getTransform());
+  plate.globalAlpha = alpha;
+  pen = plate;
+  draw();
+  plate.globalAlpha = 1;
+}
+
+function blitPlate(ctx: CanvasRenderingContext2D, dpr: number) {
+  if (!plateOn || !plateCanvas) return;
+  const rad = plateSpread * dpr;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const copies = 6;
+  ctx.globalAlpha = 0.45 / copies;
+  for (let i = 0; i < copies; i++) {
+    const a = (i / copies) * TAU;
+    ctx.drawImage(plateCanvas, Math.cos(a) * rad, Math.sin(a) * rad);
+  }
+  ctx.globalAlpha = 0.55;
+  ctx.drawImage(plateCanvas, 0, 0);
+  ctx.restore();
+  plateOn = false;
+}
+
+/** Grey fill plus a highlight that fades out toward both sides, clipped to the shape. */
+function shimmerClip(ctx: CanvasRenderingContext2D, path: Path2D, b: Bounds, screen = false) {
+  ctx.save();
+  ctx.clip(path);
+  ctx.fillStyle = GHOST;
+  ctx.fill(path);
+  if (shimmerOn) {
+    const w = Math.max(1, b.maxX - b.minX);
+    const band = Math.min(w * 0.7, screen ? 120 : craftUnit * 120);
+    const t = (craftClock % SHIMMER_MS) / SHIMMER_MS;
+    const x0 = b.minX - band + (w + band) * t;
+    const g = ctx.createLinearGradient(x0, b.minY, x0 + band, b.minY);
+    g.addColorStop(0, `${GHOST_SHIMMER}00`);
+    g.addColorStop(0.5, GHOST_SHIMMER);
+    g.addColorStop(1, `${GHOST_SHIMMER}00`);
+    ctx.fillStyle = g;
+    ctx.fillRect(b.minX - band, b.minY, w + band * 2, Math.max(1, b.maxY - b.minY));
+  }
+  ctx.restore();
+}
+
+/**
+ * Screen-space smear for the few things that are not on the plate (labels, markers).
+ * Geometry-heavy objects go through the plate instead.
+ */
+function paintSoft(ctx: CanvasRenderingContext2D, spread: number, alpha: number, unit: number, draw: () => void) {
+  const base = ctx.globalAlpha;
+  if (alpha <= 0.003) {
+    ctx.globalAlpha = base;
+    return;
+  }
+  const rad = spread * unit;
+  if (rad <= 0.35) {
+    ctx.globalAlpha = base * alpha;
+    draw();
+    ctx.globalAlpha = base;
+    return;
+  }
+  const copies = 4;
+  ctx.globalAlpha = (base * alpha * 0.45) / copies;
+  for (let i = 0; i < copies; i++) {
+    const a = (i / copies) * TAU;
+    ctx.save();
+    ctx.translate(Math.cos(a) * rad, Math.sin(a) * rad);
+    draw();
+    ctx.restore();
+  }
+  ctx.globalAlpha = base * alpha * 0.55;
+  draw();
+  ctx.globalAlpha = base;
+}
+
+/** Draws `ghost` as the grey placeholder, then the object itself smeared until it is sharp. */
+function withArrival(ctx: CanvasRenderingContext2D, pose: Arrival | null, cx: number, cy: number, unit: number, draw: () => void, ghost?: () => void) {
+  if (!pose) {
+    pen = ctx;
+    draw();
+    return;
+  }
+  ctx.save();
+  ctx.translate(cx, cy + pose.dy);
+  ctx.scale(pose.scale, pose.scale);
+  ctx.translate(-cx, -cy);
+  const base = ctx.globalAlpha;
+  if (ghost && pose.ghost > 0.003) {
+    ctx.globalAlpha = base * pose.ghost;
+    pen = ctx;
+    ghost();
+    ctx.globalAlpha = base;
+  }
+  if (pose.alpha > 0.003) {
+    if (pose.spread > 0.35) stagePlate(ctx, base * pose.alpha, pose.spread, draw);
+    else {
+      pen = ctx;
+      paintSoft(ctx, pose.spread, pose.alpha, unit / pose.scale, draw);
+    }
+  }
+  ctx.restore();
+}
+
+/** Grey stand-in for a box-shaped object, in its own rotated frame. */
+function ghostBox(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, rotation: number, round: "box" | "ellipse" | number) {
+  ctx.save();
+  ctx.translate(x, y);
+  if (rotation) ctx.rotate(toRad(rotation));
+  const path = new Path2D();
+  if (round === "ellipse") path.ellipse(0, 0, Math.max(0, w / 2), Math.max(0, h / 2), 0, 0, TAU);
+  else path.roundRect(-w / 2, -h / 2, w, h, Math.max(0, Math.min(round === "box" ? Math.min(w, h) * 0.08 : round, w / 2, h / 2)));
+  shimmerClip(ctx, path, { minX: -w / 2, minY: -h / 2, maxX: w / 2, maxY: h / 2 });
+  ctx.restore();
+}
+
+function ghostDecoration(ctx: CanvasRenderingContext2D, d: SeatMapDecoration) {
+  const w = decorationWidth(d);
+  const round = d.kind === "venue" ? d.radius : d.kind === "ellipse" || d.kind === "column" ? "ellipse" : "box";
+  ghostBox(ctx, d.x, d.y, w, d.h, d.rotation, round);
+}
+
+function sectionCenter(scene: Scene, si: number): [number, number] {
+  const s = scene.sections[si];
+  let b = s.bounds;
+  for (let r = s.rowStart; r < s.rowEnd; r++) b = unionBounds(b, scene.rows[r].bounds);
+  return [(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2];
 }
 
 export const ACCENT = "#3b82f6";
@@ -79,8 +306,40 @@ function sizedPoi(kind: PoiKind, w: number, h: number) {
 }
 
 export class CanvasRenderer implements Renderer {
+  private frameNow = 0;
+  /** World units per screen pixel, so a smear stays the same size at every zoom. */
+  private unit = 1;
+
+  /** Where an assistant placement is in its arrival: falling in grey, then sharpening into itself. */
+  private pose(craft: Craft | null, key: string): Arrival | null {
+    const born = craft?.born.get(key);
+    if (born === undefined || !craft) return null;
+    const now = this.frameNow;
+    const reduced = craft.reduced;
+    const t = clamp01((now - born) / (reduced ? CRAFT_FALL_REDUCED_MS : CRAFT_FALL_MS));
+    const start = craft.reveal.get(key);
+    // A future reveal belongs to an object that is still waiting for its staggered slot.
+    const live = start !== undefined && now >= start;
+    const u = !live || start === undefined ? 0 : clamp01((now - start) / (reduced ? CRAFT_REVEAL_REDUCED_MS : CRAFT_REVEAL_MS));
+    const k = live ? 1 : reduced || t === 0 ? t : 1 - (1 - t) * (1 - t);
+    return {
+      alpha: k * u,
+      ghost: k * (1 - u),
+      spread: reduced || !live ? 0 : REVEAL_BLUR * (1 - u),
+      scale: live || reduced ? 1 : 1 + 0.15 * (1 - k),
+      dy: live || reduced ? 0 : -42 * (1 - k),
+      settled: t >= 1 && live && u >= 1,
+    };
+  }
+
   draw(frame: Frame) {
     const { ctx, width, height, dpr, camera, scene, state } = frame;
+    this.frameNow = performance.now();
+    this.unit = 1 / camera.scale;
+    craftClock = this.frameNow;
+    craftUnit = this.unit;
+    shimmerOn = !state.craft?.reduced;
+    plateOn = false;
     const { scale, tx, ty } = camera;
     const lod = lodFor(scale);
     const view = camera.view(width, height, 24);
@@ -99,47 +358,78 @@ export class CanvasRenderer implements Renderer {
     // Decorations under the seating.
     for (const d of scene.decorations) {
       if (d.kind === "text") continue;
-      withMove(ctx, t?.decorations.has(d.id) ? m : null, () => drawDecoration(ctx, d, px));
+      const resizing = state.resize?.key === `d:${d.id}`;
+      const shown = resizing && state.resize ? { ...d, x: state.resize.x, y: state.resize.y, w: state.resize.w, h: state.resize.h } : d;
+      const pose = resizing ? null : this.pose(state.craft, `d:${d.id}`);
+      withMove(ctx, resizing ? null : (carried(t, `d:${d.id}`, d.x, d.y, d.rotation) ?? (t?.decorations.has(d.id) ? m : null)), () => {
+        withArrival(
+          ctx,
+          pose,
+          shown.x,
+          shown.y,
+          this.unit,
+          () => drawDecoration(pen ?? ctx, shown, px),
+          () => ghostDecoration(ctx, shown),
+        );
+      });
     }
 
     // Section shapes.
     const visible: number[] = [];
     for (const s of scene.sections) {
-      const moving = t?.sections.has(s.index) ?? false;
-      if (!moving && !boundsIntersect(view, s.bounds)) continue;
+      const override = t?.preview?.outlines.get(s.index);
+      const moving = !override && (t?.sections.has(s.index) ?? false);
+      const pose = this.pose(state.craft, `s:${s.id}`);
+      if (!moving && !override && !pose && !boundsIntersect(view, s.bounds)) continue;
       visible.push(s.index);
       const c = scene.colors[s.color];
-      const path = state.outline?.section === s.index ? polygonPath(state.outline.points) : s.path;
-      if (s.display === "round-table" || s.display === "rect-table") continue;
+      const path = override ? polygonPath(override as Point[]) : state.outline?.section === s.index ? polygonPath(state.outline.points) : s.path;
+      if (s.loose || s.display === "round-table" || s.display === "rect-table") continue;
+      const [cx, cy] = sectionCenter(scene, s.index);
       // Once numbers are on the seats, the section is only a faint ground. It does not take the pointer.
+      const ghost = () => shimmerClip(ctx, path, s.bounds);
       if (s.display === "seats" && SEAT_RADIUS * scale >= LOD_SEAT_LABELS) {
-        withMove(ctx, moving ? m : null, () => {
-          ctx.save();
-          ctx.globalAlpha = 0.28;
-          ctx.fillStyle = c.soft;
-          ctx.fill(path);
-          ctx.restore();
-        });
+        withArrival(
+          ctx,
+          pose,
+          cx,
+          cy,
+          this.unit,
+          () => {
+            const g = pen ?? ctx;
+            withMove(g, moving ? m : null, () => {
+              g.save();
+              g.globalAlpha *= 0.28;
+              g.fillStyle = c.soft;
+              g.fill(path);
+              g.restore();
+            });
+          },
+          ghost,
+        );
         continue;
       }
-      withMove(ctx, moving ? m : null, () => {
-        ctx.fillStyle = s.display === "block" ? c.base : lod === "overview" ? c.fill : c.soft;
-        ctx.globalAlpha = s.display === "block" ? 0.95 : 1;
-        ctx.fill(path);
-        ctx.globalAlpha = 1;
-        if (state.hover?.kind === "section" && state.hover.section === s.index) {
-          ctx.fillStyle = "rgba(0,0,0,0.07)";
-          ctx.fill(path);
-        }
-        ctx.strokeStyle = c.stroke;
-        ctx.globalAlpha = lod === "overview" ? 0.55 : 0.35;
-        ctx.lineWidth = px;
-        ctx.stroke(path);
-        ctx.globalAlpha = 1;
-      });
+      withArrival(ctx, pose, cx, cy, this.unit, () => {
+        const g = pen ?? ctx;
+        withMove(g, moving ? m : null, () => {
+          const fade = g.globalAlpha;
+          g.fillStyle = s.display === "block" ? c.base : lod === "overview" ? c.fill : c.soft;
+          g.globalAlpha = (s.display === "block" ? 0.95 : 1) * fade;
+          g.fill(path);
+          if (state.hover?.kind === "section" && state.hover.section === s.index) {
+            g.fillStyle = "rgba(0,0,0,0.07)";
+            g.fill(path);
+          }
+          g.strokeStyle = c.stroke;
+          g.globalAlpha = (lod === "overview" ? 0.55 : 0.35) * fade;
+          g.lineWidth = px;
+          g.stroke(path);
+          g.globalAlpha = fade;
+        });
+      }, ghost);
     }
 
-    this.drawTables(ctx, scene);
+    this.drawTables(ctx, scene, state, t, m);
 
     if (lod === "overview") {
       // Row stripes: one stroke per section, cached paths.
@@ -149,12 +439,16 @@ export class CanvasRenderer implements Renderer {
         const s = scene.sections[si];
         if (s.display !== "seats") continue;
         ctx.strokeStyle = scene.colors[s.color].stripe;
-        if (t?.sections.has(si)) {
+        const wrapped = t?.preview && sectionWrapped(t, s.seatStart, s.seatEnd);
+        if (wrapped) ctx.stroke(wrappedStripe(scene, t, si));
+        else if (t?.sections.has(si)) {
           withMove(ctx, m, () => ctx.stroke(s.stripes));
         } else if (t && hasMovingRow(t, s.rowStart, s.rowEnd)) {
           for (let r = s.rowStart; r < s.rowEnd; r++) withMove(ctx, t.rows.has(r) ? m : null, () => ctx.stroke(scene.rows[r].stripe));
         } else {
-          ctx.stroke(s.stripes);
+          const pose = this.pose(state.craft, `s:${s.id}`);
+          const [cx, cy] = sectionCenter(scene, si);
+          withArrival(ctx, pose, cx, cy, this.unit, () => (pen ?? ctx).stroke(s.stripes));
         }
       }
       // Selected rows.
@@ -163,8 +457,13 @@ export class CanvasRenderer implements Renderer {
         if (!key.startsWith("r:")) continue;
         const r = scene.rowIndex.get(key.slice(2));
         if (r === undefined) continue;
-        const moving = t ? t.rows.has(r) || t.sections.has(scene.rows[r].section) : false;
-        withMove(ctx, moving ? m : null, () => ctx.stroke(scene.rows[r].stripe));
+        const row = scene.rows[r];
+        const wrapped = t?.preview && sectionWrapped(t, row.seatStart, row.seatEnd);
+        if (wrapped) ctx.stroke(wrappedStripe(scene, t, row.section, r));
+        else {
+          const moving = t ? t.rows.has(r) || t.sections.has(row.section) : false;
+          withMove(ctx, moving ? m : null, () => ctx.stroke(row.stripe));
+        }
       }
     } else {
       this.drawSeats(frame, lod, view, m);
@@ -180,8 +479,10 @@ export class CanvasRenderer implements Renderer {
       const si = scene.sectionIndex.get(key.slice(2));
       if (si === undefined) continue;
       const s = scene.sections[si];
-      const path = state.outline?.section === si ? polygonPath(state.outline.points) : s.path;
-      withMove(ctx, t?.sections.has(si) ? m : null, () => {
+      if (state.resize?.key === `s:${s.id}`) continue;
+      const override = t?.preview?.outlines.get(si);
+      const path = override ? polygonPath(override as Point[]) : state.outline?.section === si ? polygonPath(state.outline.points) : s.path;
+      withMove(ctx, !override && t?.sections.has(si) ? m : null, () => {
         ctx.strokeStyle = ACCENT;
         ctx.lineWidth = 2 * px;
         ctx.stroke(path);
@@ -191,14 +492,29 @@ export class CanvasRenderer implements Renderer {
     // Stairs and gates are part of the map, so they scale with it.
     for (const p of scene.pois) {
       if (!sizedPoi(p.kind, p.w, p.h)) continue;
-      withMove(ctx, t?.pois.has(p.id) ? m : null, () => drawMarker(ctx, p, px, frame.font));
+      const shown = state.resize?.key === `p:${p.id}` ? { ...p, x: state.resize.x, y: state.resize.y, w: state.resize.w, h: state.resize.h } : p;
+      const mat = state.resize?.key === `p:${p.id}` ? null : (carried(t, `p:${p.id}`, p.x, p.y, p.rotation) ?? (t?.pois.has(p.id) ? m : null));
+      const pose = state.resize?.key === `p:${p.id}` ? null : this.pose(state.craft, `p:${p.id}`);
+      withMove(ctx, mat, () => {
+        withArrival(
+          ctx,
+          pose,
+          shown.x,
+          shown.y,
+          this.unit,
+          () => drawMarker(pen ?? ctx, shown, px, frame.font),
+          () => ghostBox(ctx, shown.x, shown.y, shown.w, shown.h, shown.rotation, "box"),
+        );
+      });
     }
 
     // Decoration selection boxes.
     for (const d of scene.decorations) {
       if (!state.selection.has(`d:${d.id}`)) continue;
-      withMove(ctx, t?.decorations.has(d.id) ? m : null, () => {
-        const corners = boxCorners(d.x, d.y, decorationWidth(d), d.h, d.rotation);
+      const shown = state.resize?.key === `d:${d.id}` ? { ...d, x: state.resize.x, y: state.resize.y, w: state.resize.w, h: state.resize.h } : d;
+      const mat = state.resize?.key === `d:${d.id}` ? null : (carried(t, `d:${d.id}`, d.x, d.y, d.rotation) ?? (t?.decorations.has(d.id) ? m : null));
+      withMove(ctx, mat, () => {
+        const corners = boxCorners(shown.x, shown.y, decorationWidth(shown), shown.h, shown.rotation);
         ctx.beginPath();
         corners.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
         ctx.closePath();
@@ -211,8 +527,10 @@ export class CanvasRenderer implements Renderer {
     }
     for (const p of scene.pois) {
       if (!sizedPoi(p.kind, p.w, p.h) || !state.selection.has(`p:${p.id}`)) continue;
-      withMove(ctx, t?.pois.has(p.id) ? m : null, () => {
-        const corners = boxCorners(p.x, p.y, p.w, p.h, p.rotation);
+      const shown = state.resize?.key === `p:${p.id}` ? { ...p, x: state.resize.x, y: state.resize.y, w: state.resize.w, h: state.resize.h } : p;
+      const mat = state.resize?.key === `p:${p.id}` ? null : (carried(t, `p:${p.id}`, p.x, p.y, p.rotation) ?? (t?.pois.has(p.id) ? m : null));
+      withMove(ctx, mat, () => {
+        const corners = boxCorners(shown.x, shown.y, shown.w, shown.h, shown.rotation);
         ctx.beginPath();
         corners.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
         ctx.closePath();
@@ -225,11 +543,12 @@ export class CanvasRenderer implements Renderer {
     }
 
     // Everything below is sized in screen pixels.
+    blitPlate(ctx, dpr);
     screen();
-    const toScreen = (x: number, y: number, moving: boolean): Point => {
-      if (moving && m) {
-        const wx = m[0] * x + m[2] * y + m[4];
-        const wy = m[1] * x + m[3] * y + m[5];
+    const toScreen = (x: number, y: number, mat: ReturnType<typeof rigidMatrix> | null): Point => {
+      if (mat) {
+        const wx = mat[0] * x + mat[2] * y + mat[4];
+        const wy = mat[1] * x + mat[3] * y + mat[5];
         return [wx * scale + tx, wy * scale + ty];
       }
       return [x * scale + tx, y * scale + ty];
@@ -240,24 +559,42 @@ export class CanvasRenderer implements Renderer {
       ctx.textBaseline = "middle";
       for (const si of visible) {
         const s = scene.sections[si];
-        if (!s.label.visible || s.display !== "seats") continue;
+        if (!s.label.visible || s.display !== "seats" || s.loose) continue;
         const size = s.label.size * scale;
         if (size < 7) continue;
         const fontPx = Math.min(size, 22);
-        const [x, y] = toScreen(s.label.x, s.label.y, t?.sections.has(si) ?? false);
+        const override = t?.preview?.outlines.get(si);
+        let lx = s.label.x;
+        let ly = s.label.y;
+        let rigid = t?.sections.has(si) ?? false;
+        if (override) {
+          const oldC = centroid(s.points);
+          const nextC = centroid(override);
+          lx += nextC[0] - oldC[0];
+          ly += nextC[1] - oldC[1];
+          rigid = false;
+        }
+        const pose = this.pose(state.craft, `s:${s.id}`);
+        if (pose && pose.alpha <= 0.003) continue;
+        const [x, y] = pose
+          ? arrivedScreen(lx, ly, ...sectionCenter(scene, si), pose, scale, tx, ty)
+          : toScreen(lx, ly, rigid && m ? m : null);
         ctx.save();
         ctx.translate(x, y);
+        if (pose) ctx.scale(pose.scale, pose.scale);
         if (s.label.rotation) ctx.rotate(toRad(s.label.rotation));
         ctx.font = `600 ${fontPx}px ${frame.font}`;
         const w = ctx.measureText(s.label.text).width + fontPx * 0.8;
         const h = fontPx * 1.35;
-        ctx.globalAlpha = lod === "dots" ? 0.85 : 1;
-        ctx.fillStyle = scene.colors[s.color].label;
-        ctx.beginPath();
-        ctx.roundRect(-w / 2, -h / 2, w, h, Math.min(6, h / 2));
-        ctx.fill();
-        ctx.fillStyle = "#fff";
-        ctx.fillText(s.label.text, 0, fontPx * 0.04);
+        const fade = lod === "dots" ? 0.85 : 1;
+        paintSoft(ctx, pose?.spread ?? 0, fade * (pose?.alpha ?? 1), 1, () => {
+          ctx.fillStyle = scene.colors[s.color].label;
+          ctx.beginPath();
+          ctx.roundRect(-w / 2, -h / 2, w, h, Math.min(6, h / 2));
+          ctx.fill();
+          ctx.fillStyle = "#fff";
+          ctx.fillText(s.label.text, 0, fontPx * 0.04);
+        });
         ctx.restore();
       }
       ctx.globalAlpha = 1;
@@ -268,50 +605,73 @@ export class CanvasRenderer implements Renderer {
     ctx.textBaseline = "middle";
     for (const d of scene.decorations) {
       if (d.kind !== "text" || !d.label) continue;
-      const size = d.h * scale;
+      const shown = state.resize?.key === `d:${d.id}` ? { ...d, x: state.resize.x, y: state.resize.y, h: state.resize.h } : d;
+      const size = shown.h * scale;
       if (size < 5) continue;
-      const [x, y] = toScreen(d.x, d.y, t?.decorations.has(d.id) ?? false);
+      const ride = t?.preview?.rides.get(`d:${d.id}`);
+      const mat = state.resize?.key === `d:${d.id}` ? null : (carried(t, `d:${d.id}`, d.x, d.y, d.rotation) ?? (t?.decorations.has(d.id) ? m : null));
+      const pose = state.resize?.key === `d:${d.id}` ? null : this.pose(state.craft, `d:${d.id}`);
+      const [x, y] = pose ? arrivedScreen(shown.x, shown.y, shown.x, shown.y, pose, scale, tx, ty) : toScreen(shown.x, shown.y, mat);
+      const rotation = ride?.rotation ?? shown.rotation;
       ctx.save();
       ctx.translate(x, y);
-      if (d.rotation) ctx.rotate(toRad(d.rotation));
+      if (pose) ctx.scale(pose.scale, pose.scale);
+      if (rotation) ctx.rotate(toRad(rotation));
       ctx.font = `600 ${size}px ${frame.font}`;
-      ctx.fillStyle = d.color;
-      ctx.fillText(d.label, 0, 0);
+      const base = ctx.globalAlpha;
+      if (pose && pose.ghost > 0.003) {
+        const w = ctx.measureText(shown.label).width;
+        ctx.globalAlpha = base * pose.ghost;
+        const bar = new Path2D();
+        const top = -size * 0.4;
+        const barH = size * 0.8;
+        bar.roundRect(-w / 2, top, w, barH, Math.min(6, size * 0.2));
+        shimmerClip(ctx, bar, { minX: -w / 2, minY: top, maxX: w / 2, maxY: top + barH }, true);
+      }
+      if (!pose || pose.alpha > 0.003) {
+        ctx.globalAlpha = base;
+        paintSoft(ctx, pose?.spread ?? 0, pose?.alpha ?? 1, 1, () => {
+          ctx.fillStyle = shown.color;
+          ctx.fillText(shown.label, 0, 0);
+        });
+      }
       ctx.restore();
-    }
-
-    const storedFocal = state.design && scene.doc.focal ? ([scene.doc.focal.x, scene.doc.focal.y] as Point) : null;
-    const focal = state.focalDrag ?? storedFocal;
-    if (focal) {
-      const [x, y] = toScreen(focal[0], focal[1], false);
-      ctx.strokeStyle = ACCENT;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(x, y, 11, 0, TAU);
-      ctx.moveTo(x - 18, y);
-      ctx.lineTo(x - 5, y);
-      ctx.moveTo(x + 5, y);
-      ctx.lineTo(x + 18, y);
-      ctx.moveTo(x, y - 18);
-      ctx.lineTo(x, y - 5);
-      ctx.moveTo(x, y + 5);
-      ctx.lineTo(x, y + 18);
-      ctx.stroke();
-      ctx.fillStyle = ACCENT;
-      ctx.beginPath();
-      ctx.arc(x, y, 2.2, 0, TAU);
-      ctx.fill();
     }
 
     // Points of interest at a fixed screen size.
     for (const p of scene.pois) {
       if (sizedPoi(p.kind, p.w, p.h)) continue;
-      const [x, y] = toScreen(p.x, p.y, t?.pois.has(p.id) ?? false);
+      const mat = carried(t, `p:${p.id}`, p.x, p.y, p.rotation) ?? (t?.pois.has(p.id) ? m : null);
+      const pose = this.pose(state.craft, `p:${p.id}`);
+      const [x, y] = pose ? arrivedScreen(p.x, p.y, p.x, p.y, pose, scale, tx, ty) : toScreen(p.x, p.y, mat);
       if (x < -40 || y < -40 || x > width + 40 || y > height + 40) continue;
       const style = POI_STYLE[p.kind];
       const selected = state.selection.has(`p:${p.id}`);
+      ctx.save();
+      ctx.translate(x, y);
+      if (pose) ctx.scale(pose.scale, pose.scale);
+      if (pose) {
+        const base = ctx.globalAlpha;
+        if (pose.ghost > 0.003) {
+          ctx.globalAlpha = base * pose.ghost;
+          const dot = new Path2D();
+          dot.arc(0, 0, POI_SCREEN_RADIUS, 0, TAU);
+          shimmerClip(ctx, dot, {
+            minX: -POI_SCREEN_RADIUS,
+            minY: -POI_SCREEN_RADIUS,
+            maxX: POI_SCREEN_RADIUS,
+            maxY: POI_SCREEN_RADIUS,
+          }, true);
+        }
+        if (pose.alpha <= 0.003) {
+          ctx.restore();
+          continue;
+        }
+        ctx.globalAlpha = base;
+      }
+      paintSoft(ctx, pose?.spread ?? 0, pose?.alpha ?? 1, 1, () => {
       ctx.beginPath();
-      ctx.arc(x, y, POI_SCREEN_RADIUS, 0, TAU);
+      ctx.arc(0, 0, POI_SCREEN_RADIUS, 0, TAU);
       ctx.fillStyle = style.color;
       ctx.fill();
       ctx.lineWidth = selected ? 3 : 2;
@@ -319,15 +679,17 @@ export class CanvasRenderer implements Renderer {
       ctx.stroke();
       ctx.fillStyle = "#fff";
       ctx.font = `700 11px ${frame.font}`;
-      ctx.fillText(style.glyph, x, y + 0.5);
+      ctx.fillText(style.glyph, 0, 0.5);
       if (p.label) {
         ctx.font = `500 11px ${frame.font}`;
         ctx.lineWidth = 3;
         ctx.strokeStyle = "rgba(255,255,255,0.9)";
-        ctx.strokeText(p.label, x, y + POI_SCREEN_RADIUS + 9);
+        ctx.strokeText(p.label, 0, POI_SCREEN_RADIUS + 9);
         ctx.fillStyle = "#404040";
-        ctx.fillText(p.label, x, y + POI_SCREEN_RADIUS + 9);
+        ctx.fillText(p.label, 0, POI_SCREEN_RADIUS + 9);
       }
+      });
+      ctx.restore();
     }
 
     state.overlay?.(ctx);
@@ -346,13 +708,18 @@ export class CanvasRenderer implements Renderer {
     const held = sold + 1;
     const round = lod === "seats" || r * scale >= 2.5;
     const cache = seatCache(scene);
-    const mask = t?.seatMask;
 
     // Sections touched by a drag are rebuilt per frame; the rest reuse cached paths.
     const dirty = new Set<number>();
     if (t) {
       for (const si of t.sections) dirty.add(si);
       for (const ri of t.rows) dirty.add(scene.rows[ri].section);
+      if (t.preview) {
+        for (let si = 0; si < scene.sections.length; si++) {
+          const s = scene.sections[si];
+          if (sectionWrapped(t, s.seatStart, s.seatEnd)) dirty.add(si);
+        }
+      }
     }
     const cached: number[][] = Array.from({ length: sold }, () => []);
     const loose: Path2D[] = Array.from({ length: held + 1 }, () => new Path2D());
@@ -365,12 +732,18 @@ export class CanvasRenderer implements Renderer {
       }
     };
 
+    const falling: number[] = [];
     for (let si = 0; si < scene.sections.length; si++) {
       const s = scene.sections[si];
       if (s.display === "block") continue;
+      const pose = this.pose(state.craft, `s:${s.id}`);
+      if (pose && !dirty.has(si)) {
+        falling.push(si);
+        continue;
+      }
       if (s.seatEnd === s.seatStart || !boundsIntersect(view, cache.bounds[si])) continue;
       if (dirty.has(si)) {
-        for (let i = s.seatStart; i < s.seatEnd; i++) if (!mask || !mask[i]) add(loose[s.color], xs[i], ys[i]);
+        for (let i = s.seatStart; i < s.seatEnd; i++) if (scene.seatLive[i] && !seatHidden(t, i)) add(loose[s.color], xs[i], ys[i]);
       } else {
         cached[s.color].push(si);
       }
@@ -378,17 +751,20 @@ export class CanvasRenderer implements Renderer {
       if (status) {
         for (let i = s.seatStart; i < s.seatEnd; i++) {
           const st = status[i];
-          if (st && (!mask || !mask[i])) add(loose[st === SEAT_SOLD ? sold : held], xs[i], ys[i]);
+          if (st && scene.seatLive[i] && !seatHidden(t, i)) add(loose[st === SEAT_SOLD ? sold : held], xs[i], ys[i]);
         }
       }
     }
     // Moving seats may sit far from their section's cached bounds.
-    if (t && m) {
-      for (let k = 0; k < t.seats.length; k++) {
-        const i = t.seats[k];
+    if (t && (m || t.preview)) {
+      const drawMoved = (i: number) => {
+        if (!scene.seatLive[i]) return;
         const st = status ? status[i] : 0;
-        add(loose[st === SEAT_SOLD ? sold : st === SEAT_HELD ? held : scene.sections[scene.rows[rowOf[i]].section].color], m[0] * xs[i] + m[2] * ys[i] + m[4], m[1] * xs[i] + m[3] * ys[i] + m[5]);
-      }
+        const [x, y] = placed(t, m, i, xs[i], ys[i]);
+        add(loose[st === SEAT_SOLD ? sold : st === SEAT_HELD ? held : scene.sections[scene.rows[rowOf[i]].section].color], x, y);
+      };
+      if (t.preview) for (let i = 0; i < t.preview.live.length; i++) if (t.preview.live[i]) drawMoved(i);
+      for (let k = 0; k < t.seats.length; k++) if (!t.preview?.live[t.seats[k]]) drawMoved(t.seats[k]);
     }
 
     const outline = lod === "seats";
@@ -410,6 +786,21 @@ export class CanvasRenderer implements Renderer {
     ctx.fillStyle = HELD;
     ctx.fill(loose[held]);
 
+    for (const si of falling) {
+      const s = scene.sections[si];
+      if (s.seatEnd === s.seatStart) continue;
+      const pose = this.pose(state.craft, `s:${s.id}`);
+      const [cx, cy] = sectionCenter(scene, si);
+      withArrival(ctx, pose, cx, cy, this.unit, () => {
+        const g = pen ?? ctx;
+        const p = sectionSeatPath(scene, si, round);
+        g.fillStyle = scene.colors[s.color].base;
+        if (outline) g.strokeStyle = scene.colors[s.color].disc;
+        g.fill(p);
+        if (outline) g.stroke(p);
+      });
+    }
+
     const drawn: number[] = [];
     if (lod === "seats" && r * scale >= LOD_SEAT_LABELS && !state.moving) {
       const g = scene.grid;
@@ -422,7 +813,11 @@ export class CanvasRenderer implements Renderer {
           const cell = row * g.cols + col;
           for (let k = g.start[cell], end = g.start[cell + 1]; k < end; k++) {
             const i = g.items[k];
-            if (!mask || !mask[i]) drawn.push(i);
+            if (scene.seatLive[i] && !seatHidden(t, i)) {
+              const pose = this.pose(state.craft, `s:${scene.sections[scene.rows[rowOf[i]].section].id}`);
+              if (pose && !pose.settled) continue;
+              drawn.push(i);
+            }
           }
         }
       }
@@ -431,18 +826,28 @@ export class CanvasRenderer implements Renderer {
     // Selected rows and the hovered seat.
     const highlight = new Path2D();
     let any = false;
+    const paint = (i: number) => {
+      if (!scene.seatLive[i]) return;
+      const [x, y] = placed(t, m, i, xs[i], ys[i]);
+      highlight.moveTo(x + r, y);
+      highlight.arc(x, y, r, 0, TAU);
+      any = true;
+    };
     for (const key of state.selection) {
-      if (!key.startsWith("r:")) continue;
-      const ri = scene.rowIndex.get(key.slice(2));
-      if (ri === undefined) continue;
-      const row = scene.rows[ri];
-      const moving = t ? t.rows.has(ri) || t.sections.has(row.section) : false;
-      for (let i = row.seatStart; i < row.seatEnd; i++) {
-        const x = moving && m ? m[0] * xs[i] + m[2] * ys[i] + m[4] : xs[i];
-        const y = moving && m ? m[1] * xs[i] + m[3] * ys[i] + m[5] : ys[i];
-        highlight.moveTo(x + r, y);
-        highlight.arc(x, y, r, 0, TAU);
-        any = true;
+      if (key.startsWith("r:")) {
+        const ri = scene.rowIndex.get(key.slice(2));
+        if (ri === undefined) continue;
+        const row = scene.rows[ri];
+        for (let i = row.seatStart; i < row.seatEnd; i++) paint(i);
+      } else if (key.startsWith("c:")) {
+        const cut = key.lastIndexOf(":");
+        const ri = scene.rowIndex.get(key.slice(2, cut));
+        const index = Number(key.slice(cut + 1));
+        if (ri === undefined || !Number.isInteger(index)) continue;
+        const row = scene.rows[ri];
+        const i = row.seatStart + index;
+        if (i < row.seatStart || i >= row.seatEnd) continue;
+        paint(i);
       }
     }
     if (any) {
@@ -466,11 +871,25 @@ export class CanvasRenderer implements Renderer {
     for (let ri = 0; ri < scene.rows.length; ri++) {
       const row = scene.rows[ri];
       if (scene.sections[row.section].display !== "seats") continue;
-      if (!boundsIntersect(view, row.bounds) || row.seatEnd - row.seatStart < 2) continue;
+      const rowPose = this.pose(state.craft, `s:${scene.sections[row.section].id}`);
+      if (rowPose && !rowPose.settled) continue;
+      if (!boundsIntersect(view, row.bounds)) continue;
       if (t && (t.rows.has(ri) || t.sections.has(row.section))) continue;
+      let first = -1;
+      let second = -1;
+      let prev = -1;
+      let last = -1;
+      for (let i = row.seatStart; i < row.seatEnd; i++) {
+        if (!scene.seatLive[i]) continue;
+        if (first < 0) first = i;
+        else if (second < 0) second = i;
+        prev = last;
+        last = i;
+      }
+      if (first < 0 || prev < 0) continue;
       for (const [a, b] of [
-        [row.seatStart, row.seatStart + 1],
-        [row.seatEnd - 1, row.seatEnd - 2],
+        [first, second < 0 ? last : second],
+        [last, prev],
       ]) {
         const dx = xs[a] - xs[b];
         const dy = ys[a] - ys[b];
@@ -487,11 +906,17 @@ export class CanvasRenderer implements Renderer {
       const y = ys[i] * scale + ty;
       let grown = 1;
       for (let p = 0; p < pops.length; p++) if (pops[p].index === i) grown = pops[p].scale;
+      const label = String(scene.seatNumber[i]);
       if (scene.seatWheelchair[i]) {
-        drawWheelchair(ctx, x, y, seatPx * grown * 0.62);
+        // Icon in the upper half, number in the lower half.
+        const px = seatPx * grown;
+        drawWheelchair(ctx, x, y - px * 0.36, px * 0.4);
+        const size = px * (label.length > 2 ? 0.5 : 0.6);
+        ctx.font = `700 ${size}px ${frame.font}`;
+        ctx.fillStyle = "#fff";
+        ctx.fillText(label, x, y + px * 0.46);
         continue;
       }
-      const label = String(scene.seatNumber[i]);
       const size = seatPx * grown * (label.length > 2 ? 0.78 : 0.95);
       ctx.font = `600 ${size}px ${frame.font}`;
       ctx.fillStyle = status && status[i] ? "#737373" : "#fff";
@@ -504,7 +929,6 @@ export class CanvasRenderer implements Renderer {
     const pops = frame.state.seatPop;
     if (lod !== "seats" || !pops.length) return;
     const { ctx, scene, state, camera } = frame;
-    const mask = state.transient?.seatMask;
     const xs = scene.seatX;
     const ys = scene.seatY;
     ctx.lineWidth = 1.6 / camera.scale;
@@ -514,12 +938,7 @@ export class CanvasRenderer implements Renderer {
       if (i < 0 || i >= xs.length) continue;
       const section = scene.sections[scene.rows[scene.seatRow[i]].section];
       if (section.display === "block") continue;
-      let x = xs[i];
-      let y = ys[i];
-      if (mask?.[i] && m) {
-        x = m[0] * xs[i] + m[2] * ys[i] + m[4];
-        y = m[1] * xs[i] + m[3] * ys[i] + m[5];
-      }
+      const [x, y] = placed(state.transient, m, i, xs[i], ys[i]);
       const st = state.seatStatus?.[i] ?? 0;
       ctx.save();
       ctx.translate(x, y);
@@ -539,40 +958,60 @@ export class CanvasRenderer implements Renderer {
     }
   }
 
-  /** Tabletops, and the name sitting in the middle of a loge. */
-  private drawTables(ctx: CanvasRenderingContext2D, scene: Scene) {
+  private drawTables(ctx: CanvasRenderingContext2D, scene: Scene, state: RenderState, t: Transient | null, m: ReturnType<typeof rigidMatrix> | null) {
     for (const s of scene.sections) {
       if (s.display === "block" && s.label.visible) {
-        ctx.save();
-        ctx.translate(s.label.x, s.label.y);
-        if (s.label.rotation) ctx.rotate(toRad(s.label.rotation));
-        const size = s.label.size;
-        ctx.fillStyle = inkOn(scene.colors[s.color].base);
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.font = `600 ${size}px ui-sans-serif, system-ui, sans-serif`;
-        ctx.fillText(s.label.text, 0, 0);
-        ctx.restore();
+        const pose = this.pose(state.craft, `s:${s.id}`);
+        const [cx, cy] = sectionCenter(scene, s.index);
+        withArrival(ctx, pose, cx, cy, this.unit, () => {
+          const g = pen ?? ctx;
+          g.save();
+          g.translate(s.label.x, s.label.y);
+          if (s.label.rotation) g.rotate(toRad(s.label.rotation));
+          const size = s.label.size;
+          g.fillStyle = inkOn(scene.colors[s.color].base);
+          g.textAlign = "center";
+          g.textBaseline = "middle";
+          g.font = `600 ${size}px ui-sans-serif, system-ui, sans-serif`;
+          g.fillText(s.label.text, 0, 0);
+          g.restore();
+        });
         continue;
       }
       if (s.display !== "round-table" && s.display !== "rect-table") continue;
       const row = scene.doc.sections[s.index].rows[0];
       if (!row) continue;
-      ctx.save();
-      ctx.translate(row.x, row.y);
-      if (row.rotation) ctx.rotate(toRad(row.rotation));
-      ctx.fillStyle = "#3f3f46";
-      ctx.beginPath();
-      if (s.display === "round-table") ctx.arc(0, 0, Math.max(row.boxW, row.boxH) / 2, 0, TAU);
-      else ctx.roundRect(-row.boxW / 2, -row.boxH / 2, row.boxW, row.boxH, Math.min(row.boxW, row.boxH) * 0.12);
-      ctx.fill();
-      const size = Math.min(row.boxW, row.boxH) * 0.34;
-      ctx.fillStyle = "#fafafa";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.font = `700 ${size}px ui-sans-serif, system-ui, sans-serif`;
-      ctx.fillText(s.label.text, 0, size * 0.04);
-      ctx.restore();
+      const resized = state.resize?.key === `s:${s.id}` ? state.resize : null;
+      const ride = t?.preview?.rides.get(`s:${s.id}`);
+      const x = resized?.x ?? ride?.x ?? row.x;
+      const y = resized?.y ?? ride?.y ?? row.y;
+      const w = resized?.w ?? row.boxW;
+      const h = resized?.h ?? row.boxH;
+      const rotation = ride?.rotation ?? row.rotation;
+      const pose = resized || ride ? null : this.pose(state.craft, `s:${s.id}`);
+      withMove(ctx, resized || ride ? null : t?.sections.has(s.index) ? m : null, () => {
+        withArrival(ctx, pose, x, y, this.unit, () => {
+          const g = pen ?? ctx;
+          g.save();
+          g.translate(x, y);
+          if (rotation) g.rotate(toRad(rotation));
+          g.fillStyle = "#3f3f46";
+          g.beginPath();
+          if (s.display === "round-table") g.arc(0, 0, Math.max(w, h) / 2, 0, TAU);
+          else g.roundRect(-w / 2, -h / 2, w, h, Math.min(w, h) * 0.12);
+          g.fill();
+          const size = Math.min(w, h) * 0.34;
+          g.fillStyle = "#fafafa";
+          g.textAlign = "center";
+          g.textBaseline = "middle";
+          g.font = `700 ${size}px ui-sans-serif, system-ui, sans-serif`;
+          g.fillText(s.label.text, 0, size * 0.04);
+          g.restore();
+        }, () => {
+          const d = Math.max(w, h);
+          ghostBox(ctx, x, y, s.display === "round-table" ? d : w, s.display === "round-table" ? d : h, rotation, s.display === "round-table" ? "ellipse" : Math.min(w, h) * 0.12);
+        });
+      });
     }
   }
 }
@@ -612,6 +1051,7 @@ function sectionSeatPath(scene: Scene, si: number, round: boolean): Path2D {
   const s = scene.sections[si];
   const r = SEAT_RADIUS;
   for (let i = s.seatStart; i < s.seatEnd; i++) {
+    if (!scene.seatLive[i]) continue;
     const x = scene.seatX[i];
     const y = scene.seatY[i];
     if (round) {
@@ -650,6 +1090,46 @@ function hasMovingRow(t: Transient, start: number, end: number) {
   return false;
 }
 
+/** Where a seat is drawn this frame: the rewrapped position, else the rigid drag, else where it was. */
+function placed(t: Transient | null, m: ReturnType<typeof rigidMatrix> | null, i: number, x: number, y: number): [number, number] {
+  const preview = t?.preview;
+  if (preview?.live[i]) return [preview.x[i], preview.y[i]];
+  if (m && t?.seatMask[i]) return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+  return [x, y];
+}
+
+function seatHidden(t: Transient | null, i: number) {
+  return Boolean(t && (t.seatMask[i] || t.preview?.live[i]));
+}
+
+function sectionWrapped(t: Transient, from: number, to: number) {
+  const live = t.preview?.live;
+  if (!live) return false;
+  for (let i = from; i < to; i++) if (live[i]) return true;
+  return false;
+}
+
+/** A row stripe through seats that were wrapped again while dragging. */
+function wrappedStripe(scene: Scene, t: Transient, section: number, onlyRow?: number) {
+  const path = new Path2D();
+  const s = scene.sections[section];
+  const preview = t.preview;
+  if (!preview) return path;
+  for (let r = s.rowStart; r < s.rowEnd; r++) {
+    if (onlyRow !== undefined && r !== onlyRow) continue;
+    const row = scene.rows[r];
+    let started = false;
+    for (let i = row.seatStart; i < row.seatEnd; i++) {
+      if (!scene.seatLive[i] || !preview.live[i]) continue;
+      if (!started) {
+        path.moveTo(preview.x[i], preview.y[i]);
+        started = true;
+      } else path.lineTo(preview.x[i], preview.y[i]);
+    }
+  }
+  return path;
+}
+
 function inkOn(hex: string) {
   const n = Number.parseInt(hex.slice(1), 16);
   const y = (((n >> 16) & 255) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000;
@@ -662,6 +1142,13 @@ function withMove(ctx: CanvasRenderingContext2D, m: ReturnType<typeof rigidMatri
   ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]);
   draw();
   ctx.restore();
+}
+
+/** The turn that keeps an object beside a section sliding along the venue. */
+function carried(t: Transient | null, id: string, x: number, y: number, rotation: number) {
+  const next = t?.preview?.rides.get(id);
+  if (!next) return null;
+  return rigidMatrix({ angle: next.rotation - rotation, px: x, py: y, dx: next.x - x, dy: next.y - y });
 }
 
 function drawGrid(ctx: CanvasRenderingContext2D, view: Bounds, step: number, scale: number) {
@@ -683,12 +1170,31 @@ function drawGrid(ctx: CanvasRenderingContext2D, view: Bounds, step: number, sca
 
 function drawDecoration(ctx: CanvasRenderingContext2D, d: SeatMapDecoration, px: number) {
   ctx.save();
+  const fade = ctx.globalAlpha;
   ctx.translate(d.x, d.y);
   if (d.rotation) ctx.rotate(toRad(d.rotation));
   const w = d.w;
   const h = d.h;
   if (d.kind === "field") {
     drawField(ctx, w, h, d.color, px);
+  } else if (d.kind === "venue") {
+    ctx.beginPath();
+    ctx.roundRect(-w / 2, -h / 2, w, h, Math.max(0, Math.min(d.radius, w / 2, h / 2)));
+    ctx.globalAlpha = 0.16 * fade;
+    ctx.fillStyle = d.color;
+    ctx.fill();
+    ctx.globalAlpha = fade;
+    ctx.strokeStyle = d.color;
+    ctx.lineWidth = Math.max(px * 2, Math.min(w, h) * 0.006);
+    ctx.stroke();
+    if (d.label) {
+      const size = Math.min(h * 0.12, (w / Math.max(4, d.label.length)) * 1.2);
+      ctx.fillStyle = d.color;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `600 ${size}px ui-sans-serif, system-ui, sans-serif`;
+      ctx.fillText(d.label, 0, size * 0.04);
+    }
   } else if (d.kind === "stage") {
     ctx.fillStyle = "#d4d4d4";
     ctx.beginPath();
@@ -702,6 +1208,12 @@ function drawDecoration(ctx: CanvasRenderingContext2D, d: SeatMapDecoration, px:
       ctx.font = `700 ${size}px ui-sans-serif, system-ui, sans-serif`;
       ctx.fillText(d.label.toUpperCase(), 0, 0);
     }
+  } else if (d.kind === "wall" || d.kind === "column") {
+    ctx.fillStyle = "#d4d4d4";
+    ctx.beginPath();
+    if (d.kind === "wall") ctx.roundRect(-w / 2, -h / 2, w, h, Math.min(w, h) * 0.06);
+    else ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, TAU);
+    ctx.fill();
   } else if (d.kind === "rect" || d.kind === "ellipse") {
     ctx.beginPath();
     if (d.kind === "rect") ctx.roundRect(-w / 2, -h / 2, w, h, Math.min(w, h) * 0.08);
@@ -727,14 +1239,11 @@ function drawMarker(ctx: CanvasRenderingContext2D, p: SeatMapPoi, px: number, fo
   if (p.rotation) ctx.rotate(toRad(p.rotation));
   const { w, h } = p;
   if (p.kind === "stairs") {
-    const radius = Math.min(w, h) * 0.16;
+    const radius = Math.min(w, h) * 0.12;
     ctx.beginPath();
     ctx.roundRect(-w / 2, -h / 2, w, h, radius);
-    ctx.fillStyle = "#e7e5e4";
+    ctx.fillStyle = "#d4d4d4";
     ctx.fill();
-    ctx.strokeStyle = "#a8a29e";
-    ctx.lineWidth = Math.max(px, Math.min(w, h) * 0.04);
-    ctx.stroke();
     const glyph = Math.min(w, h, 18) * 0.72;
     ctx.beginPath();
     ctx.moveTo(-glyph * 0.05, -glyph * 0.5);
@@ -744,23 +1253,20 @@ function drawMarker(ctx: CanvasRenderingContext2D, p: SeatMapPoi, px: number, fo
     ctx.lineTo(-glyph * 0.05, glyph * 0.16);
     ctx.lineTo(-glyph * 0.5, glyph * 0.16);
     ctx.lineTo(-glyph * 0.5, glyph * 0.5);
-    ctx.strokeStyle = "#44403c";
+    ctx.strokeStyle = "#404040";
     ctx.lineWidth = Math.max(px * 1.3, glyph * 0.14);
     ctx.lineJoin = "miter";
     ctx.lineCap = "square";
     ctx.stroke();
   } else {
-    const radius = Math.min(w, h) * 0.14;
+    const radius = Math.min(w, h) * 0.12;
     ctx.beginPath();
     ctx.roundRect(-w / 2, -h / 2, w, h, radius);
-    ctx.fillStyle = "#e7e5e4";
+    ctx.fillStyle = "#d4d4d4";
     ctx.fill();
-    ctx.strokeStyle = "#a8a29e";
-    ctx.lineWidth = Math.max(px, Math.min(w, h) * 0.045);
-    ctx.stroke();
     const g = Math.min(w, h, 22) * 0.34;
     ctx.beginPath();
-    ctx.strokeStyle = "#292524";
+    ctx.strokeStyle = "#404040";
     ctx.lineWidth = Math.max(px * 1.2, g * 0.16);
     ctx.lineJoin = "miter";
     ctx.lineCap = "square";
@@ -786,7 +1292,7 @@ function drawMarker(ctx: CanvasRenderingContext2D, p: SeatMapPoi, px: number, fo
 
 /** A small wheelchair, drawn in screen pixels, centred on a seat. */
 function drawWheelchair(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
-  const r = Math.max(3.5, size);
+  const r = Math.max(2.5, size);
   ctx.save();
   ctx.translate(x, y);
   ctx.strokeStyle = "#fff";
