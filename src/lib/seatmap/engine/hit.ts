@@ -40,6 +40,7 @@ export function seatAt(scene: Scene, x: number, y: number, slop = 0): number {
       const cell = r * g.cols + c;
       for (let k = g.start[cell], end = g.start[cell + 1]; k < end; k++) {
         const i = g.items[k];
+        if (!scene.seatLive[i]) continue;
         const dx = scene.seatX[i] - x;
         const dy = scene.seatY[i] - y;
         const d = dx * dx + dy * dy;
@@ -74,7 +75,7 @@ export function decorationAt(scene: Scene, x: number, y: number, slop = 0, only?
     const ly = (x - d.x) * s + (y - d.y) * c;
     const hw = decorationWidth(d) / 2 + slop;
     const hh = d.h / 2 + slop;
-    if (d.kind === "ellipse") {
+    if (d.kind === "ellipse" || d.kind === "column") {
       if ((lx * lx) / (hw * hw) + (ly * ly) / (hh * hh) <= 1) return d.id;
     } else if (Math.abs(lx) <= hw && Math.abs(ly) <= hh) return d.id;
   }
@@ -118,7 +119,7 @@ export function hitTest(scene: Scene, x: number, y: number, scale: number, seats
   if (section >= 0) {
     const shape = scene.sections[section];
     const close = SEAT_RADIUS * scale >= CLOSE_SEATS;
-    if (!(close && shape.display === "seats")) return { kind: "section", section };
+    if (!shape.loose && !(close && shape.display === "seats")) return { kind: "section", section };
   }
   const deco = decorationAt(scene, x, y);
   if (deco) return { kind: "decoration", id: deco };

@@ -208,7 +208,13 @@
 }
 @keyframes pop-in {
   from {
-    transform: translate(-50%, -48%) scale(0.97);
+    scale: 0.96;
+    opacity: 0;
+  }
+}
+@keyframes pop-out {
+  to {
+    scale: 0.96;
     opacity: 0;
   }
 }

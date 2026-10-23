@@ -16,7 +16,7 @@ function AlertDialogContent({ className, ...props }: React.ComponentProps<typeof
         data-slot="alert-dialog-content"
         className={cn(
           "fixed top-1/2 left-1/2 z-[60] w-[calc(100%-2rem)] max-w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-neutral-200 bg-white p-5 text-neutral-900 shadow-[0_24px_48px_-16px_rgba(17,17,17,0.25)] outline-none",
-          "data-[state=open]:animate-[pop-in_180ms_cubic-bezier(0.16,1,0.3,1)]",
+          "data-[state=open]:animate-[pop-in_180ms_cubic-bezier(0.16,1,0.3,1)] data-[state=closed]:animate-[pop-out_140ms_ease-in]",
           className,
         )}
         {...props}

@@ -2,22 +2,24 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { CircleAlert, Eye, EyeOff, LayoutTemplate, Loader2, Magnet, Redo2, Undo2, X } from "lucide-react";
+import { CircleAlert, Eye, EyeOff, Loader2, Magnet, Redo2, Sparkles, Trash2, Undo2, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SeatMapView } from "@/components/seatmap/seat-map-view";
 import { useToast } from "@/components/toast/toast-provider";
 import type { SeatMapState, VenueSection } from "@/lib/management/seat-map";
-import { translation } from "@/lib/seatmap/geometry";
+import { rowNeedsRenumber, translation } from "@/lib/seatmap/geometry";
 import type { SeatMapDoc } from "@/lib/seatmap/schema";
 import { validateSeatMap, type SeatMapIssue } from "@/lib/seatmap/validate";
 import { useTRPC } from "@/lib/trpc/react";
 import { cn } from "@/lib/utils";
+import { AssistantPanel } from "./assistant-panel";
 import { DesignerCanvas, type CanvasApi } from "./designer-canvas";
-import { CategoriesDialog, PublishDialog, TemplateDialog } from "./dialogs";
+import { CategoriesDialog, ClearMapDialog, PublishDialog } from "./dialogs";
 import { Inspector } from "./inspector";
-import { deleteSelection, duplicateSelection, keyOf, splitSelection, transformSelection } from "./ops";
+import { deleteSelection, duplicateSelection, findRow, groupRowsAsSection, keyOf, renumberRows, seatKey, splitSelection, transformSelection } from "./ops";
+import { allLoose, SelectionBar } from "./selection-bar";
 import { groupOf, TOOL_HINT, ToolRail } from "./tool-rail";
-import type { ToolId } from "./tools";
+import type { AssistChip, ToolId } from "./tools";
 import { useHistory } from "./use-history";
 
 type Props = { stadiumSlug: string; initial: SeatMapState };
@@ -31,13 +33,19 @@ const SNAP_CHOICES = [
   { step: 20, label: "2 m" },
   { step: 50, label: "5 m" },
 ];
+const ANGLE_CHOICES = [5, 10, 15, 30, 45, 90];
+
+function magnetLabel(step: number, angle: number) {
+  const dist = step ? (SNAP_CHOICES.find((c) => c.step === step)?.label ?? `${step / 10} m`) : null;
+  const turn = angle ? `${angle}°` : null;
+  return [dist, turn].filter(Boolean).join(" · ") || "Off";
+}
 
 const SHORTCUTS: Record<string, ToolId> = {
   v: "select",
   h: "hand",
   s: "section",
   S: "rect-section",
-  f: "focal",
   r: "row",
   c: "curved-row",
   b: "row-block",
@@ -57,14 +65,17 @@ function useWideScreen() {
 }
 
 export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
-  const { doc, commit, undo, redo, canUndo, canRedo } = useHistory(initial.draft);
+  const { doc, commit, undo, redo, canUndo, canRedo, lastKey } = useHistory(initial.draft);
   const [selection, setSelection] = useState<Set<string>>(() => new Set());
   const [tool, setTool] = useState<ToolId>("select");
   const [lastInGroup, setLastInGroup] = useState<Record<string, ToolId>>({});
   const [snapStep, setSnapStep] = useState(10);
+  const [snapAngle, setSnapAngle] = useState(0);
+  const [assist, setAssist] = useState<AssistChip[]>([]);
   const [preview, setPreview] = useState(false);
   const [showIssues, setShowIssues] = useState(false);
-  const [dialog, setDialog] = useState<"categories" | "template" | "publish" | null>(null);
+  const [dialog, setDialog] = useState<"categories" | "publish" | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [liveSections, setLiveSections] = useState<VenueSection[]>(initial.sections);
   const [publishedAt, setPublishedAt] = useState(initial.publishedAt);
@@ -72,6 +83,9 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [blocked, setBlocked] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiBuilding, setAiBuilding] = useState(false);
   const wide = useWideScreen();
   const canvasApi = useRef<CanvasApi>(null);
   const { toast } = useToast();
@@ -88,7 +102,11 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
     const ids = new Set<string>();
     for (const s of doc.sections) {
       ids.add(keyOf("s", s.id));
-      for (const r of s.rows) ids.add(keyOf("r", r.id));
+      for (const r of s.rows) {
+        ids.add(keyOf("r", r.id));
+        const gone = new Set(r.removed);
+        for (let i = 0; i < r.seats; i++) if (!gone.has(i)) ids.add(seatKey(r.id, i));
+      }
     }
     for (const d of doc.decorations) ids.add(keyOf("d", d.id));
     for (const p of doc.pois) ids.add(keyOf("p", p.id));
@@ -179,12 +197,56 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
 
   const removeSelected = useCallback(() => {
     if (!liveSelection.size) return;
-    commit(deleteSelection(doc, liveSelection));
-    setSelection(new Set());
+    const parts = splitSelection(liveSelection);
+    const next = deleteSelection(doc, liveSelection);
+    const onlySeats = parts.seats.length > 0 && !parts.sections.size && !parts.rows.size && !parts.decorations.size && !parts.pois.size;
+    if (onlySeats) {
+      const rowIds = new Set(parts.seats.map((s) => s.rowId));
+      const still = new Set<string>();
+      for (const section of next.sections) for (const row of section.rows) if (rowIds.has(row.id)) still.add(keyOf("r", row.id));
+      setSelection(still);
+    } else setSelection(new Set());
+    commit(next);
   }, [commit, doc, liveSelection]);
+
+  const groupSelected = useCallback(() => {
+    const parts = splitSelection(liveSelection);
+    if (!parts.rows.size || !allLoose(doc, parts.rows)) return;
+    const grouped = groupRowsAsSection(doc, parts.rows);
+    if (!grouped) return;
+    commit(grouped.doc, "group");
+    setSelection(new Set([keyOf("s", grouped.sectionId)]));
+    toast({ message: "Grouped as a new section", status: "success" });
+  }, [commit, doc, liveSelection, toast]);
+
+  const canGroupSelected = useMemo(() => {
+    const parts = splitSelection(liveSelection);
+    return parts.rows.size > 0 && allLoose(doc, parts.rows);
+  }, [doc, liveSelection]);
+
+  const renumberSelected = useCallback(() => {
+    const parts = splitSelection(liveSelection);
+    const ids = new Set(parts.rows);
+    for (const seat of parts.seats) ids.add(seat.rowId);
+    if (!ids.size) return;
+    commit(renumberRows(doc, ids));
+  }, [commit, doc, liveSelection]);
+
+  const canRenumber = useMemo(() => {
+    const parts = splitSelection(liveSelection);
+    const ids = new Set(parts.rows);
+    for (const seat of parts.seats) ids.add(seat.rowId);
+    for (const id of ids) {
+      const found = findRow(doc, id);
+      if (found && rowNeedsRenumber(found.row)) return true;
+    }
+    return false;
+  }, [doc, liveSelection]);
 
   const duplicateSelected = useCallback(() => {
     if (!liveSelection.size) return;
+    const parts = splitSelection(liveSelection);
+    if (!parts.sections.size && !parts.rows.size && !parts.decorations.size && !parts.pois.size) return;
     const result = duplicateSelection(doc, liveSelection);
     commit(result.doc);
     setSelection(result.selection);
@@ -198,8 +260,18 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
 
   const notify = useCallback((message: string) => toast({ message, status: "warning" }), [toast]);
 
+  const applyAssistant = useCallback(
+    (next: SeatMapDoc, key: string) => {
+      commit(next, key, true);
+      setSelection(new Set());
+      const hasContent = next.sections.length > 0 || next.decorations.length > 0 || next.pois.length > 0;
+      if (hasContent) requestAnimationFrame(() => canvasApi.current?.reveal());
+    },
+    [commit],
+  );
+
   useEffect(() => {
-    if (preview || !wide) return;
+    if (preview || !wide || aiBusy) return;
     function onKey(e: KeyboardEvent) {
       const target = e.target instanceof Element ? e.target : null;
       if (target?.closest("input, textarea, select, [contenteditable=true], [role=dialog], [role=alertdialog], [role=menu], [role=listbox]")) return;
@@ -237,6 +309,11 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
         removeSelected();
         return;
       }
+      if ((k === "g" || k === "G") && canGroupSelected) {
+        e.preventDefault();
+        groupSelected();
+        return;
+      }
       if (k === "Escape") {
         if (tool !== "select") pickTool("select");
         else setSelection(new Set());
@@ -258,7 +335,7 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [commit, doc, duplicateSelected, liveSelection, pickTool, preview, redo, removeSelected, tool, undo, wide]);
+  }, [aiBusy, canGroupSelected, commit, doc, duplicateSelected, groupSelected, liveSelection, pickTool, preview, redo, removeSelected, tool, undo, wide]);
 
   function focusIssue(issue: SeatMapIssue) {
     if (!issue.target) return;
@@ -337,34 +414,52 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
         </div>
 
         <div className="ml-auto flex items-center gap-1">
-          <IconButton label="Undo (Ctrl+Z)" onClick={undo} disabled={!canUndo || preview}>
+          <IconButton label="Undo (Ctrl+Z)" onClick={undo} disabled={!canUndo || preview || aiBusy}>
             <Undo2 className="size-4" aria-hidden />
           </IconButton>
-          <IconButton label="Redo (Ctrl+Shift+Z)" onClick={redo} disabled={!canRedo || preview}>
+          <IconButton label="Redo (Ctrl+Shift+Z)" onClick={redo} disabled={!canRedo || preview || aiBusy}>
             <Redo2 className="size-4" aria-hidden />
           </IconButton>
           <DropdownMenu>
             <DropdownMenuTrigger
               disabled={preview}
-              aria-label={snapStep ? `Snap to ${SNAP_CHOICES.find((c) => c.step === snapStep)?.label ?? `${snapStep / 10} m`}. Hold Alt to bypass` : "Snap to grid: off"}
+              aria-label={`Snap ${magnetLabel(snapStep, snapAngle)}. Hold Alt to bypass`}
               className={cn(
                 "inline-flex h-8 items-center gap-1 rounded-full px-2 text-[13px] font-medium text-neutral-600 transition-colors duration-150 hover:bg-neutral-100! hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:opacity-35",
-                snapStep > 0 && "bg-neutral-100! text-neutral-900",
+                (snapStep > 0 || snapAngle > 0) && "bg-neutral-100! text-neutral-900",
               )}
             >
               <Magnet className="size-4" aria-hidden />
-              <span className="tabular-nums">{snapStep ? (SNAP_CHOICES.find((c) => c.step === snapStep)?.label ?? `${snapStep / 10} m`) : "Off"}</span>
+              <span className="tabular-nums">{magnetLabel(snapStep, snapAngle)}</span>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => setSnapStep(0)}>
-                <span className="flex-1">Snap off</span>
-              </DropdownMenuItem>
-              {SNAP_CHOICES.map((choice) => (
-                <DropdownMenuItem key={choice.step} onSelect={() => setSnapStep(choice.step)}>
-                  <span className="flex-1">{choice.label}</span>
-                  {snapStep === choice.step ? <span className="text-[12px] text-neutral-400">On</span> : null}
+            <DropdownMenuContent align="end" className="flex w-auto items-stretch p-1">
+              <div className="flex w-36 flex-col">
+                <p className="px-2 pt-1.5 pb-1 text-[11px] font-medium tracking-wide text-neutral-400 uppercase">Grid</p>
+                <DropdownMenuItem onSelect={() => setSnapStep(0)}>
+                  <span className="flex-1">Off</span>
+                  {snapStep === 0 ? <span className="text-[12px] text-neutral-400">On</span> : null}
                 </DropdownMenuItem>
-              ))}
+                {SNAP_CHOICES.map((choice) => (
+                  <DropdownMenuItem key={choice.step} onSelect={() => setSnapStep(choice.step)}>
+                    <span className="flex-1">{choice.label}</span>
+                    {snapStep === choice.step ? <span className="text-[12px] text-neutral-400">On</span> : null}
+                  </DropdownMenuItem>
+                ))}
+              </div>
+              <div className="mx-1 w-px shrink-0 self-stretch bg-neutral-300" aria-hidden />
+              <div className="flex w-28 flex-col">
+                <p className="px-2 pt-1.5 pb-1 text-[11px] font-medium tracking-wide text-neutral-400 uppercase">Angle</p>
+                <DropdownMenuItem onSelect={() => setSnapAngle(0)}>
+                  <span className="flex-1">Off</span>
+                  {snapAngle === 0 ? <span className="text-[12px] text-neutral-400">On</span> : null}
+                </DropdownMenuItem>
+                {ANGLE_CHOICES.map((deg) => (
+                  <DropdownMenuItem key={deg} onSelect={() => setSnapAngle(deg)}>
+                    <span className="flex-1 tabular-nums">{deg}°</span>
+                    {snapAngle === deg ? <span className="text-[12px] text-neutral-400">On</span> : null}
+                  </DropdownMenuItem>
+                ))}
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
           <button
@@ -383,14 +478,30 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
             <CircleAlert className="size-4" aria-hidden />
             {issues.length ? `${issues.length} issue${issues.length === 1 ? "" : "s"}` : "No issues"}
           </button>
+          <button
+            type="button"
+            onClick={() => setConfirmClear(true)}
+            disabled={preview || aiBusy || (doc.sections.length === 0 && doc.decorations.length === 0 && doc.pois.length === 0)}
+            className={secondary}
+          >
+            <Trash2 className="size-4" aria-hidden />
+            Clear
+          </button>
           <span className="mx-1 h-5 w-px bg-neutral-200" aria-hidden />
-          <button type="button" onClick={() => setDialog("template")} disabled={preview} className={secondary}>
-            <LayoutTemplate className="size-4" aria-hidden />
-            Template
+          <button
+            type="button"
+            onClick={() => setAssistantOpen((v) => !v)}
+            disabled={preview}
+            aria-pressed={assistantOpen}
+            className={cn(secondary, assistantOpen && "border-neutral-300 bg-neutral-100! hover:bg-neutral-200/70!")}
+          >
+            <Sparkles className="size-4" aria-hidden />
+            Assistant
           </button>
           <button
             type="button"
             onClick={() => setPreview((v) => !v)}
+            disabled={aiBusy}
             aria-pressed={preview}
             className={cn(secondary, preview && "border-neutral-900 bg-neutral-900! text-white! hover:bg-neutral-800!")}
           >
@@ -403,7 +514,7 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
               setPublishError(null);
               setDialog("publish");
             }}
-            disabled={blocked}
+            disabled={blocked || aiBusy}
             className="inline-flex h-8 items-center gap-1.5 rounded-full bg-neutral-900! px-3.5 text-[13px] font-medium text-white! transition-colors duration-150 hover:bg-neutral-700! focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 disabled:opacity-50"
           >
             Publish
@@ -421,38 +532,59 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
           </div>
         ) : (
           <>
-            <ToolRail
-              tool={tool}
-              onTool={pickTool}
-              lastInGroup={lastInGroup}
-              onPickInGroup={(group, t) => {
-                setLastInGroup((m) => ({ ...m, [group]: t }));
-                setTool(t);
-              }}
-            />
+            <div inert={aiBusy} className={cn("flex", aiBusy && "opacity-40")}>
+              <ToolRail
+                tool={tool}
+                onTool={pickTool}
+                lastInGroup={lastInGroup}
+                onPickInGroup={(group, t) => {
+                  setLastInGroup((m) => ({ ...m, [group]: t }));
+                  setTool(t);
+                }}
+              />
+            </div>
             <div className="relative flex min-w-0 flex-1 flex-col">
               <DesignerCanvas
                 doc={doc}
                 selection={liveSelection}
                 tool={tool}
                 snapStep={snapStep}
+                snapAngle={snapAngle}
                 defaultCategory={defaultCategory}
                 onCommit={onCommit}
                 onSelect={setSelection}
                 onTool={pickTool}
                 onNotify={notify}
+                onAssist={setAssist}
                 apiRef={canvasApi}
+                crafting={aiBuilding}
               />
-              {TOOL_HINT[tool] ? (
+              {TOOL_HINT[tool] && !aiBusy ? (
                 <p className="pointer-events-none absolute top-3 left-1/2 max-w-[90%] -translate-x-1/2 truncate rounded-full bg-white/95 px-3 py-1 text-[12px] text-neutral-600 shadow-[0_2px_8px_-2px_rgba(17,17,17,0.15)]">
                   {TOOL_HINT[tool]}
                 </p>
               ) : null}
-              {!doc.sections.length && !doc.decorations.length ? (
-                <EmptyState onTemplate={() => setDialog("template")} onDraw={() => pickTool("section")} />
+              <SelectionBar
+                selection={liveSelection}
+                canGroup={canGroupSelected}
+                canRenumber={canRenumber}
+                hints={assist}
+                onGroup={groupSelected}
+                onRenumber={renumberSelected}
+                onDuplicate={duplicateSelected}
+                onDelete={removeSelected}
+                onFocus={() => canvasApi.current?.focusSelection(liveSelection)}
+              />
+              {aiBusy ? (
+                <div className="absolute inset-0 z-10 cursor-progress">
+                  <p role="status" className="absolute top-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-neutral-900 px-3 py-1 text-[12px] font-medium text-white shadow-lg">
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    The assistant is editing the map
+                  </p>
+                </div>
               ) : null}
             </div>
-            <Inspector
+            {assistantOpen ? null : <Inspector
               doc={doc}
               selection={liveSelection}
               issues={issues}
@@ -462,10 +594,20 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
               onDuplicate={duplicateSelected}
               onFocus={() => canvasApi.current?.focusSelection(liveSelection)}
               onManageCategories={() => setDialog("categories")}
-              onPlaceFocal={() => pickTool("focal")}
-            />
+              onNotify={(message) => toast({ message })}
+            />}
           </>
         )}
+        <AssistantPanel
+          doc={doc}
+          lastKey={lastKey}
+          open={assistantOpen && !preview}
+          onApply={applyAssistant}
+          onBusyChange={setAiBusy}
+          onBuildingChange={setAiBuilding}
+          onUndo={undo}
+          onClose={() => setAssistantOpen(false)}
+        />
         {showIssues ? <IssuesPanel issues={issues} onPick={focusIssue} onClose={() => setShowIssues(false)} /> : null}
       </div>
 
@@ -478,15 +620,13 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
           setDialog(null);
         }}
       />
-      <TemplateDialog
-        open={dialog === "template"}
-        doc={doc}
-        onOpenChange={(o) => setDialog(o ? "template" : null)}
-        onApply={(next) => {
-          commit(next);
+      <ClearMapDialog
+        open={confirmClear}
+        onOpenChange={setConfirmClear}
+        onConfirm={() => {
+          commit({ ...doc, sections: [], decorations: [], pois: [] });
           setSelection(new Set());
-          setDialog(null);
-          requestAnimationFrame(() => canvasApi.current?.fit());
+          setConfirmClear(false);
         }}
       />
       <PublishDialog
@@ -574,37 +714,13 @@ function IssuesPanel({ issues, onPick, onClose }: { issues: SeatMapIssue[]; onPi
   );
 }
 
-function EmptyState({ onTemplate, onDraw }: { onTemplate: () => void; onDraw: () => void }) {
-  return (
-    <div className="pointer-events-none absolute inset-0 grid place-items-center p-6">
-      <div className="pointer-events-auto w-full max-w-[380px] rounded-2xl border border-neutral-200 bg-white p-6 text-center shadow-[0_16px_40px_-16px_rgba(17,17,17,0.2)]">
-        <h2 className="text-[16px] font-semibold">Draw your venue</h2>
-        <p className="mt-1.5 text-[14px] leading-snug text-neutral-600">Generate a stadium bowl to start from, or draw sections and rows by hand.</p>
-        <div className="mt-5 flex justify-center gap-2">
-          <button type="button" onClick={onDraw} className={secondary}>
-            Draw a section
-          </button>
-          <button
-            type="button"
-            onClick={onTemplate}
-            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-neutral-900! px-3.5 text-[13px] font-medium text-white! hover:bg-neutral-700!"
-          >
-            <LayoutTemplate className="size-4" aria-hidden />
-            Stadium template
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function formatWhen(ms: number) {
   const minutes = Math.round((Date.now() - ms) / 60_000);
   if (minutes < 1) return "just now";
   if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours} h ago`;
-  return new Date(ms).toLocaleDateString(undefined, {
+  return new Date(ms).toLocaleDateString("en", {
     day: "numeric",
     month: "short",
   });

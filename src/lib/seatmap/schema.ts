@@ -47,6 +47,8 @@ export const rowSchema = z.object({
   pitch: z.number().min(SEAT_RADIUS * 2).max(60),
   /** Number printed on the first seat. */
   start: z.number().int().min(0).max(9999),
+  /** Added per seat: 2 gives odd or even numbering. */
+  step: z.number().int().min(1).max(99).default(1),
   /** Number seats right-to-left instead of left-to-right. */
   reverse: z.boolean(),
   /** Seat numbers followed by an empty seat-width gap (aisles). On a table, the length is how many chair spaces stay empty. */
@@ -59,7 +61,11 @@ export const rowSchema = z.object({
   boxW: z.number().min(0).max(100_000).default(0),
   boxH: z.number().min(0).max(100_000).default(0),
   /** Seat numbers that show a wheelchair icon. */
-  wheelchair: z.array(z.number().int().min(0).max(9999)).max(80).default([]),
+  wheelchair: z.array(z.number().int().min(0).max(9999)).max(MAX_SEATS_PER_ROW).default([]),
+  /** Slot indexes left empty. The chair is gone; its number stays unused until the row is renumbered. */
+  removed: z.array(z.number().int().min(0).max(MAX_SEATS_PER_ROW)).max(MAX_SEATS_PER_ROW).default([]),
+  /** Printed number of each slot. Empty means start, start + 1, … along the row. */
+  numbers: z.array(z.number().int().min(0).max(9999)).max(MAX_SEATS_PER_ROW).default([]),
 });
 
 export const sectionLabelSchema = z.object({
@@ -84,10 +90,32 @@ export const sectionSchema = z.object({
   entrance: z.string().max(40),
   /** Seats draws every chair. Block is one labelled area, such as a loge. Tables draw a top with chairs around it. */
   display: z.enum(["seats", "block", "round-table", "rect-table"]).default("seats"),
+  /** Seats drawn before they belong to a stand. The outline appears when they are grouped. */
+  loose: z.boolean().default(false),
   rows: z.array(rowSchema).max(MAX_ROWS_PER_SECTION),
+  /** Degrees the whole block bends around a shared centre. Positive bends around the front row. */
+  bend: z.number().min(-360).max(360).default(0),
+  /**
+   * Rows follow the nearest venue shape, held by the middle of the block.
+   * Older drafts stored start, center or end; those all read as on.
+   */
+  follow: z
+    .enum(["off", "on", "start", "center", "end"])
+    .default("off")
+    .transform((value): "off" | "on" => (value === "off" ? "off" : "on")),
+  /**
+   * Which edge faces the venue while the rows follow it. Auto chooses the edge
+   * already on the rim. A drag keeps that choice, so letting go on a corner
+   * cannot flip the block onto the other side.
+   */
+  face: z.enum(["front", "back", "auto"]).default("auto"),
+  /** Drawn keeps the corners as placed. Auto wraps the seats with `padding`. New sections follow the seats. */
+  outline: z.enum(["drawn", "auto"]).default("auto"),
+  /** Front, end, back and start of the block, in world units. */
+  padding: z.tuple([z.number().min(0).max(200), z.number().min(0).max(200), z.number().min(0).max(200), z.number().min(0).max(200)]).default([3, 3, 3, 3]),
 });
 
-export const DECORATION_KINDS = ["stage", "field", "rect", "ellipse", "text"] as const;
+export const DECORATION_KINDS = ["stage", "field", "rect", "ellipse", "wall", "column", "venue", "text"] as const;
 export type DecorationKind = (typeof DECORATION_KINDS)[number];
 
 export const decorationSchema = z.object({
@@ -101,6 +129,8 @@ export const decorationSchema = z.object({
   rotation: z.number().finite(),
   label: z.string().max(60),
   color,
+  /** Corner radius of a venue shape. */
+  radius: z.number().min(0).max(100_000).default(0),
 });
 
 export const POI_KINDS = ["kitchen", "entrance", "exit", "stairs", "pickup"] as const;
@@ -119,14 +149,37 @@ export const poiSchema = z.object({
   rotation: z.number().finite().default(0),
 });
 
+export const ROW_LABEL_STYLES = ["numbers", "roman", "letters"] as const;
+export type RowLabelStyle = (typeof ROW_LABEL_STYLES)[number];
+
+/** How new rows and seats are labelled. Existing rows keep their own numbering. */
+export const numberingSchema = z.object({
+  rows: z.object({
+    style: z.enum(ROW_LABEL_STYLES).default("numbers"),
+    from: z.number().int().min(0).max(999).default(1),
+    step: z.number().int().min(1).max(99).default(1),
+    /** Label from the back row toward the front. */
+    reverse: z.boolean().default(false),
+  }),
+  seats: z.object({
+    from: z.number().int().min(0).max(9999).default(1),
+    step: z.number().int().min(1).max(99).default(1),
+    reverse: z.boolean().default(false),
+  }),
+});
+
+export const DEFAULT_NUMBERING: z.infer<typeof numberingSchema> = {
+  rows: { style: "numbers", from: 1, step: 1, reverse: false },
+  seats: { from: 1, step: 1, reverse: false },
+};
+
 export const seatMapSchema = z.object({
   version: z.literal(SEATMAP_VERSION),
   categories: z.array(categorySchema).max(20),
   sections: z.array(sectionSchema).max(MAX_SECTIONS),
   decorations: z.array(decorationSchema).max(500),
   pois: z.array(poiSchema).max(500),
-  /** Where the stands look. Rows generated for a section are arcs around this point. */
-  focal: z.object({ x: coord, y: coord }).nullable().default(null),
+  numbering: numberingSchema.default(DEFAULT_NUMBERING),
 });
 
 export type SeatMapCategory = z.infer<typeof categorySchema>;
@@ -135,6 +188,7 @@ export type SeatMapSection = z.infer<typeof sectionSchema>;
 export type SeatMapDecoration = z.infer<typeof decorationSchema>;
 export type SeatMapPoi = z.infer<typeof poiSchema>;
 export type SeatMapDoc = z.infer<typeof seatMapSchema>;
+export type SeatMapNumbering = z.infer<typeof numberingSchema>;
 
 export function emptySeatMap(): SeatMapDoc {
   return {
@@ -147,7 +201,7 @@ export function emptySeatMap(): SeatMapDoc {
     sections: [],
     decorations: [],
     pois: [],
-    focal: null,
+    numbering: DEFAULT_NUMBERING,
   };
 }
 

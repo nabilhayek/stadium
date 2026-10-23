@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import {
   ChefHat,
   Circle,
-  Crosshair,
+  CircleDot,
   DoorOpen,
   Footprints,
   RectangleHorizontal,
@@ -12,6 +12,7 @@ import {
   GripHorizontal,
   Hand,
   LandPlot,
+  LogOut,
   MousePointer2,
   Pentagon,
   Presentation,
@@ -19,6 +20,7 @@ import {
   ShoppingBag,
   Spline,
   Square,
+  SquareRoundCorner,
   Type,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -26,7 +28,7 @@ import { cn } from "@/lib/utils";
 import type { ToolId } from "./tools";
 
 type ToolDef = { id: ToolId; label: string; icon: ReactNode; shortcut?: string };
-type Group = { label: string; tools: ToolDef[] };
+type Group = { label: string; tools: ToolDef[]; divide?: boolean };
 
 const icon = "size-[18px]";
 
@@ -35,13 +37,13 @@ export const TOOL_GROUPS: Group[] = [
   { label: "Pan", tools: [{ id: "hand", label: "Pan", icon: <Hand className={icon} />, shortcut: "H" }] },
   {
     label: "Sections",
+    divide: true,
     tools: [
       { id: "section", label: "Section (polygon)", icon: <Pentagon className={icon} />, shortcut: "S" },
       { id: "rect-section", label: "Section (rectangle)", icon: <Square className={icon} />, shortcut: "Shift S" },
       { id: "loge", label: "Loge", icon: <RectangleHorizontal className={icon} /> },
     ],
   },
-  { label: "Focal", tools: [{ id: "focal", label: "Focal point", icon: <Crosshair className={icon} />, shortcut: "F" }] },
   {
     label: "Rows",
     tools: [
@@ -50,40 +52,59 @@ export const TOOL_GROUPS: Group[] = [
       { id: "row-block", label: "Block of rows", icon: <Grip className={icon} />, shortcut: "B" },
     ],
   },
-  { label: "Text", tools: [{ id: "text", label: "Text", icon: <Type className={icon} />, shortcut: "T" }] },
   {
-    label: "Shapes",
+    label: "Tables",
     tools: [
-      { id: "shape:field", label: "Pitch", icon: <LandPlot className={icon} /> },
-      { id: "shape:stage", label: "Stage", icon: <Presentation className={icon} /> },
-      { id: "shape:rect", label: "Labeled area", icon: <Shapes className={icon} /> },
-      { id: "shape:ellipse", label: "Labeled ellipse", icon: <Circle className={icon} /> },
-      { id: "table-rect", label: "Rectangle table", icon: <Square className={icon} /> },
-      { id: "table-round", label: "Round table", icon: <Circle className={icon} /> },
+      { id: "table-round", label: "Round table", icon: <CircleDot className={icon} /> },
+      { id: "table-rect", label: "Rectangle table", icon: <RectangleHorizontal className={icon} /> },
     ],
   },
   {
-    label: "Points",
+    label: "Venue",
+    divide: true,
     tools: [
+      { id: "shape:venue", label: "Venue shape", icon: <SquareRoundCorner className={icon} /> },
+      { id: "shape:field", label: "Pitch", icon: <LandPlot className={icon} /> },
+      { id: "shape:stage", label: "Stage", icon: <Presentation className={icon} /> },
+    ],
+  },
+  {
+    label: "Shapes",
+    tools: [
+      { id: "shape:wall", label: "Rectangle", icon: <Square className={icon} /> },
+      { id: "shape:column", label: "Circle", icon: <Circle className={icon} /> },
+      { id: "shape:rect", label: "Labeled area", icon: <Shapes className={icon} /> },
+      { id: "shape:ellipse", label: "Labeled ellipse", icon: <Circle className={icon} /> },
+    ],
+  },
+  { label: "Text", tools: [{ id: "text", label: "Text", icon: <Type className={icon} />, shortcut: "T" }] },
+  {
+    label: "Places",
+    divide: true,
+    tools: [
+      { id: "poi:entrance", label: "Entrance", icon: <DoorOpen className={icon} /> },
+      { id: "poi:exit", label: "Exit", icon: <LogOut className={icon} /> },
+      { id: "poi:stairs", label: "Stairs", icon: <Footprints className={icon} /> },
       { id: "poi:kitchen", label: "Kitchen", icon: <ChefHat className={icon} /> },
       { id: "poi:pickup", label: "Pickup point", icon: <ShoppingBag className={icon} /> },
-      { id: "poi:entrance", label: "Entrance", icon: <DoorOpen className={icon} /> },
-      { id: "poi:stairs", label: "Stairs", icon: <Footprints className={icon} /> },
     ],
   },
 ];
 
 export const TOOL_HINT: Partial<Record<ToolId, string>> = {
-  select: "Click to select · Shift-click to add · Drag empty space to box-select · Double-click a seat for its section",
+  select: "Drag whatever is selected to move it together · Click a row, then a chair to pick it · Drag across chairs to box-select · Double-click a seat for its section",
   hand: "Drag to pan · Wheel to zoom",
   section: "Click to place corners · Click the first corner or press Enter to finish · Esc cancels",
   "rect-section": "Drag to draw a rectangular section",
-  focal: "Click or drag to place the point every stand looks at, usually the middle of the pitch",
-  row: "Drag inside a section to lay a straight row",
-  "curved-row": "Drag the row's ends, then move to bend it and click",
-  "row-block": "Drag the first row, then move to add rows and click. With a focal point, the rows curve around it",
+  row: "Click to start the row, move, then click again to place it",
+  "curved-row": "Click to start the row, click again for the other end, then move to bend it and click",
+  "row-block": "Click once, then move. The box is the block: a row or seat appears only when its circle fits inside. Click again to place it",
+  "shape:venue": "Drag the arena floor or pitch outline. Sections can then follow it from the section panel",
+  "shape:wall": "Drag a plain rectangle, such as a wall. It has no label",
+  "shape:column": "Drag a plain circle, such as a pillar. It has no label",
   "poi:stairs": "Drag a bar between blocks. A stair icon sits in the middle",
   "poi:entrance": "Drag a rectangle. A door icon sits in the middle",
+  "poi:exit": "Drag the direction the arrow points. A click leaves it pointing up the map",
   loge: "Drag a box. It is one labelled area, such as a loge, rather than rows of seats",
   "table-round": "Drag the size of a round table. Chairs sit around it",
   "table-rect": "Drag the size of a rectangular table. Chairs sit on the two long sides",
@@ -98,12 +119,12 @@ const active = "bg-neutral-900! text-white! hover:bg-neutral-800!";
 
 export function ToolRail({ tool, onTool, lastInGroup, onPickInGroup }: { tool: ToolId; onTool: (t: ToolId) => void; lastInGroup: Record<string, ToolId>; onPickInGroup: (group: string, t: ToolId) => void }) {
   return (
-    <nav aria-label="Tools" className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-neutral-200 bg-white py-2">
+    <nav aria-label="Tools" className="flex w-12 shrink-0 flex-col items-center gap-1 overflow-y-auto border-r border-neutral-200 bg-white py-2">
       {TOOL_GROUPS.map((group) => {
         const shown = group.tools.find((t) => t.id === (lastInGroup[group.label] ?? group.tools[0].id)) ?? group.tools[0];
         const isActive = group.tools.some((t) => t.id === tool);
         const current = group.tools.find((t) => t.id === tool) ?? shown;
-        const separator = group.label === "Sections" || group.label === "Text" ? <span className="my-1 h-px w-6 bg-neutral-200" aria-hidden /> : null;
+        const separator = group.divide ? <span className="my-1 h-px w-6 bg-neutral-200" aria-hidden /> : null;
 
         if (group.tools.length === 1) {
           return (

@@ -87,20 +87,21 @@ export async function publishSeatMap(slug: string, revision: number, doc: SeatMa
 
     return db.$transaction(async (tx) => {
       const now = new Date();
+      const live = { ...doc, sections: doc.sections.filter((s) => !s.loose) };
       if (revision === 0) {
         const existing = await tx.seatMap.findUnique({ where: { stadiumId: stadium.id }, select: { id: true } });
         if (existing) return { ok: false as const, error: STALE };
-        await tx.seatMap.create({ data: { stadiumId: stadium.id, draft: doc, published: doc, publishedAt: now, revision: 1 } });
+        await tx.seatMap.create({ data: { stadiumId: stadium.id, draft: doc, published: live, publishedAt: now, revision: 1 } });
       } else {
         const { count } = await tx.seatMap.updateMany({
           where: { stadiumId: stadium.id, revision },
-          data: { draft: doc, published: doc, publishedAt: now, revision: { increment: 1 } },
+          data: { draft: doc, published: live, publishedAt: now, revision: { increment: 1 } },
         });
         if (!count) return { ok: false as const, error: STALE };
       }
 
-      const onMap = new Set(doc.sections.map((s) => s.code));
-      for (const [i, s] of doc.sections.entries()) {
+      const onMap = new Set(live.sections.map((s) => s.code));
+      for (const [i, s] of live.sections.entries()) {
         await tx.section.upsert({
           where: { stadiumId_code: { stadiumId: stadium.id, code: s.code } },
           create: { stadiumId: stadium.id, code: s.code, name: s.name, sortOrder: i },
@@ -116,7 +117,7 @@ export async function publishSeatMap(slug: string, revision: number, doc: SeatMa
       if (removable.length) await tx.section.deleteMany({ where: { id: { in: removable } } });
       const kept = leaving.filter((s) => s._count.orders > 0).map((s) => s.code);
       if (kept.length) {
-        await tx.section.updateMany({ where: { stadiumId: stadium.id, code: { in: kept } }, data: { sortOrder: doc.sections.length } });
+        await tx.section.updateMany({ where: { stadiumId: stadium.id, code: { in: kept } }, data: { sortOrder: live.sections.length } });
       }
 
       const sections = await tx.section.findMany({

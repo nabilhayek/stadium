@@ -1,4 +1,4 @@
-import { boundsOf, boxCorners, centroid, placeRow, seatId, seatNumber, unionBounds, type Bounds, type Point } from "../geometry";
+import { boundsOf, boxCorners, centroid, placeRow, seatId, seatNumber, unionBounds, venuesOf, warpSeats, type Bounds, type Point } from "../geometry";
 import { SEAT_RADIUS, type SeatMapDecoration, type SeatMapDoc, type SeatMapPoi } from "../schema";
 
 export type SceneSection = {
@@ -15,6 +15,8 @@ export type SceneSection = {
   bounds: Bounds;
   label: { text: string; x: number; y: number; size: number; rotation: number; visible: boolean };
   display: "seats" | "block" | "round-table" | "rect-table";
+  /** Seats drawn before they belong to a stand. The outline stays hidden. */
+  loose: boolean;
   rowStart: number;
   rowEnd: number;
   seatStart: number;
@@ -55,6 +57,8 @@ export type Scene = {
   seatY: Float32Array;
   seatRow: Int32Array;
   seatNumber: Int32Array;
+  /** 0 when that slot was removed and should not be drawn or hit. */
+  seatLive: Uint8Array;
   /** 1 when that seat is marked wheelchair-accessible. */
   seatWheelchair: Uint8Array;
   grid: Grid;
@@ -120,6 +124,7 @@ export function buildScene(doc: SeatMapDoc): Scene {
   const seatY = new Float32Array(total);
   const seatRow = new Int32Array(total);
   const seatNum = new Int32Array(total);
+  const seatLive = new Uint8Array(total);
   const seatWheelchair = new Uint8Array(total);
   const sections: SceneSection[] = [];
   const rows: SceneRow[] = [];
@@ -127,31 +132,57 @@ export function buildScene(doc: SeatMapDoc): Scene {
   const rowIndex = new Map<string, number>();
   let bounds: Bounds | null = null;
   let at = 0;
+  const venues = venuesOf(doc);
 
   doc.sections.forEach((s, si) => {
     const cat = s.categoryId ? categoryIndex.get(s.categoryId) : undefined;
     const rowStart = rows.length;
     const seatStart = at;
     const stripes = new Path2D();
+    const counts: number[] = [];
+    let end = at;
     for (const r of s.rows) {
-      const n = placeRow(r, seatX, seatY, at);
+      const n = placeRow(r, seatX, seatY, end);
+      counts.push(n);
+      end += n;
+    }
+    warpSeats(s, venues, seatX, seatY, at, end);
+    let k = 0;
+    for (const r of s.rows) {
+      const n = counts[k++];
       const ri = rows.length;
+      const gone = new Set(r.removed);
       let rb: Bounds | null = null;
+      const live: number[] = [];
       for (let i = 0; i < n; i++) {
         seatRow[at + i] = ri;
         seatNum[at + i] = seatNumber(r, i);
+        const on = !gone.has(i);
+        seatLive[at + i] = on ? 1 : 0;
+        if (!on) continue;
+        live.push(i);
         if (r.wheelchair.includes(seatNum[at + i])) seatWheelchair[at + i] = 1;
         const x = seatX[at + i];
         const y = seatY[at + i];
         rb = unionBounds(rb, { minX: x - SEAT_RADIUS, minY: y - SEAT_RADIUS, maxX: x + SEAT_RADIUS, maxY: y + SEAT_RADIUS });
       }
       const stripe = new Path2D();
-      const step = Math.max(1, Math.floor(n / 12));
-      stripe.moveTo(seatX[at], seatY[at]);
-      for (let i = step; i < n - 1; i += step) stripe.lineTo(seatX[at + i], seatY[at + i]);
-      stripe.lineTo(seatX[at + n - 1], seatY[at + n - 1]);
+      if (live.length) {
+        const step = Math.max(1, Math.floor(live.length / 12));
+        stripe.moveTo(seatX[at + live[0]], seatY[at + live[0]]);
+        for (let k = step; k < live.length - 1; k += step) stripe.lineTo(seatX[at + live[k]], seatY[at + live[k]]);
+        stripe.lineTo(seatX[at + live[live.length - 1]], seatY[at + live[live.length - 1]]);
+      }
       stripes.addPath(stripe);
-      rows.push({ id: r.id, label: r.label, section: si, seatStart: at, seatEnd: at + n, stripe, bounds: rb! });
+      rows.push({
+        id: r.id,
+        label: r.label,
+        section: si,
+        seatStart: at,
+        seatEnd: at + n,
+        stripe,
+        bounds: rb ?? { minX: r.x, minY: r.y, maxX: r.x, maxY: r.y },
+      });
       rowIndex.set(r.id, ri);
       at += n;
     }
@@ -170,6 +201,7 @@ export function buildScene(doc: SeatMapDoc): Scene {
       bounds: sb,
       label: { text: s.label.text || s.code, x: cx + s.label.dx, y: cy + s.label.dy, size: s.label.size, rotation: s.label.rotation, visible: s.label.visible },
       display: s.display,
+      loose: s.loose,
       rowStart,
       rowEnd: rows.length,
       seatStart,
@@ -198,6 +230,7 @@ export function buildScene(doc: SeatMapDoc): Scene {
     seatY,
     seatRow,
     seatNumber: seatNum,
+    seatLive,
     seatWheelchair,
     grid: buildGrid(seatX, seatY, total, finalBounds),
     bounds: finalBounds,

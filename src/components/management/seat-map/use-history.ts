@@ -1,4 +1,5 @@
 import { useCallback, useReducer } from "react";
+import { syncOutlines } from "@/lib/seatmap/geometry";
 import type { SeatMapDoc } from "@/lib/seatmap/schema";
 
 const LIMIT = 100;
@@ -7,7 +8,7 @@ const COALESCE_MS = 1200;
 
 type State = { doc: SeatMapDoc; past: SeatMapDoc[]; future: SeatMapDoc[]; key: string | null; at: number };
 type Action =
-  | { type: "commit"; doc: SeatMapDoc; key: string | null; at: number }
+  | { type: "commit"; doc: SeatMapDoc; key: string | null; at: number; hold: boolean }
   | { type: "undo" }
   | { type: "redo" }
   | { type: "reset"; doc: SeatMapDoc };
@@ -16,7 +17,7 @@ function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "commit": {
       if (action.doc === state.doc) return state;
-      const merge = action.key !== null && action.key === state.key && action.at - state.at < COALESCE_MS && state.past.length > 0;
+      const merge = action.key !== null && action.key === state.key && (action.hold || action.at - state.at < COALESCE_MS) && state.past.length > 0;
       return {
         doc: action.doc,
         past: merge ? state.past : [...state.past.slice(-(LIMIT - 1)), state.doc],
@@ -42,8 +43,12 @@ function reducer(state: State, action: Action): State {
 
 export function useHistory(initial: SeatMapDoc) {
   const [state, dispatch] = useReducer(reducer, { doc: initial, past: [], future: [], key: null, at: 0 });
-  const commit = useCallback((doc: SeatMapDoc, key: string | null = null) => dispatch({ type: "commit", doc, key, at: Date.now() }), []);
+  /** `hold` keeps merging same-key commits however far apart, so a whole assistant turn undoes as one step. */
+  const commit = useCallback(
+    (doc: SeatMapDoc, key: string | null = null, hold = false) => dispatch({ type: "commit", doc: syncOutlines(doc), key, at: Date.now(), hold }),
+    [],
+  );
   const undo = useCallback(() => dispatch({ type: "undo" }), []);
   const redo = useCallback(() => dispatch({ type: "redo" }), []);
-  return { doc: state.doc, canUndo: state.past.length > 0, canRedo: state.future.length > 0, commit, undo, redo };
+  return { doc: state.doc, canUndo: state.past.length > 0, canRedo: state.future.length > 0, lastKey: state.key, commit, undo, redo };
 }

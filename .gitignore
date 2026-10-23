@@ -47,3 +47,8 @@ next-env.d.ts
 .vercel
 .env*
 .env*.local
+
+# workflow (generated routes)
+/src/app/.well-known/workflow/
+.workflow-data/
+/.swc
