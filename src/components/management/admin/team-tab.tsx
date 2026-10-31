@@ -8,16 +8,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/toast/toast-provider";
+import { useTRPC } from "@/lib/trpc/react";
+import { useMutation } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Badge, Card, FilterTabs, ghostButton, primaryButton, secondaryButton } from "../ui";
 import { PERMISSIONS, type AdminSettings, type Edit, type Member, type StaffRole } from "./model";
 
-type Props = { settings: AdminSettings; edit: Edit };
+type Props = { stadiumSlug: string; settings: AdminSettings; edit: Edit };
 
 const menuButton =
   "grid size-8 shrink-0 place-items-center rounded-lg text-neutral-500 transition-colors duration-150 hover:bg-neutral-200/60! hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-blue-500 data-[state=open]:bg-neutral-200/60!";
 
-export function TeamTab({ settings, edit }: Props) {
+export function TeamTab({ stadiumSlug, settings, edit }: Props) {
   const [filter, setFilter] = useState("all");
   const [inviting, setInviting] = useState(false);
   const [session, setSession] = useState(0);
@@ -26,6 +28,8 @@ export function TeamTab({ settings, edit }: Props) {
   const [openRole, setOpenRole] = useState<string | null>(null);
   const [drop, setDrop] = useState<{ id: string; moveTo: string } | null>(null);
   const { toast } = useToast();
+  const trpc = useTRPC();
+  const resend = useMutation(trpc.admin.resendInvite.mutationOptions());
   const { members, kitchens, roles } = settings;
   const roleFilter = filter === "all" || roles.some((r) => r.id === filter) ? filter : "all";
   const shown = roleFilter === "all" ? members : members.filter((m) => m.role === roleFilter);
@@ -134,7 +138,18 @@ export function TeamTab({ settings, edit }: Props) {
                         Permissions
                       </DropdownMenuItem>
                       {m.status === "invited" ? (
-                        <DropdownMenuItem onSelect={() => toast({ message: `Invite sent again to ${m.email}`, status: "success" })}>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            resend.mutate(
+                              { stadium: stadiumSlug, memberId: m.id },
+                              {
+                                onSuccess: (result) =>
+                                  toast({ message: result.ok ? `Invite sent again to ${m.email}` : result.error, status: result.ok ? "success" : "error" }),
+                                onError: () => toast({ message: "The invite email did not send.", status: "error" }),
+                              },
+                            );
+                          }}
+                        >
                           <Send />
                           Resend invite
                         </DropdownMenuItem>
@@ -306,7 +321,7 @@ export function TeamTab({ settings, edit }: Props) {
             onInvite={(member) => {
               edit((s) => ({ ...s, members: [...s.members, member] }));
               setInviting(false);
-              toast({ message: `Invite ready for ${member.email}`, status: "success" });
+              toast({ message: `Invite for ${member.email} goes out when you save.`, status: "success" });
             }}
           />
         ) : null}
@@ -408,7 +423,7 @@ function InviteSheet({
       <header className="flex h-14 shrink-0 items-center border-b border-neutral-200 px-5 pr-14">
         <div className="min-w-0">
           <SheetTitle>Invite staff</SheetTitle>
-          <SheetDescription className="truncate">They get an email to set a password</SheetDescription>
+          <SheetDescription className="truncate">The invite email goes out when you save.</SheetDescription>
         </div>
       </header>
       <form

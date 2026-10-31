@@ -25,6 +25,8 @@ const APP_TABLES = [
   '"Section"',
   '"Receipt"',
   '"SeatMap"',
+  '"StaffMember"',
+  '"VenueAdmin"',
   '"Stadium"',
   '"session"',
   '"account"',

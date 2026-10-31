@@ -1,10 +1,13 @@
 import { cacheLife } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { auth } from "@/lib/auth";
 import { taintRecord } from "@/lib/taint";
 
 export async function kitchenSession() {
+  // Better Auth checks expiry with `new Date()`. That has to wait for the request, or Cache Components refuses the prerender.
+  await connection();
   const session = await auth.api.getSession({ headers: await headers() });
   if (session) taintRecord(session.session, "The auth session holds the sign-in token. Pass only the fields you need.");
   return session;

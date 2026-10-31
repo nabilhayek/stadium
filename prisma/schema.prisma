@@ -26,12 +26,14 @@ model Stadium {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  products Product[]
-  sections Section[]
-  orders   Order[]
-  receipts Receipt[]
-  payments Payment[]
-  seatMap  SeatMap?
+  products   Product[]
+  sections   Section[]
+  orders     Order[]
+  receipts   Receipt[]
+  payments   Payment[]
+  seatMap    SeatMap?
+  venueAdmin VenueAdmin?
+  staff      StaffMember[]
 
   @@index([isActive])
 }
@@ -51,6 +53,46 @@ model SeatMap {
   updatedAt   DateTime  @updatedAt
 
   stadium Stadium @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
+}
+
+/// Desk settings for one venue: roles, kitchens, ordering, payments. Staff accounts
+/// are rows, not part of this document, so a save never has to carry a password.
+model VenueAdmin {
+  id        String   @id @default(cuid())
+  stadiumId String   @unique
+  settings  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stadium Stadium @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
+}
+
+enum StaffStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+/// A person on the Admin → Team list. `userId` is set when that email already has a sign-in.
+model StaffMember {
+  id          String      @id
+  stadiumId   String
+  userId      String?
+  name        String
+  email       String
+  roleId      String
+  /// Null means "use the role". A list is this person's own permissions.
+  permissions Json?
+  kitchenIds  String[]    @default([])
+  status      StaffStatus @default(INVITED)
+  lastSeenAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  stadium Stadium @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
+
+  @@unique([stadiumId, email])
+  @@index([stadiumId, status])
 }
 
 /// Where a paid order sits on the kitchen desk. NEW, ACCEPTED (in progress) and

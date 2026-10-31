@@ -87,7 +87,55 @@
     "signIn": "Logga in",
     "firstTime": "Första gången? Skapa kökskontot",
     "alreadyHave": "Har du redan ett konto? Logga in",
-    "couldNotSignIn": "Det gick inte att logga in."
+    "couldNotSignIn": "Det gick inte att logga in.",
+    "forgot": "Glömt lösenordet?",
+    "forgotLead": "Vi mejlar en länk som gäller i 1 timme.",
+    "sendReset": "Mejla återställningslänk",
+    "resetSent": "Om kontot finns är länken på väg.",
+    "backToSignIn": "Tillbaka till inloggning",
+    "resetTitle": "Välj ett nytt lösenord",
+    "newPassword": "Nytt lösenord",
+    "confirmPassword": "Bekräfta lösenord",
+    "passwordsDontMatch": "Lösenorden matchar inte.",
+    "passwordUpdated": "Lösenordet är uppdaterat. Du kan logga in med det.",
+    "resetFailed": "Länken är ogiltig eller har gått ut."
+  },
+  "email": {
+    "reset": {
+      "subject": "Återställ lösenordet för Seat Service",
+      "preheader": "Länken gäller i 1 timme.",
+      "heading": "Återställ ditt lösenord",
+      "body": "Vi fick en begäran om att återställa lösenordet för {email}.",
+      "action": "Återställ lösenord",
+      "ignore": "Om du inte bad om det här kan du ignorera mejlet. Lösenordet är oförändrat."
+    },
+    "verify": {
+      "subject": "Bekräfta din e-post för Seat Service",
+      "preheader": "Bekräfta adressen så vi vet att den är din.",
+      "heading": "Bekräfta din e-post",
+      "body": "Bekräfta {email} för att göra klart inloggningen till köket.",
+      "action": "Bekräfta e-post",
+      "ignore": "Om du inte skapade kontot kan du ignorera mejlet."
+    },
+    "invite": {
+      "subject": "Du är inbjuden till kökdisken på {stadium}",
+      "preheader": "Välj ett lösenord för att logga in. Länken gäller i 24 timmar.",
+      "heading": "Du är inbjuden",
+      "body": "{name} la till dig på kökdisken på {stadium} som {role}.",
+      "action": "Välj lösenord",
+      "ignore": "Om du inte väntade dig det här kan du ignorera mejlet."
+    },
+    "receipt": {
+      "subject": "Kvitto för order {order} på {stadium}",
+      "preheader": "Betalt {total}. Din kod är {code}.",
+      "heading": "Tack för din beställning",
+      "body": "Order {order} på {stadium} är betald.",
+      "total": "Totalt",
+      "code": "Utlämningskod",
+      "seat": "Plats",
+      "action": "Följ beställningen",
+      "ignore": "Du bad om kvittot i kassan. Vi använder bara adressen för beställningen."
+    }
   },
   "error": {
     "title": "Något gick fel",

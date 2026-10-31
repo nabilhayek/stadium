@@ -31,7 +31,7 @@ export default async function CheckoutPage({ params }: Props) {
     <main className="mx-auto w-full max-w-md px-4 pt-6">
       <link rel="preconnect" href="https://js.stripe.com" />
       <link rel="preconnect" href="https://api.stripe.com" />
-      <CheckoutView stadiumSlug={menu.slug} stadiumName={menu.name} currency={menu.currency} sections={menu.sections} publishableKey={publishableKey()} />
+      <CheckoutView stadiumSlug={menu.slug} stadiumName={menu.name} currency={menu.currency} sections={menu.sections} publishableKey={publishableKey()} orderingOpen={menu.orderingOpen} />
     </main>
   );
 }

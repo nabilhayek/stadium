@@ -62,9 +62,22 @@ type Props = {
   currency: string;
   sections: SeatSection[];
   publishableKey: string | null;
+  /** False when an admin has paused new orders. */
+  orderingOpen?: boolean;
 };
 
 export function CheckoutView(props: Props) {
+  if (props.orderingOpen === false) {
+    return (
+      <div className="flex min-h-[70dvh] flex-col justify-center pr-12">
+        <h1 className="font-display text-[28px] font-semibold tracking-[-0.03em]">Ordering is paused</h1>
+        <p className="mt-2 text-[15px] text-muted">The kitchen isn’t taking new orders right now. You can still look at the menu.</p>
+        <Link href={`/${props.stadiumSlug}`} className="button button--primary button--lg mt-8 w-full text-center">
+          Back to the menu
+        </Link>
+      </div>
+    );
+  }
   if (!props.publishableKey) {
     return (
       <div className="flex min-h-[70dvh] flex-col justify-center pr-12">

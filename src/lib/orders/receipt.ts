@@ -38,7 +38,7 @@ export type Receipt = {
   runnerNote: string;
   /** 4-digit hand-off code the runner confirms on their end. */
   confirmCode: string;
-  /** Where to send the receipt. Sending is wired up later; we only store it for now. */
+  /** Where to send the receipt. Saved here, then emailed. */
   email?: string;
   /** Present on orders placed after history landed. Older receipts omit it. */
   currency?: string;

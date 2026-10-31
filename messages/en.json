@@ -87,7 +87,55 @@
     "signIn": "Sign in",
     "firstTime": "First time here? Create the kitchen account",
     "alreadyHave": "Already have an account? Sign in",
-    "couldNotSignIn": "Could not sign in."
+    "couldNotSignIn": "Could not sign in.",
+    "forgot": "Forgot password?",
+    "forgotLead": "We'll email a link that expires in 1 hour.",
+    "sendReset": "Email reset link",
+    "resetSent": "If that account exists, the reset link is on its way.",
+    "backToSignIn": "Back to sign in",
+    "resetTitle": "Choose a new password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "passwordsDontMatch": "Those passwords don't match.",
+    "passwordUpdated": "Password updated. You can sign in with it.",
+    "resetFailed": "This link is invalid or expired."
+  },
+  "email": {
+    "reset": {
+      "subject": "Reset your Seat Service password",
+      "preheader": "This link expires in 1 hour.",
+      "heading": "Reset your password",
+      "body": "We got a request to reset the password for {email}.",
+      "action": "Reset password",
+      "ignore": "If you didn't ask for this, you can ignore this email. Your password stays the same."
+    },
+    "verify": {
+      "subject": "Verify your email for Seat Service",
+      "preheader": "Confirm this address so we know it's yours.",
+      "heading": "Verify your email",
+      "body": "Confirm {email} to finish setting up your kitchen sign-in.",
+      "action": "Verify email",
+      "ignore": "If you didn't create this account, you can ignore this email."
+    },
+    "invite": {
+      "subject": "You're invited to the {stadium} kitchen desk",
+      "preheader": "Set a password to sign in. The link expires in 24 hours.",
+      "heading": "You're invited",
+      "body": "{name} added you to the kitchen desk at {stadium} as {role}.",
+      "action": "Set your password",
+      "ignore": "If you weren't expecting this, you can ignore this email."
+    },
+    "receipt": {
+      "subject": "Receipt for order {order} at {stadium}",
+      "preheader": "Paid {total}. Your hand-off code is {code}.",
+      "heading": "Thanks for your order",
+      "body": "Order {order} at {stadium} is paid.",
+      "total": "Total",
+      "code": "Hand-off code",
+      "seat": "Seat",
+      "action": "Track this order",
+      "ignore": "You asked for this receipt at checkout. We only use this address for the order."
+    }
   },
   "error": {
     "title": "Something went wrong",

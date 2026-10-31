@@ -1,4 +1,5 @@
 import { createCallerFactory, router } from "./init";
+import { adminRouter } from "./routers/admin";
 import { kitchenRouter } from "./routers/kitchen";
 import { ordersRouter } from "./routers/orders";
 import { paymentsRouter } from "./routers/payments";
@@ -11,6 +12,7 @@ export const appRouter = router({
   orders: ordersRouter,
   payments: paymentsRouter,
   kitchen: kitchenRouter,
+  admin: adminRouter,
   products: productsRouter,
   seatMap: seatMapRouter,
 });

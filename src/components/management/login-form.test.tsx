@@ -15,6 +15,8 @@ const loginMessages = {
     firstTime: "First time here? Create the kitchen account",
     alreadyHave: "Already have an account? Sign in",
     couldNotSignIn: "Could not sign in.",
+    forgot: "Forgot password?",
+    backToSignIn: "Back to sign in",
   },
 };
 
@@ -25,6 +27,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/auth-client", () => ({
   signIn: { email: vi.fn(async () => ({ error: null })) },
   signUp: { email: vi.fn(async () => ({ error: null })) },
+  requestPasswordReset: vi.fn(async () => ({ error: null })),
 }));
 
 vi.mock("@/components/toast/toast-provider", () => ({
@@ -39,9 +42,7 @@ describe("LoginForm", () => {
 
   it("shows pending copy while submitting", async () => {
     const { signIn } = await import("@/lib/auth-client");
-    vi.mocked(signIn.email).mockImplementation(
-      () => new Promise((resolve) => setTimeout(() => resolve({ error: null }), 100)),
-    );
+    vi.mocked(signIn.email).mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve({ error: null }), 100)));
 
     const user = userEvent.setup();
     renderWithIntl(<LoginForm stadiumSlug="arena" canRegister={false} />, loginMessages);
@@ -50,6 +51,9 @@ describe("LoginForm", () => {
     await user.type(screen.getByLabelText("Password"), "password1");
     await user.click(screen.getByRole("button", { name: "Sign in" }));
 
-    expect(screen.getByRole("button", { name: "Please wait" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Please wait" })).toBeDisabled();
+    // The mock resolves a moment later and clears pending. Wait for that here,
+    // or the update lands after jsdom is gone and coverage exits with a rejection.
+    expect(await screen.findByRole("button", { name: "Sign in" })).toBeEnabled();
   });
 });

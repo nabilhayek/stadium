@@ -9,6 +9,7 @@ import { getOwnedReceipt, putReceipt } from "@/lib/orders/server";
 import { mergeSecondRound, secondRoundLeft } from "@/lib/orders/second-round";
 import { checkoutDraft, parseDraft, receiptFromDraft, type CheckoutDraft } from "./draft";
 import { paymentFailureMessage } from "./messages";
+import { venueAcceptsOrders } from "@/lib/management/admin";
 import { isQuoteError, quoteOrder, type QuoteRequestLine } from "./quote";
 
 const DEVICE_ID = /^[a-z0-9-]{8,64}$/i;
@@ -86,6 +87,9 @@ function validPrepare(input: PrepareInput): string | null {
 export async function prepareCheckout(input: PrepareInput): Promise<PrepareResult> {
   const invalid = validPrepare(input);
   if (invalid) return { ok: false, status: 400, message: invalid };
+  if (!(await venueAcceptsOrders(input.stadiumSlug))) {
+    return { ok: false, status: 409, message: "Ordering is paused at this stadium." };
+  }
 
   const priced = await quoteOrder(input.stadiumSlug, input.lines);
   if (isQuoteError(priced)) return { ok: false, status: 400, message: quoteMessage(priced.error) };

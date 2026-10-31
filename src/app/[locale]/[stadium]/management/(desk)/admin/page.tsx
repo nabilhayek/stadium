@@ -16,7 +16,8 @@ export default async function ManagementAdminPage({ params }: Props) {
   const menu = await api.stadium.menu({ slug: stadium });
   if (!menu) notFound();
   const doc = (await getPublishedSeatMap(stadium)) ?? (await getSeatMap(stadium))?.draft;
-  if (!doc) notFound();
+  const settings = await api.admin.get({ stadium });
+  if (!doc || !settings) notFound();
 
-  return <AdminConsole stadiumName={menu.name} currency={menu.currency} doc={doc} />;
+  return <AdminConsole stadiumSlug={menu.slug} stadiumName={menu.name} doc={doc} settings={settings} />;
 }

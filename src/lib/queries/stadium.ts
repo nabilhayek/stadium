@@ -2,6 +2,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { withDb } from "@/lib/db";
 import { toNutrition } from "@/lib/menu/nutrition";
 import type { MenuOptionGroup } from "@/lib/menu/options";
+import { readsAcceptOrders } from "@/lib/management/admin-settings";
 import { FALLBACK_ARENA } from "./fallback-arena";
 
 export const MENU_TAG = (slug: string) => `menu:${slug}`;
@@ -22,6 +23,7 @@ export async function getStadiumMenu(slug: string) {
           name: true,
           city: true,
           currency: true,
+          venueAdmin: { select: { settings: true } },
           sections: {
             orderBy: { sortOrder: "asc" },
             select: { id: true, code: true, name: true },
@@ -72,7 +74,8 @@ export async function getStadiumMenu(slug: string) {
         allergens: allergens ?? [],
         optionGroups: optionGroups satisfies MenuOptionGroup[],
       }));
-      return { ...stadium, products, categories };
+      const { venueAdmin, ...rest } = stadium;
+      return { ...rest, products, categories, orderingOpen: readsAcceptOrders(venueAdmin?.settings) };
     });
   } catch (e) {
     if (slug === FALLBACK_ARENA.slug) {

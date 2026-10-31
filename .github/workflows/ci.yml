@@ -21,6 +21,10 @@ jobs:
     name: Format, lint, typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # `npm ci` runs `prisma generate`. Generate does not connect; the URL only
+      # has to be present so the config can load. Vercel builds the app.
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/stadium
     steps:
       - uses: actions/checkout@v4
 
@@ -171,53 +175,3 @@ jobs:
             playwright-report
             test-results
           if-no-files-found: ignore
-
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: stadium
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/stadium?schema=public
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
-      BETTER_AUTH_URL: http://localhost:3000
-      BETTER_AUTH_SECRET: ci-only-secret-not-used-anywhere-else-0000
-      STRIPE_PUB_KEY: pk_test_ci
-      STRIPE_SECRET_KEY: sk_test_ci
-      STRIPE_WEBHOOK_SECRET: whsec_ci
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - run: npm ci
-
-      # https://nextjs.org/docs/app/guides/ci-build-caching — persist .next/cache between CI builds.
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.npm
-            ${{ github.workspace }}/.next/cache
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
-          restore-keys: |
-            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
-
-      # Runs prisma generate, applies every migration to the throwaway database, then next build.
-      - name: Build
-        run: npm run build

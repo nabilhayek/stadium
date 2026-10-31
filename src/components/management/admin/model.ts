@@ -212,44 +212,9 @@ export function initialSettings(doc: SeatMapDoc, currency = "EUR"): AdminSetting
     kitchens[0].overflowTo = kitchens[1].id;
     kitchens[1].overflowTo = kitchens[0].id;
   }
-  const k = (i: number) => (kitchens[i] ? [kitchens[i].id] : []);
   return {
     currency: currency.toUpperCase(),
-    members: [
-      { id: "m1", name: "Alex Lindqvist", email: "alex@stadium.example", role: "admin", permissions: null, kitchens: [], status: "active", lastSeen: "Now" },
-      {
-        id: "m2",
-        name: "Sara Nilsson",
-        email: "sara@stadium.example",
-        role: "manager",
-        permissions: null,
-        kitchens: [],
-        status: "active",
-        lastSeen: "2 h ago",
-      },
-      {
-        id: "m3",
-        name: "Omar Haddad",
-        email: "omar@stadium.example",
-        role: "kitchen",
-        permissions: ["orders.view", "orders.update", "orders.deliver", "orders.refund", "menu.edit", "kitchens.pause"],
-        kitchens: k(0),
-        status: "active",
-        lastSeen: "Yesterday",
-      },
-      {
-        id: "m4",
-        name: "Lina Berg",
-        email: "lina@stadium.example",
-        role: "kitchen",
-        permissions: null,
-        kitchens: k(1),
-        status: "active",
-        lastSeen: "3 days ago",
-      },
-      { id: "m5", name: "Jonas Ek", email: "jonas@stadium.example", role: "runner", permissions: null, kitchens: [], status: "active", lastSeen: "Last match" },
-      { id: "m6", name: "Maja Holm", email: "maja@stadium.example", role: "kitchen", permissions: null, kitchens: k(0), status: "invited", lastSeen: null },
-    ],
+    members: [],
     roles: defaultRoles(),
     kitchens,
     routes: nearestRoutes(doc, kitchens),

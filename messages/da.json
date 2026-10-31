@@ -87,7 +87,55 @@
     "signIn": "Log ind",
     "firstTime": "Første gang? Opret køkkenkontoen",
     "alreadyHave": "Har du allerede en konto? Log ind",
-    "couldNotSignIn": "Kunne ikke logge ind."
+    "couldNotSignIn": "Kunne ikke logge ind.",
+    "forgot": "Glemt adgangskoden?",
+    "forgotLead": "Vi sender et link, der udløber om 1 time.",
+    "sendReset": "Send nulstillingslink",
+    "resetSent": "Hvis kontoen findes, er linket på vej.",
+    "backToSignIn": "Tilbage til log ind",
+    "resetTitle": "Vælg en ny adgangskode",
+    "newPassword": "Ny adgangskode",
+    "confirmPassword": "Bekræft adgangskode",
+    "passwordsDontMatch": "Adgangskoderne er ikke ens.",
+    "passwordUpdated": "Adgangskoden er opdateret. Du kan logge ind med den.",
+    "resetFailed": "Linket er ugyldigt eller udløbet."
+  },
+  "email": {
+    "reset": {
+      "subject": "Nulstil adgangskoden til Seat Service",
+      "preheader": "Linket udløber om 1 time.",
+      "heading": "Nulstil din adgangskode",
+      "body": "Vi fik en anmodning om at nulstille adgangskoden for {email}.",
+      "action": "Nulstil adgangskode",
+      "ignore": "Hvis du ikke bad om det, kan du ignorere mailen. Adgangskoden er uændret."
+    },
+    "verify": {
+      "subject": "Bekræft din e-mail til Seat Service",
+      "preheader": "Bekræft adressen, så vi ved, den er din.",
+      "heading": "Bekræft din e-mail",
+      "body": "Bekræft {email} for at gøre køkkenlogin færdigt.",
+      "action": "Bekræft e-mail",
+      "ignore": "Hvis du ikke oprettede kontoen, kan du ignorere mailen."
+    },
+    "invite": {
+      "subject": "Du er inviteret til køkkendisken på {stadium}",
+      "preheader": "Vælg en adgangskode for at logge ind. Linket udløber om 24 timer.",
+      "heading": "Du er inviteret",
+      "body": "{name} har tilføjet dig til køkkendisken på {stadium} som {role}.",
+      "action": "Vælg adgangskode",
+      "ignore": "Hvis du ikke ventede dette, kan du ignorere mailen."
+    },
+    "receipt": {
+      "subject": "Kvittering for ordre {order} på {stadium}",
+      "preheader": "Betalt {total}. Din kode er {code}.",
+      "heading": "Tak for din bestilling",
+      "body": "Ordre {order} på {stadium} er betalt.",
+      "total": "I alt",
+      "code": "Afhentningskode",
+      "seat": "Plads",
+      "action": "Følg bestillingen",
+      "ignore": "Du bad om kvitteringen i kassen. Vi bruger kun adressen til bestillingen."
+    }
   },
   "error": {
     "title": "Noget gik galt",

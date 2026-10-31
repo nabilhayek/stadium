@@ -3,6 +3,7 @@ import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaClient } from "@/generated/prisma/client";
+import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email/auth-mail";
 import { postgresConnectionString } from "@/lib/pg-url";
 
 const globalForAuth = globalThis as unknown as { authPrisma?: PrismaClient };
@@ -23,7 +24,20 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL,
   trustedOrigins: process.env.NODE_ENV === "production" ? [baseURL] : [baseURL, "http://localhost:3000"],
-  emailAndPassword: { enabled: true },
+  emailAndPassword: {
+    enabled: true,
+    sendResetPassword: async ({ user, url }, request) => {
+      const sent = await sendPasswordResetEmail({ to: user.email, url, request });
+      if (!sent.ok) throw new Error(sent.error);
+    },
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    sendVerificationEmail: async ({ user, url }, request) => {
+      const sent = await sendVerificationEmail({ to: user.email, url, request });
+      if (!sent.ok) console.error("Verification email failed.");
+    },
+  },
   databaseHooks: {
     user: {
       create: {

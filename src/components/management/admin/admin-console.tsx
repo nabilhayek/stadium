@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/components/toast/toast-provider";
+import { useTRPC } from "@/lib/trpc/react";
 import type { SeatMapDoc } from "@/lib/seatmap/schema";
 import { FilterTabs, PageHeader, primaryButton, secondaryButton } from "../ui";
 import { KitchensTab } from "./kitchens-tab";
-import { initialSettings, type AdminSettings, type Edit } from "./model";
+import type { AdminSettings, Edit } from "./model";
 import { OrderingTab } from "./ordering-tab";
 import { ServiceTab } from "./service-tab";
 import { TeamTab } from "./team-tab";
@@ -19,13 +21,15 @@ const TABS: readonly { id: Tab; label: string }[] = [
   { id: "service", label: "Service & payments" },
 ];
 
-type Props = { stadiumName: string; currency: string; doc: SeatMapDoc };
+type Props = { stadiumSlug: string; stadiumName: string; doc: SeatMapDoc; settings: AdminSettings };
 
-export function AdminConsole({ stadiumName, currency, doc }: Props) {
-  const [saved, setSaved] = useState<AdminSettings>(() => initialSettings(doc, currency));
-  const [settings, setSettings] = useState(saved);
+export function AdminConsole({ stadiumSlug, stadiumName, doc, settings: loaded }: Props) {
+  const [saved, setSaved] = useState(loaded);
+  const [settings, setSettings] = useState(loaded);
   const [tab, setTab] = useState<Tab>("team");
   const { toast } = useToast();
+  const trpc = useTRPC();
+  const save = useMutation(trpc.admin.save.mutationOptions());
   const dirty = settings !== saved;
   const edit: Edit = (change) => setSettings((s) => change(s));
 
@@ -37,7 +41,7 @@ export function AdminConsole({ stadiumName, currency, doc }: Props) {
       </div>
 
       <div className="mt-4">
-        {tab === "team" ? <TeamTab settings={settings} edit={edit} /> : null}
+        {tab === "team" ? <TeamTab stadiumSlug={stadiumSlug} settings={settings} edit={edit} /> : null}
         {tab === "kitchens" ? <KitchensTab doc={doc} settings={settings} edit={edit} /> : null}
         {tab === "ordering" ? <OrderingTab settings={settings} edit={edit} /> : null}
         {tab === "service" ? <ServiceTab settings={settings} edit={edit} /> : null}
@@ -55,13 +59,30 @@ export function AdminConsole({ stadiumName, currency, doc }: Props) {
             </button>
             <button
               type="button"
+              disabled={save.isPending}
               onClick={() => {
-                setSaved(settings);
-                toast({ message: "Settings saved", status: "success" });
+                save.mutate(
+                  { stadium: stadiumSlug, settings },
+                  {
+                    onSuccess: (result) => {
+                      if (!result.ok) {
+                        toast({ message: result.error, status: "error" });
+                        return;
+                      }
+                      setSaved(result.settings);
+                      setSettings(result.settings);
+                      toast({
+                        message: result.invitesSent > 0 ? "Settings saved. The invite email is on its way." : "Settings saved",
+                        status: "success",
+                      });
+                    },
+                    onError: () => toast({ message: "Could not save. Try again.", status: "error" }),
+                  },
+                );
               }}
               className={primaryButton}
             >
-              Save changes
+              {save.isPending ? "Saving…" : "Save changes"}
             </button>
           </div>
         </div>

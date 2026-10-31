@@ -4,12 +4,12 @@ Later work, roughly in the order it pays off.
 
 ## Email with Resend
 
-- [ ] Create a Resend account and verify the sending domain (SPF, DKIM, DMARC records).
-- [ ] Add `RESEND_API_KEY` to `.env.example`, `.env.local`, and Vercel.
-- [ ] Hook Better Auth’s password reset and email verification to Resend.
-- [ ] Send a receipt email when the fan left an email at checkout.
-- [ ] Send invites from **Admin → Team**, once the team list is saved to the database.
-- [ ] Write the emails in Swedish, Danish, and English, using the same language files as the app.
+- [x] Create a Resend account and verify the sending domain (SPF, DKIM, DMARC records). `seatize.com` is verified.
+- [x] Add `RESEND_API_KEY` to `.env.example`, `.env.local`, and Vercel.
+- [x] Hook Better Auth’s password reset and email verification to Resend.
+- [x] Send a receipt email when the fan left an email at checkout.
+- [x] Send invites from **Admin → Team**, once the team list is saved to the database.
+- [x] Write the emails in Swedish, Danish, and English, using the same language files as the app.
 
 ## Rate limiting
 

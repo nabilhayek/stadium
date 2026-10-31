@@ -34,6 +34,7 @@ export function applyTestEnv(opts?: { databaseUrl?: string; stripeBase?: string 
   process.env.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "whsec_stadium_fake";
   process.env.BLOB_READ_WRITE_TOKEN = "";
   process.env.AI_GATEWAY_API_KEY = "";
+  process.env.RESEND_API_KEY = "";
   process.env.SENTRY_AUTH_TOKEN = "";
   process.env.NEXT_PUBLIC_SENTRY_DSN = "";
   process.env.VERCEL_ENV = process.env.VERCEL_ENV || "development";

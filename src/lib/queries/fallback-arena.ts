@@ -23,6 +23,7 @@ export const FALLBACK_ARENA = {
   name: "Metropolis Arena",
   city: "Amsterdam",
   currency: "EUR",
+  orderingOpen: true,
   sections: [
     { id: "N", code: "N", name: "North Stand" },
     { id: "E", code: "E", name: "East Stand" },

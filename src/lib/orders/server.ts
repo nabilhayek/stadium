@@ -6,6 +6,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { withDb } from "@/lib/db";
 import { notifyOrder } from "@/lib/live/hub";
+import { sendReceiptEmail, requestLocale } from "@/lib/email/receipt";
 import type { Receipt } from "./receipt";
 import { publicReceipt, toReceipt, type PublicReceipt } from "./shape";
 
@@ -65,6 +66,7 @@ export type PutResult = "created" | "updated" | "forbidden" | "no-stadium" | "pa
 export async function putReceipt(receipt: Receipt, opts?: { authoritative?: boolean }): Promise<PutResult> {
   const { token, deviceId } = receipt;
   if (!token || !deviceId) return "forbidden";
+  let previousEmail = "";
 
   const result = await withDb(async (db): Promise<PutResult> => {
     const stadium = await db.stadium.findUnique({ where: { slug: receipt.stadiumSlug }, select: { id: true } });
@@ -78,6 +80,7 @@ export async function putReceipt(receipt: Receipt, opts?: { authoritative?: bool
     // Once the kitchen has touched an order it owns the status, the ETA and any
     // decline reason. A phone re-syncing its copy must not roll those back.
     const previous = existing ? toReceipt(existing.body) : null;
+    previousEmail = previous?.email?.trim().toLowerCase() ?? "";
     const kitchenOwned = previous?.kitchenStatus
       ? {
           kitchenStatus: previous.kitchenStatus,
@@ -117,6 +120,13 @@ export async function putReceipt(receipt: Receipt, opts?: { authoritative?: bool
     return "created";
   });
 
-  if (result === "created" || result === "updated") await notifyOrder(receipt.stadiumSlug, receipt.orderNumber);
+  if (result === "created" || result === "updated") {
+    await notifyOrder(receipt.stadiumSlug, receipt.orderNumber);
+    const nextEmail = receipt.email?.trim().toLowerCase() ?? "";
+    if (nextEmail && nextEmail !== previousEmail) {
+      const sent = await sendReceiptEmail({ ...receipt, email: nextEmail }, await requestLocale());
+      if (!sent.ok) console.error("Receipt email failed.");
+    }
+  }
   return result;
 }

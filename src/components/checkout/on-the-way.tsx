@@ -78,7 +78,6 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
       return;
     }
     setEmailInvalid(false);
-    // Sending is wired up later — for now the address travels with the receipt.
     update({ email: email.trim() });
     setEditingEmail(false);
   }
@@ -333,7 +332,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
               className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-surface-secondary px-4 py-3"
             >
               <span className="min-w-0 truncate text-[15px]">
-                Going to <span className="font-medium">{receipt.email}</span>
+                Receipt sent to <span className="font-medium">{receipt.email}</span>
               </span>
               <button type="button" onClick={() => setEditingEmail(true)} className="shrink-0 text-[13px] font-medium text-link">
                 Change
