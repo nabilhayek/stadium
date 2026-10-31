@@ -1,9 +1,23 @@
+import { cacheLife } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { taintRecord } from "@/lib/taint";
 
 export async function kitchenSession() {
-  return auth.api.getSession({ headers: await headers() });
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (session) taintRecord(session.session, "The auth session holds the sign-in token. Pass only the fields you need.");
+  return session;
+}
+
+/** Email for the desk chrome. Browser-only cache; the token never enters the cache key. */
+export async function kitchenBadge(): Promise<{ email: string } | null> {
+  "use cache: private";
+  cacheLife("minutes");
+  const session = await auth.api.getSession({ headers: await headers() });
+  const email = session?.user.email;
+  if (!email) return null;
+  return { email };
 }
 
 /**

@@ -115,7 +115,13 @@ function ActionButton({
   tone?: "default" | "primary" | "danger";
 }) {
   return (
-    <button type="button" onClick={onClick} className={itemClass(tone)} title={kbd ? `${label} · ${kbd}` : label} aria-label={kbd ? `${label} (${kbd})` : label}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={itemClass(tone)}
+      title={kbd ? `${label} · ${kbd}` : label}
+      aria-label={kbd ? `${label} (${kbd})` : label}
+    >
       {icon}
       <span>{label}</span>
       {kbd ? <Kbd>{kbd}</Kbd> : null}

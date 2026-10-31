@@ -14,9 +14,7 @@ function SheetTitle({ className, ...props }: React.ComponentProps<typeof SheetPr
 }
 
 function SheetDescription({ className, ...props }: React.ComponentProps<typeof SheetPrimitive.Description>) {
-  return (
-    <SheetPrimitive.Description data-slot="sheet-description" className={cn("text-[13px] text-neutral-500", className)} {...props} />
-  );
+  return <SheetPrimitive.Description data-slot="sheet-description" className={cn("text-[13px] text-neutral-500", className)} {...props} />;
 }
 
 /** Right-hand panel on desktop, full screen on phones. */

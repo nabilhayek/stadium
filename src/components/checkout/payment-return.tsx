@@ -77,9 +77,7 @@ export function PaymentReturn({ stadiumSlug }: Props) {
 
   return (
     <div className="flex min-h-[70dvh] flex-col justify-center pr-12">
-      <h1 className="font-display text-[28px] font-semibold tracking-[-0.03em]">
-        {failed ? "Payment didn’t finish" : "Confirming"}
-      </h1>
+      <h1 className="font-display text-[28px] font-semibold tracking-[-0.03em]">{failed ? "Payment didn’t finish" : "Confirming"}</h1>
       <p className="mt-2 text-[15px] text-muted">{message}</p>
       {failed ? (
         <Link href={`/${stadiumSlug}/checkout`} className="button button--primary button--lg mt-8 w-full text-center">

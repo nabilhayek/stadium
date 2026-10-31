@@ -8,12 +8,12 @@ const COALESCE_MS = 1200;
 
 type State = { doc: SeatMapDoc; past: SeatMapDoc[]; future: SeatMapDoc[]; key: string | null; at: number };
 type Action =
-  | { type: "commit"; doc: SeatMapDoc; key: string | null; at: number; hold: boolean }
-  | { type: "undo" }
-  | { type: "redo" }
-  | { type: "reset"; doc: SeatMapDoc };
+  { type: "commit"; doc: SeatMapDoc; key: string | null; at: number; hold: boolean } | { type: "undo" } | { type: "redo" } | { type: "reset"; doc: SeatMapDoc };
 
-function reducer(state: State, action: Action): State {
+export type SeatMapHistoryState = State;
+export type SeatMapHistoryAction = Action;
+
+export function seatMapHistoryReducer(state: SeatMapHistoryState, action: SeatMapHistoryAction): SeatMapHistoryState {
   switch (action.type) {
     case "commit": {
       if (action.doc === state.doc) return state;
@@ -42,7 +42,7 @@ function reducer(state: State, action: Action): State {
 }
 
 export function useHistory(initial: SeatMapDoc) {
-  const [state, dispatch] = useReducer(reducer, { doc: initial, past: [], future: [], key: null, at: 0 });
+  const [state, dispatch] = useReducer(seatMapHistoryReducer, { doc: initial, past: [], future: [], key: null, at: 0 });
   /** `hold` keeps merging same-key commits however far apart, so a whole assistant turn undoes as one step. */
   const commit = useCallback(
     (doc: SeatMapDoc, key: string | null = null, hold = false) => dispatch({ type: "commit", doc: syncOutlines(doc), key, at: Date.now(), hold }),

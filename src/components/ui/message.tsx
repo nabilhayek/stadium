@@ -49,7 +49,10 @@ function MessageContent({ className, ...props }: React.ComponentProps<"div">) {
 function MessageHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("flex max-w-full min-w-0 items-center px-3 text-[12px] font-medium text-neutral-500 group-has-data-[variant=ghost]/message:px-0", className)}
+      className={cn(
+        "flex max-w-full min-w-0 items-center px-3 text-[12px] font-medium text-neutral-500 group-has-data-[variant=ghost]/message:px-0",
+        className,
+      )}
       data-slot="message-header"
       {...props}
     />

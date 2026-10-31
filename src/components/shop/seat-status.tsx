@@ -1,16 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, m } from "framer-motion";
 import { useSeat } from "@/lib/seat/use-seat";
 import { useMounted, useStorageValue, writeStorage } from "@/lib/hooks/use-storage";
-import {
-  getSeatStore,
-  seatFromQuery,
-  type Seat,
-  type SeatQuery,
-  type SeatSection,
-} from "@/lib/seat/store";
+import { getSeatStore, seatFromQuery, type Seat, type SeatQuery, type SeatSection } from "@/lib/seat/store";
 import { SPRING } from "@/components/motion/variants";
 import { SeatConfirm } from "./seat-confirm";
 import { Armchair } from "lucide-react";
@@ -29,6 +24,16 @@ function queryKey(q?: SeatQuery) {
 
 function sessionKey(slug: string) {
   return `seat:confirmed:${slug}`;
+}
+
+/** Reads the QR seat from the URL. Render inside Suspense, with a plain `SeatStatus` as the fallback, so the page stays static. */
+export function SeatStatusFromUrl(props: Omit<Props, "fromQuery">) {
+  const params = useSearchParams();
+  const section = params.get("section") ?? undefined;
+  const row = params.get("row") ?? undefined;
+  const seat = params.get("seat") ?? undefined;
+  const fromQuery = useMemo(() => ({ section, row, seat }), [section, row, seat]);
+  return <SeatStatus {...props} fromQuery={fromQuery} />;
 }
 
 /** QR query → confirm dialog. The seat chip (dark hero) reopens the same editor. */
@@ -58,9 +63,7 @@ export function SeatStatus({ stadiumSlug, sections, fromQuery }: Props) {
     close();
   }
 
-  const label = seat
-    ? `${seat.sectionName}${seat.row.trim() ? ` · Row ${seat.row}` : ""} · Seat ${seat.number}`
-    : null;
+  const label = seat ? `${seat.sectionName}${seat.row.trim() ? ` · Row ${seat.row}` : ""} · Seat ${seat.number}` : null;
 
   return (
     <>
@@ -97,13 +100,7 @@ export function SeatStatus({ stadiumSlug, sections, fromQuery }: Props) {
         <span className="shrink-0 text-[13px] font-medium text-white">{seat ? "Edit" : "Set"}</span>
       </m.button>
 
-      <SeatConfirm
-        open={open}
-        sections={sections}
-        draft={draft}
-        onClose={close}
-        onConfirm={confirm}
-      />
+      <SeatConfirm open={open} sections={sections} draft={draft} onClose={close} onConfirm={confirm} />
     </>
   );
 }

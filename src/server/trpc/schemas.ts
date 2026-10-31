@@ -12,9 +12,7 @@ export const orderNumber = z
 
 export const deviceId = z.string().regex(/^[a-z0-9-]{8,64}$/i);
 
-export const seat = z
-  .object({ sectionCode: z.string(), sectionName: z.string(), row: z.string(), number: z.string() })
-  .nullable();
+export const seat = z.object({ sectionCode: z.string(), sectionName: z.string(), row: z.string(), number: z.string() }).nullable();
 
 export const quoteLine = z.object({
   productId: z.string(),

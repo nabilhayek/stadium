@@ -13,7 +13,7 @@ import { ATTACH_OPTIONS, type AttachKind, type AttachSlot } from "./attach";
 import { selectionBounds, type Selection } from "./ops";
 import { ToolController, type AssistChip, type ToolHost, type ToolId } from "./tools";
 
-type AttachMenuState = { sx: number; sy: number; slot: AttachSlot };
+type AttachMenuState = { slot: AttachSlot; left: number; top: number };
 
 const ATTACH_ICON: Record<AttachKind, ReactNode> = {
   stairs: <Footprints className="size-4" />,
@@ -38,6 +38,8 @@ export type CanvasApi = {
 type Props = {
   doc: SeatMapDoc;
   selection: Selection;
+  /** Key of an object hovered in the object list. */
+  spotlight: string | null;
   tool: ToolId;
   snapStep: number;
   snapAngle: number;
@@ -115,7 +117,7 @@ export function DesignerCanvas(props: Props) {
       defaultCategory: () => latest.current.defaultCategory,
       notify: (m) => latest.current.onNotify(m),
       assist: (chips) => latest.current.onAssist(chips),
-      onAttachMenu: (menu) => setAttach(menu),
+      onAttachMenu: (menu) => setAttach(menu && { slot: menu.slot, ...placeMenu(menu.sx, menu.sy, frame.current) }),
     };
     const tools = new ToolController(host);
     engine.setInteraction(tools);
@@ -129,7 +131,7 @@ export function DesignerCanvas(props: Props) {
       engineRef.current = null;
       toolsRef.current = null;
     };
-  }, []);
+  }, [tipX, tipY]);
 
   useImperativeHandle(
     props.apiRef,
@@ -171,6 +173,13 @@ export function DesignerCanvas(props: Props) {
   }, [props.selection]);
 
   useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.state.spotlight = props.spotlight;
+    engine.invalidate();
+  }, [props.spotlight]);
+
+  useEffect(() => {
     toolsRef.current?.setTool(props.tool);
     if (props.tool !== "select" && tipRef.current) {
       tipRef.current = null;
@@ -200,12 +209,10 @@ export function DesignerCanvas(props: Props) {
     return () => window.removeEventListener("pointerdown", onPointer, true);
   }, [attach]);
 
-  const menuAt = attach ? placeMenu(attach.sx, attach.sy, frame.current) : null;
-
   return (
     <div ref={frame} className="relative min-h-0 flex-1 overflow-hidden bg-[#f4f4f2]">
       <canvas ref={canvas} className="absolute inset-0 size-full select-none outline-none" aria-label="Seat map canvas" />
-      {attach && menuAt ? (
+      {attach ? (
         <div
           data-attach-menu
           role="menu"
@@ -219,7 +226,7 @@ export function DesignerCanvas(props: Props) {
             toolsRef.current?.closeAttach();
           }}
           className="absolute z-30 w-44 rounded-lg border border-neutral-200 bg-white py-1 shadow-[0_8px_24px_rgba(17,17,17,0.12)] outline-none"
-          style={{ left: menuAt.left, top: menuAt.top }}
+          style={{ left: attach.left, top: attach.top }}
         >
           <p className="px-2.5 pt-1 pb-0.5 text-[11px] font-medium text-neutral-400">Add beside</p>
           {ATTACH_OPTIONS.map((option) => (

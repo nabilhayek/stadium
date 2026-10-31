@@ -5,14 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, m } from "framer-motion";
 import { useNow } from "@/lib/hooks/use-now";
 import { useStorageValue } from "@/lib/hooks/use-storage";
-import {
-  formatRemain,
-  isOrderLive,
-  parseReceipt,
-  receiptKey,
-  statusTitle,
-  type Receipt,
-} from "@/lib/orders/receipt";
+import { formatRemain, isOrderLive, parseReceipt, receiptKey, statusTitle, type Receipt } from "@/lib/orders/receipt";
 import { parsePastOrders, pastOrdersKey } from "@/lib/orders/past";
 import { SPRING } from "@/components/motion/variants";
 import { Bike, Check, Store, X } from "lucide-react";
@@ -63,10 +56,9 @@ export function ActiveOrderPill({ receipt }: Props) {
       className="pointer-events-auto flex w-full items-center gap-3 rounded-full border border-border bg-surface py-2 pl-3 pr-2 text-left shadow-[0_10px_28px_-14px_rgba(17,17,17,0.45)]"
     >
       <span
-        className={[
-          "relative grid size-8 shrink-0 place-items-center rounded-full",
-          declined ? "bg-danger text-white" : "bg-foreground text-background",
-        ].join(" ")}
+        className={["relative grid size-8 shrink-0 place-items-center rounded-full", declined ? "bg-danger text-white" : "bg-foreground text-background"].join(
+          " ",
+        )}
       >
         {declined ? (
           <X className="size-4" strokeWidth={2.4} />
@@ -104,12 +96,12 @@ export function ActiveOrderPill({ receipt }: Props) {
           {declined
             ? " · Tap for details"
             : arrived
-            ? " · Tap for hand-off code"
-            : receipt.timing === "scheduled"
-              ? " · Scheduled"
-              : delivery
-                ? " · Runner on it"
-                : " · Being prepared"}
+              ? " · Tap for hand-off code"
+              : receipt.timing === "scheduled"
+                ? " · Scheduled"
+                : delivery
+                  ? " · Runner on it"
+                  : " · Being prepared"}
         </span>
       </span>
 

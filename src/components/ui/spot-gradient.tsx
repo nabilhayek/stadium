@@ -3,10 +3,7 @@
 import dynamic from "next/dynamic";
 
 // WebGL shader — loaded after first paint so the shop's critical path stays light.
-const MeshGradient = dynamic(
-  () => import("@paper-design/shaders-react").then((mod) => mod.MeshGradient),
-  { ssr: false },
-);
+const MeshGradient = dynamic(() => import("@paper-design/shaders-react").then((mod) => mod.MeshGradient), { ssr: false });
 
 /** Matches theme ink / surface / link (#111, #fff, #0066cc) with a soft sky stop. */
 export const SPOT_COLORS = ["#ffffff", "#d6e8ff", "#0066cc", "#111111"];
@@ -26,19 +23,9 @@ type Props = {
  * parent supplies size, radius and overflow clipping. The canvas mounts once
  * its chunk arrives and fades in over the #111 fallback (see `.spot-in`).
  */
-export function SpotGradient({
-  colors = SPOT_COLORS,
-  speed = 0.6,
-  distortion = 0.8,
-  swirl = 0.1,
-  scrim = 0.35,
-  className,
-}: Props) {
+export function SpotGradient({ colors = SPOT_COLORS, speed = 0.6, distortion = 0.8, swirl = 0.1, scrim = 0.35, className }: Props) {
   return (
-    <div
-      aria-hidden
-      className={["pointer-events-none absolute inset-0 -z-10", className].filter(Boolean).join(" ")}
-    >
+    <div aria-hidden className={["pointer-events-none absolute inset-0 -z-10", className].filter(Boolean).join(" ")}>
       <MeshGradient
         className="spot-in absolute inset-0 size-full"
         colors={colors}

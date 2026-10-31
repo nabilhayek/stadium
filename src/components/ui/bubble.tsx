@@ -20,7 +20,8 @@ const bubbleVariants = tv({
       muted: "*:data-[slot=bubble-content]:bg-neutral-100 *:data-[slot=bubble-content]:text-neutral-900",
       outline: "*:data-[slot=bubble-content]:border-neutral-200 *:data-[slot=bubble-content]:bg-white *:data-[slot=bubble-content]:text-neutral-900",
       destructive: "*:data-[slot=bubble-content]:bg-red-50 *:data-[slot=bubble-content]:text-red-800",
-      ghost: "*:data-[slot=bubble-content]:rounded-none *:data-[slot=bubble-content]:bg-transparent *:data-[slot=bubble-content]:p-0 *:data-[slot=bubble-content]:text-neutral-800",
+      ghost:
+        "*:data-[slot=bubble-content]:rounded-none *:data-[slot=bubble-content]:bg-transparent *:data-[slot=bubble-content]:p-0 *:data-[slot=bubble-content]:text-neutral-800",
     },
   },
 });

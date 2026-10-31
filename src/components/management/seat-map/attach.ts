@@ -13,10 +13,7 @@ export const ATTACH_OPTIONS = [
 export type AttachKind = (typeof ATTACH_OPTIONS)[number]["id"];
 
 /** The shape the slot sits against. A wall or a gate can grow the same way a section can. */
-export type AttachHost =
-  | { kind: "section"; id: string; index: number }
-  | { kind: "decoration"; id: string }
-  | { kind: "poi"; id: string };
+export type AttachHost = { kind: "section"; id: string; index: number } | { kind: "decoration"; id: string } | { kind: "poi"; id: string };
 
 export function sameHost(a: AttachHost | null, b: AttachHost | null): boolean {
   if (a === b) return true;
@@ -96,7 +93,9 @@ export function hostContains(scene: Scene, host: AttachHost, x: number, y: numbe
   }
   if (host.kind === "decoration") {
     const decoration = scene.decorations.find((item) => item.id === host.id);
-    return !!decoration && insideBox(decoration.x, decoration.y, decorationWidth(decoration), decoration.h, decoration.rotation, x, y, decoration.kind === "column");
+    return (
+      !!decoration && insideBox(decoration.x, decoration.y, decorationWidth(decoration), decoration.h, decoration.rotation, x, y, decoration.kind === "column")
+    );
   }
   const poi = scene.pois.find((item) => item.id === host.id);
   return !!poi && insideBox(poi.x, poi.y, poi.w, poi.h, poi.rotation, x, y, false);

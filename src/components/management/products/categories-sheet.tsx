@@ -18,6 +18,7 @@ import type { AdminCategory } from "@/lib/management/products";
 import { CATEGORY_NAME_MAX, categoriesInput, MAX_CATEGORIES } from "@/lib/management/product-input";
 import { useTRPC } from "@/lib/trpc/react";
 import { cn } from "@/lib/utils";
+import { primaryButton, secondaryButton } from "../ui";
 import { useSortable } from "./use-sortable";
 
 type Props = {
@@ -199,19 +200,10 @@ export function CategoriesSheet({ stadiumSlug, categories, onSaved, onRequestClo
         <p role="status" className="min-w-0 flex-1 truncate text-[13px] text-red-600">
           {failure ?? (errorCount ? (errorCount === 1 ? "1 name needs fixing" : `${errorCount} names need fixing`) : "")}
         </p>
-        <button
-          type="button"
-          onClick={attemptClose}
-          className="inline-flex h-9 items-center rounded-full border border-neutral-200 bg-white! px-4 text-[14px] font-medium transition-colors duration-150 hover:bg-neutral-50!"
-        >
+        <button type="button" onClick={attemptClose} className={secondaryButton}>
           Cancel
         </button>
-        <button
-          type="submit"
-          form="categories-form"
-          disabled={save.isPending || !dirty}
-          className="inline-flex h-9 items-center gap-2 rounded-full bg-neutral-900! px-4 text-[14px] font-medium text-white! transition-colors duration-150 hover:bg-neutral-700! focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 disabled:opacity-50"
-        >
+        <button type="submit" form="categories-form" disabled={save.isPending || !dirty} className={primaryButton}>
           {save.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
           {save.isPending ? "Saving…" : "Save"}
         </button>

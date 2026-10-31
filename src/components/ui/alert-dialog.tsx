@@ -38,10 +38,7 @@ const button =
 
 function AlertDialogCancel({ className, ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Cancel>) {
   return (
-    <AlertDialogPrimitive.Cancel
-      className={cn(button, "border border-neutral-200 bg-white! text-neutral-900 hover:bg-neutral-50!", className)}
-      {...props}
-    />
+    <AlertDialogPrimitive.Cancel className={cn(button, "border border-neutral-200 bg-white! text-neutral-900 hover:bg-neutral-50!", className)} {...props} />
   );
 }
 

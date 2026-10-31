@@ -82,12 +82,7 @@ export type DeskOrder = {
 };
 
 /** What the desk can do to an order. Mirrors the buttons on a card. */
-export type KitchenChange =
-  | { to: "new" }
-  | { to: "accepted"; prepMinutes?: number }
-  | { to: "ready" }
-  | { to: "done" }
-  | { to: "declined"; reason: string };
+export type KitchenChange = { to: "new" } | { to: "accepted"; prepMinutes?: number } | { to: "ready" } | { to: "done" } | { to: "declined"; reason: string };
 
 /**
  * The in-progress clock, shared by the desk button and the server.

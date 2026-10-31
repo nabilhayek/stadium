@@ -2,7 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { AnimatePresence, m } from "framer-motion";
 import { useCart } from "@/lib/cart/use-cart";
 import { cartTotals } from "@/lib/cart/store";
@@ -18,7 +19,13 @@ const CartDrawer = dynamic(() => import("./cart-drawer").then((mod) => mod.CartD
 
 type Props = { stadiumSlug: string; currency: string; openCart?: boolean };
 
+/** Reads `?cart=1` from the URL. Render inside Suspense, with a plain `CartBar` as the fallback, so the page stays static. */
+export function CartBarFromUrl(props: Omit<Props, "openCart">) {
+  return <CartBar {...props} openCart={useSearchParams().get("cart") === "1"} />;
+}
+
 export function CartBar({ stadiumSlug, currency, openCart = false }: Props) {
+  const t = useTranslations("cart");
   const router = useRouter();
   const { state } = useCart(stadiumSlug);
   const [isOpen, setIsOpen] = useState(false);
@@ -59,13 +66,7 @@ export function CartBar({ stadiumSlug, currency, openCart = false }: Props) {
         <div className="mx-auto flex w-full max-w-md flex-col gap-2">
           <AnimatePresence>
             {showOrder ? (
-              <m.div
-                key="order"
-                initial={{ y: 40, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: 40, opacity: 0 }}
-                transition={SPRING}
-              >
+              <m.div key="order" initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }} transition={SPRING}>
                 <ActiveOrderPill receipt={order} />
               </m.div>
             ) : null}
@@ -104,7 +105,7 @@ export function CartBar({ stadiumSlug, currency, openCart = false }: Props) {
                         </m.span>
                       </AnimatePresence>
                     </span>
-                    View cart
+                    {t("viewCart")}
                   </span>
                   <AnimatePresence mode="wait" initial={false}>
                     <m.span
@@ -125,14 +126,7 @@ export function CartBar({ stadiumSlug, currency, openCart = false }: Props) {
         </div>
       </div>
 
-      {hasOpened ? (
-        <CartDrawer
-          stadiumSlug={stadiumSlug}
-          currency={currency}
-          isOpen={isOpen}
-          onOpenChange={setIsOpen}
-        />
-      ) : null}
+      {hasOpened ? <CartDrawer stadiumSlug={stadiumSlug} currency={currency} isOpen={isOpen} onOpenChange={setIsOpen} /> : null}
     </>
   );
 }

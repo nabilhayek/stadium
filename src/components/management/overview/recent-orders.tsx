@@ -83,9 +83,7 @@ export function RecentOrders({ orders, currency, now }: Props) {
         <div className="flex flex-col items-center gap-2 px-4 py-14 text-center">
           <Inbox className="size-5 text-neutral-400" aria-hidden />
           <p className="text-[14px] font-medium">{filtered ? "No orders match these filters" : "No orders in this range"}</p>
-          <p className="text-[13px] text-neutral-500">
-            {filtered ? "Clear the search or pick another status." : "Paid orders show up here as they come in."}
-          </p>
+          <p className="text-[13px] text-neutral-500">{filtered ? "Clear the search or pick another status." : "Paid orders show up here as they come in."}</p>
         </div>
       ) : (
         <Table>

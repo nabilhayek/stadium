@@ -15,9 +15,7 @@ export function parsePastOrders(raw: string | null): Receipt[] {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((item) => parseReceipt(typeof item === "string" ? item : JSON.stringify(item)))
-      .filter((item): item is Receipt => item !== null);
+    return parsed.map((item) => parseReceipt(typeof item === "string" ? item : JSON.stringify(item))).filter((item): item is Receipt => item !== null);
   } catch {
     return [];
   }
@@ -36,9 +34,7 @@ export function recordPastOrder(receipt: Receipt) {
   if (typeof window === "undefined") return;
   const prev = readPastOrders(receipt.stadiumSlug);
   // Newest first by pay time, so receipts restored from the server slot in where they belong.
-  const next = [receipt, ...prev.filter((o) => o.orderNumber !== receipt.orderNumber)]
-    .sort((a, b) => b.paidAt - a.paidAt)
-    .slice(0, MAX);
+  const next = [receipt, ...prev.filter((o) => o.orderNumber !== receipt.orderNumber)].sort((a, b) => b.paidAt - a.paidAt).slice(0, MAX);
   writeStorage("local", pastOrdersKey(receipt.stadiumSlug), JSON.stringify(next));
 }
 

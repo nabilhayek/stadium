@@ -8,6 +8,8 @@ import type { MenuCategory, MenuProduct } from "@/lib/queries/stadium";
 import { useEntrance } from "@/components/motion/entrance";
 import { EASE, SPRING, fadeUp, stagger } from "@/components/motion/variants";
 import { Search, X } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { matchesQuery } from "@/lib/menu/search";
 import { ProductCard } from "./product-card";
 import { PopularRail } from "./popular-rail";
 
@@ -18,43 +20,11 @@ type Props = {
   categories: MenuCategory[];
 };
 
-const SEARCH_ALIASES: Record<string, string[]> = {
-  coke: ["cola", "coca"],
-  cola: ["coke", "coca"],
-  coca: ["coke", "cola"],
-  veggie: ["veg", "vegetarian", "salad"],
-  fries: ["chips"],
-  chips: ["fries"],
-};
-
-function normalize(value: string) {
-  return value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
-}
-
-function tokensOf(value: string) {
-  return normalize(value).split(/[^a-z0-9]+/).filter(Boolean);
-}
-
-function matchesQuery(p: MenuProduct, q: string) {
-  const query = normalize(q);
-  if (!query) return true;
-  const hay = normalize(`${p.name} ${p.description ?? ""}`);
-  const tokens = tokensOf(hay);
-  if (hay.includes(query) || tokens.some((t) => t.startsWith(query))) return true;
-
-  for (const [key, alts] of Object.entries(SEARCH_ALIASES)) {
-    const names = [key, ...alts];
-    const touchesQuery = names.some((name) => name.startsWith(query) || query.startsWith(name));
-    if (!touchesQuery) continue;
-    if (names.some((name) => hay.includes(name) || tokens.some((t) => t.startsWith(name)))) return true;
-  }
-  return false;
-}
-
 /**
  * Search + category filter. Filtering is client-side so a tap never hits the network.
  */
 export function Menu({ stadiumSlug, currency, products, categories }: Props) {
+  const t = useTranslations("shop");
   const entrance = useEntrance();
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -105,30 +75,22 @@ export function Menu({ stadiumSlug, currency, products, categories }: Props) {
 
   const matchCount = visible.length;
   const lastSet = new Set(history.lastIds);
-  const railTitle = history.lastIds.length > 0 ? "Last ordered" : "Popular";
+  const railTitle = history.lastIds.length > 0 ? t("lastOrdered") : t("popular");
   const resultsKey = `${searching ? q : ""}|${categoryId ?? "all"}`;
 
   return (
     <>
-      <m.div
-        initial={entrance ? { opacity: 0, y: 12 } : false}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, ease: EASE, delay: 0.25 }}
-      >
+      <m.div initial={entrance ? { opacity: 0, y: 12 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: EASE, delay: 0.25 }}>
         <label className="relative mt-4 block">
-          <span className="sr-only">Search the menu</span>
-          <Search
-            aria-hidden
-            className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted"
-            strokeWidth={1.8}
-          />
+          <span className="sr-only">{t("searchMenu")}</span>
+          <Search aria-hidden className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted" strokeWidth={1.8} />
           <input
             type="search"
             enterKeyHint="search"
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
-            placeholder="Search — coke, veggie, fries"
+            placeholder={t("searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="input input--secondary input--full-width min-h-12 rounded-full border border-border bg-surface pl-11 pr-4 text-[15px] shadow-[0_1px_0_rgba(17,17,17,0.03)]"
@@ -142,7 +104,7 @@ export function Menu({ stadiumSlug, currency, products, categories }: Props) {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.7 }}
                 onClick={() => setQuery("")}
-                aria-label="Clear search"
+                aria-label={t("clearSearch")}
                 className="absolute right-2 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full bg-surface-secondary text-muted"
               >
                 <X className="size-3.5" strokeWidth={2.2} aria-hidden />
@@ -159,7 +121,7 @@ export function Menu({ stadiumSlug, currency, products, categories }: Props) {
               exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden text-[13px] text-muted"
             >
-              <span className="block pt-2">Type 3 letters to search.</span>
+              <span className="block pt-2">{t("searchHint")}</span>
             </m.p>
           ) : null}
         </AnimatePresence>
@@ -169,7 +131,7 @@ export function Menu({ stadiumSlug, currency, products, categories }: Props) {
         {!searching ? (
           <m.nav
             key="cats"
-            aria-label="Categories"
+            aria-label={t("categories")}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
@@ -177,7 +139,7 @@ export function Menu({ stadiumSlug, currency, products, categories }: Props) {
             className="-mx-4 mt-3 overflow-x-auto px-4 scrollbar-none"
           >
             <ul className="relative isolate flex w-max gap-1.5 py-1">
-              {[{ id: null as string | null, name: "All" }, ...categories].map((c) => {
+              {[{ id: null as string | null, name: t("all") }, ...categories].map((c) => {
                 const active = categoryId === c.id;
                 return (
                   <li key={c.id ?? "all"}>
@@ -188,17 +150,11 @@ export function Menu({ stadiumSlug, currency, products, categories }: Props) {
                       className="relative rounded-full px-4 py-2 text-[14px] font-medium"
                     >
                       {active ? (
-                        <m.span
-                          layoutId="category-thumb"
-                          transition={SPRING}
-                          className="absolute inset-0 z-0 rounded-full bg-foreground"
-                        />
+                        <m.span layoutId="category-thumb" transition={SPRING} className="absolute inset-0 z-0 rounded-full bg-foreground" />
                       ) : (
                         <span className="absolute inset-0 z-0 rounded-full border border-border bg-surface" />
                       )}
-                      <span className={["relative z-10 transition-colors", active ? "text-background" : "text-foreground"].join(" ")}>
-                        {c.name}
-                      </span>
+                      <span className={["relative z-10 transition-colors", active ? "text-background" : "text-foreground"].join(" ")}>{c.name}</span>
                     </button>
                   </li>
                 );
@@ -232,19 +188,10 @@ export function Menu({ stadiumSlug, currency, products, categories }: Props) {
             className="-mx-4 overflow-hidden px-4"
           >
             <div className="pt-6">
-              <h2
-                id="popular-rail"
-                className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted"
-              >
+              <h2 id="popular-rail" className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
                 {railTitle}
               </h2>
-              <PopularRail
-                stadiumSlug={stadiumSlug}
-                currency={currency}
-                items={popular}
-                lastIds={lastSet}
-                animateIn={entrance}
-              />
+              <PopularRail stadiumSlug={stadiumSlug} currency={currency} items={popular} lastIds={lastSet} animateIn={entrance} />
             </div>
           </m.section>
         ) : null}
@@ -260,10 +207,8 @@ export function Menu({ stadiumSlug, currency, products, categories }: Props) {
         >
           {groups.every((g) => g.products.length === 0) ? (
             <div className="py-16 text-center">
-              <p className="font-display text-[22px] font-semibold tracking-tight">Nothing here</p>
-              <p className="mt-1 text-[15px] text-muted">
-                {searching ? "Try another word, or clear the search." : "Nothing available in this category right now."}
-              </p>
+              <p className="font-display text-[22px] font-semibold tracking-tight">{t("nothingHere")}</p>
+              <p className="mt-1 text-[15px] text-muted">{searching ? t("tryAnother") : t("nothingInCategory")}</p>
             </div>
           ) : (
             groups.map((group) => (
@@ -277,11 +222,7 @@ export function Menu({ stadiumSlug, currency, products, categories }: Props) {
                 className="mt-7"
               >
                 {group.name ? (
-                  <m.h2
-                    id={`cat-${group.id}`}
-                    variants={fadeUp}
-                    className="mb-3 font-display text-[22px] font-semibold leading-none tracking-tight"
-                  >
+                  <m.h2 id={`cat-${group.id}`} variants={fadeUp} className="mb-3 font-display text-[22px] font-semibold leading-none tracking-tight">
                     {group.name}
                   </m.h2>
                 ) : null}

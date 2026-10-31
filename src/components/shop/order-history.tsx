@@ -55,9 +55,7 @@ export function OrderHistory({ stadiumSlug, currency, catalog }: Props) {
     <m.div variants={stagger(0.07, 0.08)} initial="hidden" animate="show" className="flex flex-col gap-6 pb-16">
       <m.header variants={fadeUp} className="pr-12">
         <BackLink href={`/${stadiumSlug}`}>Menu</BackLink>
-        <h1 className="font-display mt-3 text-[28px] font-semibold leading-none tracking-[-0.03em]">
-          Order history
-        </h1>
+        <h1 className="font-display mt-3 text-[28px] font-semibold leading-none tracking-[-0.03em]">Order history</h1>
         <p className="mt-2 text-[15px] text-muted">Receipts from this phone, at this venue.</p>
       </m.header>
 
@@ -113,15 +111,11 @@ function HistoryRow({
 }) {
   const href = `/${stadiumSlug}/order/${encodeURIComponent(order.orderNumber)}`;
   const count = lineCount(order);
-  const status =
-    order.kitchenStatus === "declined" ? "Declined" : isOrderLive(order, now) ? statusTitle(order, now) : "Completed";
+  const status = order.kitchenStatus === "declined" ? "Declined" : isOrderLive(order, now) ? statusTitle(order, now) : "Completed";
 
   return (
     <li className="rounded-[20px] border border-border bg-surface">
-      <Link
-        href={href}
-        className="flex items-center justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-surface-secondary"
-      >
+      <Link href={href} className="flex items-center justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-surface-secondary">
         <span className="min-w-0">
           <span className="block truncate text-[15px] font-medium">Order {order.orderNumber}</span>
           <span className="mt-0.5 block truncate text-[13px] text-muted">

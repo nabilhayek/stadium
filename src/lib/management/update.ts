@@ -1,7 +1,8 @@
 import "server-only";
-import { revalidatePath } from "next/cache";
+import { revalidateLocalized } from "@/lib/revalidate";
 import type { Prisma } from "@/generated/prisma/client";
 import { withDb } from "@/lib/db";
+import { notifyOrder } from "@/lib/live/hub";
 import type { Receipt } from "@/lib/orders/receipt";
 import { publicReceipt, toReceipt } from "@/lib/orders/shape";
 import { refundOrder } from "@/lib/payments/service";
@@ -39,11 +40,7 @@ function applyChange(receipt: Receipt, change: KitchenChange, now: number): Rece
 }
 
 /** Callers must have checked the kitchen session; the tRPC kitchen procedure does. */
-export async function updateKitchenOrder(
-  stadiumSlug: string,
-  orderNumber: string,
-  change: KitchenChange,
-): Promise<Result> {
+export async function updateKitchenOrder(stadiumSlug: string, orderNumber: string, change: KitchenChange): Promise<Result> {
   const outcome = await withDb(async (db) => {
     const row = await db.receipt.findFirst({
       where: { orderNumber, stadium: { slug: stadiumSlug } },
@@ -77,7 +74,8 @@ export async function updateKitchenOrder(
   if (outcome === "invalid") return { ok: false, error: "That change isn't allowed." };
   if (typeof outcome === "string" && outcome !== "ok") return { ok: false, error: outcome };
 
-  revalidatePath(`/${stadiumSlug}/management`);
-  revalidatePath(`/${stadiumSlug}/management/orders`);
+  revalidateLocalized(`/${stadiumSlug}/management`);
+  revalidateLocalized(`/${stadiumSlug}/management/orders`);
+  await notifyOrder(stadiumSlug, orderNumber);
   return { ok: true };
 }

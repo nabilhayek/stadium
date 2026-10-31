@@ -27,9 +27,7 @@ export function OrderReceipt({ order, stadiumSlug, currency, catalog }: Props) {
     <m.div variants={stagger(0.07, 0.08)} initial="hidden" animate="show" className="flex flex-col gap-5 pb-16">
       <m.header variants={fadeUp} className="pr-12">
         <BackLink href={`/${stadiumSlug}/orders`}>History</BackLink>
-        <h1 className="font-display mt-3 text-[28px] font-semibold leading-none tracking-[-0.03em]">
-          Order {order.orderNumber}
-        </h1>
+        <h1 className="font-display mt-3 text-[28px] font-semibold leading-none tracking-[-0.03em]">Order {order.orderNumber}</h1>
         <p className="mt-2 text-[15px] text-muted">{formatOrderWhen(order.paidAt)}</p>
       </m.header>
 
@@ -39,9 +37,7 @@ export function OrderReceipt({ order, stadiumSlug, currency, catalog }: Props) {
           {confirmDigits(order.confirmCode, order.orderNumber).join("")}
         </p>
         <p className="mt-3 text-[13px] leading-snug text-muted">
-          {order.fulfillment === "delivery" && order.seat
-            ? `Delivered to ${formatSeat(order.seat, true)}`
-            : "Collected at the counter"}
+          {order.fulfillment === "delivery" && order.seat ? `Delivered to ${formatSeat(order.seat, true)}` : "Collected at the counter"}
           {order.timing === "scheduled" ? ` · Scheduled for ${formatClock(order.readyAt)}` : ""}
         </p>
       </m.section>
@@ -54,9 +50,7 @@ export function OrderReceipt({ order, stadiumSlug, currency, catalog }: Props) {
                 <span className="block truncate text-[15px] font-medium">
                   {line.qty} × {line.name}
                 </span>
-                {line.options?.length ? (
-                  <span className="block text-[13px] text-muted">{optionSummary(line.options)}</span>
-                ) : null}
+                {line.options?.length ? <span className="block text-[13px] text-muted">{optionSummary(line.options)}</span> : null}
                 {line.note ? <span className="block truncate text-[13px] text-muted">{line.note}</span> : null}
               </span>
             </li>

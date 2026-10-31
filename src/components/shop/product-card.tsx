@@ -19,17 +19,11 @@ type Props = {
   inList?: boolean;
   /** Rail layout: no description, two-line name. */
   compact?: boolean;
+  /** Photo is above the fold on a phone. */
+  eager?: boolean;
 };
 
-export function ProductCard({
-  stadiumSlug,
-  currency,
-  product,
-  badge,
-  className,
-  inList = true,
-  compact = false,
-}: Props) {
+export function ProductCard({ stadiumSlug, currency, product, badge, className, inList = true, compact = false, eager = false }: Props) {
   const href = `/${stadiumSlug}/product/${encodeURIComponent(product.id)}`;
   const add = product.isSoldOut ? (
     <span className={compact ? "flex shrink-0 justify-end" : "flex w-[6.75rem] shrink-0 justify-end"}>
@@ -54,11 +48,8 @@ export function ProductCard({
       categoryId={product.categoryId}
       imageUrl={product.imageUrl}
       sizes={compact ? "168px" : "64px"}
-      className={
-        compact
-          ? "h-24 w-full rounded-2xl text-[26px]"
-          : "size-14 shrink-0 rounded-2xl text-[20px]"
-      }
+      eager={eager}
+      className={compact ? "h-24 w-full rounded-2xl text-[26px]" : "size-14 shrink-0 rounded-2xl text-[20px]"}
     />
   );
 
@@ -67,14 +58,11 @@ export function ProductCard({
       <m.li
         variants={inList ? fadeUp : undefined}
         whileTap={{ scale: 0.985 }}
-        className={[
-          "flex flex-col rounded-[22px] border border-border bg-surface p-2.5 shadow-[0_1px_0_rgba(17,17,17,0.03)]",
-          className,
-        ]
+        className={["flex flex-col rounded-[22px] border border-border bg-surface p-2.5 shadow-[0_1px_0_rgba(17,17,17,0.03)]", className]
           .filter(Boolean)
           .join(" ")}
       >
-        <Link href={href} className="flex flex-col rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#0066cc]">
+        <Link href={href} prefetch className="flex flex-col rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#0066cc]">
           <div className="relative">
             {tile}
             {badge ? (
@@ -83,12 +71,10 @@ export function ProductCard({
               </span>
             ) : null}
           </div>
-          <h3 className="mt-2.5 min-h-[2.5rem] line-clamp-2 text-[14px] font-medium leading-snug tracking-[-0.01em]">
-            {product.name}
-          </h3>
+          <h3 className="mt-2.5 min-h-[2.5rem] line-clamp-2 text-[14px] font-medium leading-snug tracking-[-0.01em]">{product.name}</h3>
         </Link>
         <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-          <Link href={href} className="text-[13px] font-medium tabular-nums" tabIndex={-1}>
+          <Link href={href} prefetch className="text-[13px] font-medium tabular-nums" tabIndex={-1}>
             {formatCents(product.priceCents, currency)}
           </Link>
           {add}
@@ -101,27 +87,17 @@ export function ProductCard({
     <m.li
       variants={inList ? fadeUp : undefined}
       whileTap={{ scale: 0.985 }}
-      className={[
-        "flex items-center gap-3 rounded-[20px] border border-border bg-surface p-3 shadow-[0_1px_0_rgba(17,17,17,0.03)]",
-        className,
-      ]
+      className={["flex items-center gap-3 rounded-[20px] border border-border bg-surface p-3 shadow-[0_1px_0_rgba(17,17,17,0.03)]", className]
         .filter(Boolean)
         .join(" ")}
     >
-      <Link
-        href={href}
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#0066cc]"
-      >
+      <Link href={href} prefetch className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#0066cc]">
         {tile}
 
         <div className="min-w-0 flex-1">
-          {badge ? (
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#6a4cf5]">{badge}</p>
-          ) : null}
+          {badge ? <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#6a4cf5]">{badge}</p> : null}
           <h3 className="truncate text-[15px] font-medium leading-tight">{product.name}</h3>
-          {product.description ? (
-            <p className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-muted">{product.description}</p>
-          ) : null}
+          {product.description ? <p className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-muted">{product.description}</p> : null}
           <p className="mt-1 text-[13px] font-medium tabular-nums">{formatCents(product.priceCents, currency)}</p>
         </div>
       </Link>
@@ -132,32 +108,17 @@ export function ProductCard({
 }
 
 /** Products with options are configured on their own page. Shows how many are already in the cart. */
-function ChooseLink({
-  stadiumSlug,
-  productId,
-  name,
-  href,
-  dense,
-}: {
-  stadiumSlug: string;
-  productId: string;
-  name: string;
-  href: string;
-  dense: boolean;
-}) {
+function ChooseLink({ stadiumSlug, productId, name, href, dense }: { stadiumSlug: string; productId: string; name: string; href: string; dense: boolean }) {
   const inCart = useProductQty(stadiumSlug, productId);
   return (
     <span className={dense ? "flex shrink-0 justify-end" : "flex w-[6.75rem] shrink-0 justify-end"}>
       <Link
         href={href}
-        aria-label={inCart ? `${name}, ${inCart} in cart. Add another` : `Choose options for ${name}`}
+        prefetch
+        aria-label={inCart ? `Add another ${name}, ${inCart} in cart` : `Add ${name}`}
         className="button button--primary button--sm shrink-0 gap-1.5 active:scale-[0.92]"
       >
-        {inCart ? (
-          <span className="grid size-5 place-items-center rounded-full bg-white/20 text-[12px] font-semibold tabular-nums">
-            {inCart}
-          </span>
-        ) : null}
+        {inCart ? <span className="grid size-5 place-items-center rounded-full bg-white/20 text-[12px] font-semibold tabular-nums">{inCart}</span> : null}
         Add
       </Link>
     </span>

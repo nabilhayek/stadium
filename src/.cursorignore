@@ -1,0 +1,3 @@
+# Allow specific env files
+!.env
+!.env.local

@@ -41,9 +41,21 @@ import {
 } from "@/lib/seatmap/schema";
 import { attachSlots, hostContains, inAttachSlot, presentSlot, sameHost, type AttachHost, type AttachKind, type AttachSlot } from "./attach";
 import { formatLength, objectAnchors, snapBox, snapMove, snapPoint, snapSegmentEnd, type Guide } from "./guides";
-import { addRows, dragPreview, keyOf, seatKey, seatPick, selectionBounds, selectionOutline, setSectionPoints, transformSelection, transientOf, type Selection } from "./ops";
+import {
+  addRows,
+  dragPreview,
+  keyOf,
+  seatKey,
+  seatPick,
+  selectionBounds,
+  selectionOutline,
+  setSectionPoints,
+  transformSelection,
+  transientOf,
+  type Selection,
+} from "./ops";
 
-export type ShapeKind = Exclude<DecorationKind, "text">;
+export type ShapeKind = Exclude<DecorationKind, "text" | "field">;
 export type ToolId =
   | "select"
   | "hand"
@@ -87,7 +99,22 @@ type Gesture =
   | { kind: "move"; wx: number; wy: number; sx: number; sy: number; started: boolean; transform: Rigid; solo: string | null }
   | { kind: "rotate"; px: number; py: number; a0: number; angle: number }
   | { kind: "vertex"; sectionId: string; section: number; index: number; points: Point[] }
-  | { kind: "scale"; key: string; handle: ScaleHandle; rotation: number; lock: boolean; text: boolean; x0: number; y0: number; w0: number; h0: number; x: number; y: number; w: number; h: number }
+  | {
+      kind: "scale";
+      key: string;
+      handle: ScaleHandle;
+      rotation: number;
+      lock: boolean;
+      text: boolean;
+      x0: number;
+      y0: number;
+      w0: number;
+      h0: number;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    }
   | { kind: "box"; x0: number; y0: number; x1: number; y1: number }
   | { kind: "segment"; x0: number; y0: number; x1: number; y1: number };
 
@@ -185,7 +212,6 @@ export class ToolController implements Interaction {
       case "table-round":
       case "table-rect":
       case "shape:stage":
-      case "shape:field":
       case "shape:rect":
       case "shape:ellipse":
       case "shape:wall":
@@ -298,9 +324,7 @@ export class ToolController implements Interaction {
         return;
       }
       case "box": {
-        const aligned = this.alt
-          ? { x: p.wx, y: p.wy, guides: [] as Guide[] }
-          : snapBox(g.x0, g.y0, p.wx, p.wy, this.anchors(), this.threshold(), this.step());
+        const aligned = this.alt ? { x: p.wx, y: p.wy, guides: [] as Guide[] } : snapBox(g.x0, g.y0, p.wx, p.wy, this.anchors(), this.threshold(), this.step());
         this.guides = aligned.guides;
         this.cursor = [aligned.x, aligned.y];
         g.x1 = aligned.x;
@@ -420,7 +444,13 @@ export class ToolController implements Interaction {
     if (vertex && vertex.kind === "vertex") {
       const section = this.host.doc().sections.find((s) => s.id === vertex.sectionId);
       if (section && section.points.length > 3) {
-        this.host.commit(setSectionPoints(this.host.doc(), section.id, section.points.filter((_, i) => i !== vertex.index)));
+        this.host.commit(
+          setSectionPoints(
+            this.host.doc(),
+            section.id,
+            section.points.filter((_, i) => i !== vertex.index),
+          ),
+        );
       }
       return;
     }
@@ -701,10 +731,11 @@ export class ToolController implements Interaction {
           if (!loose && !engine.seatsVisible()) continue;
           let mid = (r.seatStart + r.seatEnd) >> 1;
           if (!scene.seatLive[mid]) {
-            for (let i = r.seatStart; i < r.seatEnd; i++) if (scene.seatLive[i]) {
-              mid = i;
-              break;
-            }
+            for (let i = r.seatStart; i < r.seatEnd; i++)
+              if (scene.seatLive[i]) {
+                mid = i;
+                break;
+              }
           }
           if (scene.seatLive[mid] && inside(scene.seatX[mid], scene.seatY[mid])) found.add(keyOf("r", r.id));
         }
@@ -730,7 +761,8 @@ export class ToolController implements Interaction {
     const cam = this.host.engine.camera;
     for (let i = 0; i < pts.length; i++) {
       const [x, y] = cam.toScreen(pts[i][0], pts[i][1]);
-      if (Math.abs(x - p.sx) <= HANDLE && Math.abs(y - p.sy) <= HANDLE) return { kind: "vertex", section: si, sectionId: key.slice(2), index: i, x: pts[i][0], y: pts[i][1] };
+      if (Math.abs(x - p.sx) <= HANDLE && Math.abs(y - p.sy) <= HANDLE)
+        return { kind: "vertex", section: si, sectionId: key.slice(2), index: i, x: pts[i][0], y: pts[i][1] };
     }
     if (pts.length >= 120) return null;
     for (let i = 0; i < pts.length; i++) {
@@ -822,12 +854,7 @@ export class ToolController implements Interaction {
     const scene = this.host.engine.scene;
     if (!scene || this.alt) return { xs: [], ys: [] };
     const g = this.gesture;
-    const skip =
-      g.kind === "move"
-        ? this.host.selection()
-        : g.kind === "vertex"
-          ? new Set([keyOf("s", g.sectionId)])
-          : new Set<string>();
+    const skip = g.kind === "move" ? this.host.selection() : g.kind === "vertex" ? new Set([keyOf("s", g.sectionId)]) : new Set<string>();
     const seats = this.tool === "row" || this.tool === "curved-row" || this.tool === "row-block";
     return objectAnchors(scene, skip, seats);
   }
@@ -953,7 +980,7 @@ export class ToolController implements Interaction {
     const kind = this.tool.slice(6) as ShapeKind;
     if (w < 8 || h < 8) {
       // A click drops a default-sized shape.
-      const size = { stage: [240, 90], field: [1050, 680], rect: [120, 80], ellipse: [120, 80], wall: [80, 30], column: [30, 30], venue: [600, 400] }[kind];
+      const size = { stage: [240, 90], rect: [120, 80], ellipse: [120, 80], wall: [80, 30], column: [30, 30], venue: [600, 400] }[kind];
       [w, h] = size;
       cx = g.x0;
       cy = g.y0;
@@ -968,8 +995,9 @@ export class ToolController implements Interaction {
       h,
       rotation: 0,
       label: kind === "stage" ? "Stage" : kind === "rect" ? "Area" : kind === "ellipse" ? "Circle" : "",
-      color: kind === "field" ? "#7cb36b" : kind === "venue" ? "#f0a77a" : plain ? "#d4d4d4" : kind === "rect" || kind === "ellipse" ? "#86efac" : "#737373",
+      color: kind === "venue" ? "#f0a77a" : plain ? "#d4d4d4" : kind === "rect" || kind === "ellipse" ? "#86efac" : "#737373",
       radius: kind === "venue" ? Math.round(Math.min(w, h) * 0.3) : 0,
+      field: "none" as const,
     };
     this.host.commit({ ...doc, decorations: [...doc.decorations, decoration] }, new Set([keyOf("d", decoration.id)]));
     this.host.setTool("select");
@@ -1133,7 +1161,7 @@ export class ToolController implements Interaction {
 
   private addText(x: number, y: number) {
     const doc = this.host.doc();
-    const d = { id: newId("d"), kind: "text" as const, x, y, w: 80, h: 16, rotation: 0, label: "Label", color: "#404040", radius: 0 };
+    const d = { id: newId("d"), kind: "text" as const, x, y, w: 80, h: 16, rotation: 0, label: "Label", color: "#404040", radius: 0, field: "none" as const };
     this.host.commit({ ...doc, decorations: [...doc.decorations, d] }, new Set([keyOf("d", d.id)]));
     this.host.setTool("select");
   }
@@ -1187,6 +1215,7 @@ export class ToolController implements Interaction {
         label: "",
         color: "#d4d4d4",
         radius: 0,
+        field: "none" as const,
       };
       this.host.commit({ ...doc, decorations: [...doc.decorations, decoration] }, new Set([keyOf("d", decoration.id)]));
       return;
@@ -1481,7 +1510,17 @@ export class ToolController implements Interaction {
   }
 
   /** The one selected box that can be resized from its edges, or null. */
-  private scaleTarget(): { key: string; kind: "decoration" | "poi" | "table"; x: number; y: number; w: number; h: number; rotation: number; lock: boolean; text: boolean } | null {
+  private scaleTarget(): {
+    key: string;
+    kind: "decoration" | "poi" | "table";
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    rotation: number;
+    lock: boolean;
+    text: boolean;
+  } | null {
     if (this.tool !== "select") return null;
     const sel = this.host.selection();
     if (sel.size !== 1) return null;
@@ -1516,7 +1555,9 @@ export class ToolController implements Interaction {
     return null;
   }
 
-  private scaleHandleAt(p: PointerInfo): { handle: ScaleHandle; box: NonNullable<ReturnType<ToolController["scaleTarget"]>>; sx: number; sy: number; cx: number; cy: number } | null {
+  private scaleHandleAt(
+    p: PointerInfo,
+  ): { handle: ScaleHandle; box: NonNullable<ReturnType<ToolController["scaleTarget"]>>; sx: number; sy: number; cx: number; cy: number } | null {
     const box = this.scaleTarget();
     if (!box) return null;
     const cam = this.host.engine.camera;
@@ -1534,8 +1575,8 @@ export class ToolController implements Interaction {
   private scalePoint(box: { x: number; y: number; w: number; h: number; rotation: number }, lx: number, ly: number): Point {
     const c = Math.cos(toRad(box.rotation));
     const s = Math.sin(toRad(box.rotation));
-    const x = lx * box.w / 2;
-    const y = ly * box.h / 2;
+    const x = (lx * box.w) / 2;
+    const y = (ly * box.h) / 2;
     return [box.x + x * c - y * s, box.y + x * s + y * c];
   }
 
@@ -1699,14 +1740,7 @@ export class ToolController implements Interaction {
   }
 
   /** Tick marks on the box edges, one per column and one per row, with the count outside. */
-  private drawBlockRulers(
-    ctx: CanvasRenderingContext2D,
-    rows: Omit<SeatMapRow, "id" | "label">[],
-    left: number,
-    top: number,
-    width: number,
-    height: number,
-  ) {
+  private drawBlockRulers(ctx: CanvasRenderingContext2D, rows: Omit<SeatMapRow, "id" | "label">[], left: number, top: number, width: number, height: number) {
     const cam = this.host.engine.camera;
     const xs = new Float32Array(MAX_SEATS_PER_ROW);
     const ys = new Float32Array(MAX_SEATS_PER_ROW);

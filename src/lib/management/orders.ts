@@ -2,14 +2,7 @@ import { withDb } from "@/lib/db";
 import { formatSeat } from "@/lib/seat/store";
 import type { Fulfillment, KitchenStatus, Timing } from "@/lib/orders/receipt";
 import { toReceipt } from "@/lib/orders/shape";
-import {
-  ACCEPT_WINDOW_MS,
-  DEFAULT_PREP_MINUTES,
-  fromDbStatus,
-  isBoardStatus,
-  type BoardStatus,
-  type DeskOrder,
-} from "./board";
+import { ACCEPT_WINDOW_MS, DEFAULT_PREP_MINUTES, fromDbStatus, isBoardStatus, type BoardStatus, type DeskOrder } from "./board";
 
 /** Everything currently on the board, oldest first so the kitchen works top-down. */
 export async function listDeskOrders(stadiumSlug: string): Promise<DeskOrder[]> {
@@ -149,10 +142,7 @@ export async function kitchenOverview(stadiumSlug: string, range: RangeKey): Pro
       const status = fromDbStatus(row.kitchenStatus);
       const receipt = toReceipt(row.body);
       const served = status !== "declined";
-      const acceptMs =
-        receipt?.timing === "asap" && receipt.acceptedAt != null && receipt.acceptedAt >= paidAt
-          ? receipt.acceptedAt - paidAt
-          : null;
+      const acceptMs = receipt?.timing === "asap" && receipt.acceptedAt != null && receipt.acceptedAt >= paidAt ? receipt.acceptedAt - paidAt : null;
 
       if (paidAt < start) {
         prev.orders += 1;

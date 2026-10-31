@@ -9,9 +9,7 @@ config({ path: ".env.local", override: true });
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({
-    connectionString: postgresConnectionString(
-      process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL,
-    ),
+    connectionString: postgresConnectionString(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL),
   }),
 });
 

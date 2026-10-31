@@ -18,12 +18,14 @@ import {
   venueAround,
   withOutline,
   type BowlShape,
+  type FieldRect,
 } from "./bowl";
 import {
   applySeatCount,
   boundsOf,
   boxCorners,
   distanceToOutline,
+  fieldOf,
   makeRow,
   moveSection,
   nextRowLabel,
@@ -54,6 +56,7 @@ import {
   MAX_TOTAL_SEATS,
   SEAT_RADIUS,
   newId,
+  parseSeatMap,
   seatMapSchema,
   type PoiKind,
   type SeatMapCategory,
@@ -84,19 +87,31 @@ const metres = (dm: number) => `${(dm / 10).toFixed(1)} m`;
 export type VenueFrame = { cx: number; cy: number; a: number; b: number; kind: "field" | "stage" | "default" };
 
 const DEFAULT_FIELD = { w: 1050, h: 680 };
+/** Default space between the playing area and the venue rim. */
+const APRON = 70;
 /** Walkway between tiers. */
 const CONCOURSE = 45;
 /** First tier's front, outside the venue rim. */
 const FIRST_GAP = 5;
 const AISLE = 14;
 
+/** The playing area: the pitch a venue shape draws, else the inside of the main venue shape. */
+function playingArea(doc: SeatMapDoc): FieldRect | null {
+  const pitch = fieldOf(doc);
+  if (pitch) return pitch;
+  const venue = mainVenue(doc);
+  if (!venue) return null;
+  return { x: venue.x, y: venue.y, w: Math.max(20, venue.w - APRON * 2), h: Math.max(20, venue.h - APRON * 2), rotation: venue.rotation };
+}
+
 export function venueFrame(doc: SeatMapDoc): VenueFrame {
-  const centre = doc.decorations.find((d) => d.kind === "field") ?? doc.decorations.find((d) => d.kind === "stage");
+  const field = playingArea(doc);
+  const centre = field ?? doc.decorations.find((d) => d.kind === "stage");
   if (!centre) return { cx: 0, cy: 0, a: DEFAULT_FIELD.w / 2, b: DEFAULT_FIELD.h / 2, kind: "default" };
   const turned = Math.abs(Math.sin(toRad(centre.rotation))) > 0.7;
   const w = turned ? centre.h : centre.w;
   const h = turned ? centre.w : centre.h;
-  return { cx: centre.x, cy: centre.y, a: w / 2, b: h / 2, kind: centre.kind === "field" ? "field" : "stage" };
+  return { cx: centre.x, cy: centre.y, a: w / 2, b: h / 2, kind: field ? "field" : "stage" };
 }
 
 export const bearingOf = (f: VenueFrame, x: number, y: number) => normalizeAngle(toDeg(Math.atan2(x - f.cx, -(y - f.cy))));
@@ -227,7 +242,10 @@ function resizeArc(row: SeatMapRow, seats: number): SeatMapRow {
 function trimRows(rows: SeatMapRow[], target: number): SeatMapRow[] {
   const cap = rows.reduce((n, r) => n + r.seats, 0);
   if (target >= cap) return rows;
-  const counts = shareOut(target, rows.map((r) => r.seats)).map((c, i) => Math.max(1, Math.min(rows[i].seats, c)));
+  const counts = shareOut(
+    target,
+    rows.map((r) => r.seats),
+  ).map((c, i) => Math.max(1, Math.min(rows[i].seats, c)));
   let diff = counts.reduce((a, b) => a + b, 0) - target;
   for (let i = counts.length - 1; diff > 0 && i >= 0; i--) {
     const take = Math.min(diff, counts[i] - 1);
@@ -374,7 +392,9 @@ function buildTier(source: SeatMapDoc, input: TierInput, mode: "ring" | "stand")
       const spans = old.map((s) => spanOf(path, s, venues)).filter((s) => s !== null);
       oldFront = spans.length ? Math.min(...spans.map((s) => s.front)) : undefined;
       const ids = new Set(old.map((s) => s.id));
-      const stairsOfRing = new Set(doc.pois.filter((p) => p.kind === "stairs" && nearestSection(doc, p)?.id && ids.has(nearestSection(doc, p)!.id)).map((p) => p.id));
+      const stairsOfRing = new Set(
+        doc.pois.filter((p) => p.kind === "stairs" && nearestSection(doc, p)?.id && ids.has(nearestSection(doc, p)!.id)).map((p) => p.id),
+      );
       hadStairs = stairsOfRing.size > 0;
       doc = { ...doc, sections: doc.sections.filter((s) => !ids.has(s.id)), pois: doc.pois.filter((p) => !stairsOfRing.has(p.id)) };
     } else {
@@ -585,7 +605,8 @@ function solve(seats: number, rows: number | undefined, perRowMax: number | unde
   if (seats < n) return `${seats} seats cannot fill ${n} rows.`;
   const perRow = evenRows(seats, n);
   const widest = perRow[perRow.length - 1];
-  if (perRowMax !== undefined && widest > perRowMax) return `${seats} seats in ${n} rows need ${widest} per row, but only ${perRowMax} fit. Leave rows out or widen the section.`;
+  if (perRowMax !== undefined && widest > perRowMax)
+    return `${seats} seats in ${n} rows need ${widest} per row, but only ${perRowMax} fit. Leave rows out or widen the section.`;
   if (widest > MAX_SEATS_PER_ROW) return `${widest} seats in a row is over the ${MAX_SEATS_PER_ROW} limit; add rows.`;
   return perRow;
 }
@@ -593,17 +614,27 @@ function solve(seats: number, rows: number | undefined, perRowMax: number | unde
 /** Which numbering a single section joins: a ring's hundred, or a stand's letter prefix. */
 type CodeHint = { ring: number } | { prefix: string } | null;
 
-function placeOne(doc: SeatMapDoc, path: VenuePath, input: SectionInput, front: number, mid: number, perRow: number[], codeHint: CodeHint, created: boolean): BuildResult {
+function placeOne(
+  doc: SeatMapDoc,
+  path: VenuePath,
+  input: SectionInput,
+  front: number,
+  mid: number,
+  perRow: number[],
+  codeHint: CodeHint,
+  created: boolean,
+): BuildResult {
   let code = input.code?.trim().toUpperCase();
   if (code && !/^[A-Z0-9][A-Z0-9-]{0,11}$/.test(code)) return fail("Codes use 1–12 capital letters, digits or dashes.");
   if (code && doc.sections.some((s) => s.code === code)) return fail(`Section ${code} already exists.`);
   if (!code && codeHint && "prefix" in codeHint) code = freeCode(doc, codeHint.prefix, new Set());
   if (!code && codeHint && "ring" in codeHint) {
     const base = codeHint.ring * 100;
-    for (let n = base + 1; n < base + 100; n++) if (!doc.sections.some((s) => s.code === String(n))) {
-      code = String(n);
-      break;
-    }
+    for (let n = base + 1; n < base + 100; n++)
+      if (!doc.sections.some((s) => s.code === String(n))) {
+        code = String(n);
+        break;
+      }
   }
   code ??= nextSectionCode(doc);
   const ring = ringOf(code);
@@ -763,10 +794,10 @@ export type FloorInput = {
 /** Floor seating on the field, split into a grid of blocks facing the stage (or the top of the map). */
 export function addFloor(doc: SeatMapDoc, input: FloorInput): BuildResult {
   const f = venueFrame(doc);
-  const field = doc.decorations.find((d) => d.kind === "field");
+  const field = f.kind === "field" ? { x: f.cx, y: f.cy, w: f.a * 2, h: f.b * 2 } : null;
   const stage = doc.decorations.find((d) => d.kind === "stage");
   const margin = input.margin ?? 30;
-  let area = field ? { x: field.x, y: field.y, w: field.w, h: field.h } : { x: f.cx, y: f.cy, w: f.a * 2, h: f.b * 2 };
+  let area = { x: f.cx, y: f.cy, w: f.a * 2, h: f.b * 2 };
   let facing = 180;
   if (stage && field) {
     // Leave the stage end clear and face it.
@@ -889,43 +920,34 @@ export type FieldKind = keyof typeof FIELD_PRESETS;
 export type FieldInput = { kind: FieldKind | "none"; length?: number; width?: number; bowl?: BowlShape; apron?: number };
 
 /**
- * Sets the field and the venue shape around it that seating follows. The venue
- * shape is only redrawn while no seating stands on it.
+ * Sizes the venue shape around the playing area; a football pitch is drawn inside it.
+ * The venue shape is only redrawn while no seating stands on it.
  */
 export function setField(doc: SeatMapDoc, input: FieldInput): BuildResult {
-  const rest = doc.decorations.filter((d) => d.kind !== "field");
-  if (input.kind === "none") return { ok: true, doc: { ...doc, decorations: rest }, note: "Removed the field." };
+  const venue = mainVenue(doc);
+  if (input.kind === "none") {
+    const decorations = doc.decorations.map((d) => (d.kind === "venue" ? { ...d, field: "none" as const } : d));
+    return { ok: true, doc: { ...doc, decorations }, note: "Removed the pitch." };
+  }
   const preset = FIELD_PRESETS[input.kind];
-  const old = doc.decorations.find((d) => d.kind === "field");
   const w = input.length ?? preset.w;
   const h = input.width ?? preset.h;
   if (!(w >= 50 && h >= 50 && w <= 5000 && h <= 5000)) return fail("Field sides must be 5–500 m.");
-  const kind = input.kind;
-  const field: SeatMapDecoration = {
-    id: old?.id ?? newId("d"),
-    kind: "field",
-    x: old?.x ?? 0,
-    y: old?.y ?? 0,
-    w,
-    h,
-    rotation: 0,
-    label: preset.label,
-    color: kind === "ice_hockey" ? "#dbeafe" : kind === "basketball" || kind === "handball" || kind === "tennis" ? "#e7c08f" : kind === "concert_floor" ? "#d4d4d4" : "#7cb36b",
-    radius: kind === "ice_hockey" ? 85 : 0,
-  };
-  let next: SeatMapDoc = { ...doc, decorations: [field, ...rest] };
-  let note = `Field set to ${kind.replace("_", " ")}, ${w / 10} × ${h / 10} m.`;
-  const venue = mainVenue(next);
-  const seated = venue ? next.sections.some((s) => s.follow !== "off") : false;
-  if (!venue || (!seated && (input.bowl || input.apron !== undefined || old?.w !== w || old?.h !== h))) {
-    const shaped = venueAround(next, input.bowl ?? "rounded", input.apron ?? 70);
-    const decorations = venue ? next.decorations.map((d) => (d.id === venue.id ? { ...shaped, id: venue.id } : d)) : [...next.decorations, shaped];
-    next = { ...next, decorations };
+  const pitch = input.kind === "football";
+  const old = playingArea(doc);
+  const resized = !old || Math.abs(Math.max(old.w, old.h) - w) > 5 || Math.abs(Math.min(old.w, old.h) - h) > 5;
+  const seated = venue ? doc.sections.some((s) => s.follow !== "off") : false;
+  let note = `Field set to ${input.kind.replace("_", " ")}, ${w / 10} × ${h / 10} m${pitch ? ", pitch drawn inside the venue shape" : ""}.`;
+  if (!venue || (!seated && (input.bowl || input.apron !== undefined || resized))) {
+    const area = { x: venue?.x ?? 0, y: venue?.y ?? 0, w, h, rotation: 0 };
+    const shaped = venueAround(doc, input.bowl ?? "rounded", input.apron ?? APRON, area, pitch);
+    const decorations = venue ? doc.decorations.map((d) => (d.id === venue.id ? { ...shaped, id: venue.id } : d)) : [...doc.decorations, shaped];
     note += ` Venue shape ${shaped.w / 10} × ${shaped.h / 10} m (${input.bowl ?? "rounded"}) around it; seating follows it.`;
-  } else if (seated && (input.bowl || old?.w !== w || old?.h !== h)) {
-    note += " The venue shape has seating on it and was kept; clear the map to change the bowl.";
+    return { ok: true, doc: { ...doc, decorations }, note };
   }
-  return { ok: true, doc: next, note };
+  const decorations = doc.decorations.map((d) => (d.id === venue.id ? { ...d, field: pitch ? ("football" as const) : ("none" as const) } : d));
+  if (input.bowl || resized) note += " The venue shape has seating on it and was kept, so the pitch fits inside it; clear the map to change the bowl.";
+  return { ok: true, doc: { ...doc, decorations }, note };
 }
 
 export type ShapeKind = "stage" | "rect" | "ellipse" | "wall" | "column" | "text" | "venue";
@@ -957,6 +979,7 @@ export function addShape(doc: SeatMapDoc, input: ShapeInput): BuildResult {
     label: label.slice(0, 60),
     color,
     radius: input.kind === "venue" ? Math.min(input.w, input.h) / 4 : 0,
+    field: "none",
   };
   return { ok: true, doc: { ...doc, decorations: [...doc.decorations, d] }, note: `Added ${input.kind}${label ? ` "${label}"` : ""}.` };
 }
@@ -977,7 +1000,9 @@ export function addPoints(doc: SeatMapDoc, input: PointsInput): BuildResult {
   const path = pathFor(doc);
   const venues = venuesOf(doc);
   const count = Math.max(1, Math.min(48, Math.round(input.count ?? 4)));
-  const bearings = input.bearings?.length ? input.bearings.slice(0, 48) : Array.from({ length: count }, (_, i) => (input.startBearing ?? 0) + (360 / count) * i);
+  const bearings = input.bearings?.length
+    ? input.bearings.slice(0, 48)
+    : Array.from({ length: count }, (_, i) => (input.startBearing ?? 0) + (360 / count) * i);
   let d: number;
   if (input.ring !== undefined) {
     const secs = ringSections(doc, input.ring);
@@ -1017,7 +1042,11 @@ export function addPoints(doc: SeatMapDoc, input: PointsInput): BuildResult {
       rotation: gate ? normalizeAngle(input.kind === "entrance" ? out + 180 : out) : 0,
     } satisfies SeatMapPoi;
   });
-  return { ok: true, doc: { ...doc, pois: [...doc.pois, ...pois] }, note: `Added ${pois.length} ${input.kind}${pois.length === 1 ? "" : "s"}: ${pois.map((p) => p.label).join(", ")}.` };
+  return {
+    ok: true,
+    doc: { ...doc, pois: [...doc.pois, ...pois] },
+    note: `Added ${pois.length} ${input.kind}${pois.length === 1 ? "" : "s"}: ${pois.map((p) => p.label).join(", ")}.`,
+  };
 }
 
 /* ---------- edits ---------- */
@@ -1037,7 +1066,8 @@ function reflow(doc: SeatMapDoc, path: VenuePath, s: SeatMapSection, want: numbe
   if (want < n) n = want;
   if (n > MAX_TIER_ROWS) return `${s.code} would need ${n} rows`;
   const perRow = evenRows(want, n);
-  if (perRow[perRow.length - 1] > perRowMax) return `${s.code}: ${want} seats in ${n} rows need ${perRow[perRow.length - 1]} per row, only ${perRowMax} fit; leave rows out`;
+  if (perRow[perRow.length - 1] > perRowMax)
+    return `${s.code}: ${want} seats in ${n} rows need ${perRow[perRow.length - 1]} per row, only ${perRowMax} fit; leave rows out`;
   const ux = Math.cos(toRad(front.rotation));
   const uy = Math.sin(toRad(front.rotation));
   const draft: SeatMapSection = { ...s, rows: [] };
@@ -1095,10 +1125,20 @@ export function updateSections(doc: SeatMapDoc, target: Target, set: SectionChan
         }
       } else if (set.rows !== undefined) problems.push(`${s.code} is not on the venue shape, so its rows can't be re-laid; change seats only`);
       else if (want < next.rows.length) problems.push(`${s.code} needs at least ${next.rows.length} seats`);
-      else if (want <= now) next = { ...next, rows: trimRows(next.rows.map((r) => ({ ...r, removed: [], numbers: [] })), want) };
+      else if (want <= now)
+        next = {
+          ...next,
+          rows: trimRows(
+            next.rows.map((r) => ({ ...r, removed: [], numbers: [] })),
+            want,
+          ),
+        };
       else if (want > now * 1.08 + 2) problems.push(`${s.code} can grow at most 8% (to ${Math.floor(now * 1.08 + 2)}) because it is drawn by hand`);
       else {
-        const counts = shareOut(want, next.rows.map((r) => r.seats));
+        const counts = shareOut(
+          want,
+          next.rows.map((r) => r.seats),
+        );
         next = { ...next, rows: next.rows.map((r, i) => resizeArc({ ...r, removed: [], numbers: [] }, counts[i])) };
       }
     }
@@ -1107,7 +1147,10 @@ export function updateSections(doc: SeatMapDoc, target: Target, set: SectionChan
   const next = { ...doc, sections };
   if (changedSeats.length) {
     const hits = overlapsWith(next, changedSeats);
-    if (hits.length) return fail(`More rows would run into ${hits.slice(0, 8).join(", ")}. Rebuild the ring with add_ring replace_ring (it moves outer tiers out), or move those sections first.`);
+    if (hits.length)
+      return fail(
+        `More rows would run into ${hits.slice(0, 8).join(", ")}. Rebuild the ring with add_ring replace_ring (it moves outer tiers out), or move those sections first.`,
+      );
   }
   const total = picked.sections.length;
   const note = `Updated ${total} section${total === 1 ? "" : "s"} (${codeRange(picked.sections.map((s) => s.code))}).${problems.length ? ` Skipped: ${problems.slice(0, 6).join("; ")}.` : ""}`;
@@ -1222,11 +1265,22 @@ function codeRange(codes: string[]): string {
 export function describeMap(doc: SeatMapDoc, detail: "summary" | "sections" = "summary", ring?: number): string {
   const f = venueFrame(doc);
   const lines: string[] = [];
-  const field = doc.decorations.find((d) => d.kind === "field");
+  const field = playingArea(doc);
   const stage = doc.decorations.find((d) => d.kind === "stage");
   const venue = mainVenue(doc);
-  lines.push(field ? `Field ${field.w / 10} × ${field.h / 10} m at the centre.` : stage ? `No field; stage ${stage.w / 10} × ${stage.h / 10} m.` : "No field yet.");
-  lines.push(venue ? `Venue shape ${venue.w / 10} × ${venue.h / 10} m, corner radius ${venue.radius / 10} m: seating follows it.` : "No venue shape yet (building seating adds one around the field).");
+  const metresOf = (n: number) => Math.round(n) / 10;
+  lines.push(
+    field
+      ? `${venue?.field === "football" ? "Football pitch" : "Field"} ${metresOf(field.w)} × ${metresOf(field.h)} m at the centre.`
+      : stage
+        ? `No field; stage ${stage.w / 10} × ${stage.h / 10} m.`
+        : "No field yet.",
+  );
+  lines.push(
+    venue
+      ? `Venue shape ${venue.w / 10} × ${venue.h / 10} m, corner radius ${venue.radius / 10} m: seating follows it.`
+      : "No venue shape yet (building seating adds one around the field).",
+  );
   const total = seatCount(doc);
   lines.push(`${fmt(total)} seats in ${doc.sections.length} sections.`);
   const catName = (id: string | null) => doc.categories.find((c) => c.id === id)?.label ?? "none";
@@ -1240,8 +1294,11 @@ export function describeMap(doc: SeatMapDoc, detail: "summary" | "sections" = "s
     const counts = secs.map(sectionSeatCount);
     const rows = Math.max(...secs.map((s) => s.rows.length));
     const cats = [...new Set(secs.map((s) => catName(s.categoryId)))].join("/");
-    lines.push(`Ring ${r}: ${secs.length} section${secs.length === 1 ? "" : "s"} ${codeRange(secs.map((s) => s.code))}, ${fmt(counts.reduce((a, b) => a + b, 0))} seats, ${rows} rows, ${cats}.`);
-    if (detail === "sections") lines.push(`  ${secs.map((s, i) => `${s.code}:${counts[i]}${s.categoryId !== secs[0].categoryId ? `(${catName(s.categoryId)})` : ""}`).join(" ")}`);
+    lines.push(
+      `Ring ${r}: ${secs.length} section${secs.length === 1 ? "" : "s"} ${codeRange(secs.map((s) => s.code))}, ${fmt(counts.reduce((a, b) => a + b, 0))} seats, ${rows} rows, ${cats}.`,
+    );
+    if (detail === "sections")
+      lines.push(`  ${secs.map((s, i) => `${s.code}:${counts[i]}${s.categoryId !== secs[0].categoryId ? `(${catName(s.categoryId)})` : ""}`).join(" ")}`);
   }
   const loose = doc.sections.filter((s) => ringOf(s.code) === null).sort(byCode);
   if (loose.length && ring === undefined) {
@@ -1265,11 +1322,21 @@ export function describeMap(doc: SeatMapDoc, detail: "summary" | "sections" = "s
     })
     .filter(Boolean);
   if (pts.length) lines.push(`Points: ${pts.join(", ")}.`);
-  const shapes = doc.decorations.filter((d) => d.kind !== "field" && d.kind !== "venue");
+  const shapes = doc.decorations.filter((d) => d.kind !== "venue");
   if (shapes.length) lines.push(`Shapes: ${shapes.map((d) => d.kind + (d.label ? ` "${d.label}"` : "")).join(", ")}.`);
   const issues = validateSeatMap(doc);
   const errors = issues.filter((i) => i.level === "error");
-  if (issues.length) lines.push(`Issues: ${errors.length} errors, ${issues.length - errors.length} warnings${errors.length ? `: ${errors.slice(0, 3).map((i) => i.message).join(" | ")}` : ""}.`);
+  if (issues.length)
+    lines.push(
+      `Issues: ${errors.length} errors, ${issues.length - errors.length} warnings${
+        errors.length
+          ? `: ${errors
+              .slice(0, 3)
+              .map((i) => i.message)
+              .join(" | ")}`
+          : ""
+      }.`,
+    );
   return lines.join("\n");
 }
 
@@ -1284,7 +1351,9 @@ function centroidOf(s: SeatMapSection): Point {
 }
 
 function bearingWord(b: number) {
-  return ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"][Math.round(((normalizeAngle(b) % 360) + 360) % 360 / 45) % 8];
+  return ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"][
+    Math.round((((normalizeAngle(b) % 360) + 360) % 360) / 45) % 8
+  ];
 }
 
 export function checkMap(doc: SeatMapDoc): string {
@@ -1304,11 +1373,11 @@ export function checkMap(doc: SeatMapDoc): string {
 
 /** Last line of defence before a change reaches the client. */
 export function acceptDoc(next: SeatMapDoc): { ok: true; doc: SeatMapDoc } | { ok: false; error: string } {
-  const parsed = seatMapSchema.safeParse(next);
-  if (!parsed.success) {
-    const issue = parsed.error.issues[0];
-    return { ok: false, error: `The result broke a map rule (${issue.path.join(".")}: ${issue.message}). Nothing was changed.` };
+  const parsed = parseSeatMap(next);
+  if (!parsed) {
+    const issue = seatMapSchema.safeParse(next).error?.issues[0];
+    return { ok: false, error: `The result broke a map rule (${issue?.path.join(".")}: ${issue?.message}). Nothing was changed.` };
   }
-  if (seatCount(parsed.data) > MAX_TOTAL_SEATS) return { ok: false, error: `A map holds at most ${fmt(MAX_TOTAL_SEATS)} seats. Nothing was changed.` };
-  return { ok: true, doc: parsed.data };
+  if (seatCount(parsed) > MAX_TOTAL_SEATS) return { ok: false, error: `A map holds at most ${fmt(MAX_TOTAL_SEATS)} seats. Nothing was changed.` };
+  return { ok: true, doc: parsed };
 }

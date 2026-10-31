@@ -23,10 +23,22 @@ const primary =
 
 /* ---------- categories ---------- */
 
-export function CategoriesDialog({ open, doc, onOpenChange, onSave }: { open: boolean; doc: SeatMapDoc; onOpenChange: (open: boolean) => void; onSave: (doc: SeatMapDoc) => void }) {
+export function CategoriesDialog({
+  open,
+  doc,
+  onOpenChange,
+  onSave,
+}: {
+  open: boolean;
+  doc: SeatMapDoc;
+  onOpenChange: (open: boolean) => void;
+  onSave: (doc: SeatMapDoc) => void;
+}) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-[480px]">{open ? <CategoriesForm doc={doc} onCancel={() => onOpenChange(false)} onSave={onSave} /> : null}</AlertDialogContent>
+      <AlertDialogContent className="max-w-[480px]">
+        {open ? <CategoriesForm doc={doc} onCancel={() => onOpenChange(false)} onSave={onSave} /> : null}
+      </AlertDialogContent>
     </AlertDialog>
   );
 }
@@ -57,7 +69,14 @@ function CategoriesForm({ doc, onCancel, onSave }: { doc: SeatMapDoc; onCancel: 
               <ColorField id={`cat-color-${c.id}`} value={c.color} onChange={(color) => setList((l) => l.map((x) => (x.id === c.id ? { ...x, color } : x)))} />
             </div>
             <div className="min-w-0 flex-1">
-              <TextField id={`cat-label-${c.id}`} value={c.label} maxLength={40} invalid={!c.label.trim()} placeholder={`Category ${i + 1}`} onChange={(label) => setList((l) => l.map((x) => (x.id === c.id ? { ...x, label } : x)))} />
+              <TextField
+                id={`cat-label-${c.id}`}
+                value={c.label}
+                maxLength={40}
+                invalid={!c.label.trim()}
+                placeholder={`Category ${i + 1}`}
+                onChange={(label) => setList((l) => l.map((x) => (x.id === c.id ? { ...x, label } : x)))}
+              />
             </div>
             <span className="w-16 shrink-0 text-right text-[12px] text-neutral-500 tabular-nums">{usage.get(c.id) ?? 0} sect.</span>
             <button
@@ -156,13 +175,22 @@ export function PublishDialog({
           ) : null}
           <DiffList title="New sections" tone="green" items={diff.added.map((s) => `${s.code} · ${s.name}`)} />
           <DiffList title="Renamed" tone="blue" items={diff.renamed.map((s) => `${s.code}: ${s.from} → ${s.to}`)} />
-          <DiffList title="Removed from the shop" tone="red" items={diff.removed.map((s) => `${s.code} · ${s.name}`)} note="Sections with past orders are kept so their orders still resolve." />
+          <DiffList
+            title="Removed from the shop"
+            tone="red"
+            items={diff.removed.map((s) => `${s.code} · ${s.name}`)}
+            note="Sections with past orders are kept so their orders still resolve."
+          />
           {!diff.added.length && !diff.renamed.length && !diff.removed.length ? (
             <p className="text-neutral-600">The shop’s sections already match this map ({diff.unchanged} unchanged).</p>
           ) : diff.unchanged ? (
             <p className="text-neutral-500">{diff.unchanged} sections unchanged.</p>
           ) : null}
-          {warnings.length ? <p className="text-amber-800">{warnings.length} warning{warnings.length === 1 ? "" : "s"} in the issues list won’t block publishing.</p> : null}
+          {warnings.length ? (
+            <p className="text-amber-800">
+              {warnings.length} warning{warnings.length === 1 ? "" : "s"} in the issues list won’t block publishing.
+            </p>
+          ) : null}
         </div>
 
         {error ? <p className="mt-3 text-[13px] text-red-600">{error}</p> : null}

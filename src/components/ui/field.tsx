@@ -13,9 +13,7 @@ export function Field({ label, hint, className, id, ...rest }: Props) {
       <span className="text-[13px] font-medium text-muted">{label}</span>
       <input
         id={inputId}
-        className={["input", "input--secondary", "input--full-width", "min-h-11 rounded-xl", className]
-          .filter(Boolean)
-          .join(" ")}
+        className={["input", "input--secondary", "input--full-width", "min-h-11 rounded-xl", className].filter(Boolean).join(" ")}
         {...rest}
       />
       {hint ? <span className="text-[12px] text-muted">{hint}</span> : null}

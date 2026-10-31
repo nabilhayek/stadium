@@ -10,15 +10,7 @@ import { SpotGradient } from "@/components/ui/spot-gradient";
 import { EASE, SPRING, fadeUp, stagger } from "@/components/motion/variants";
 import { useNow } from "@/lib/hooks/use-now";
 import { formatSeat } from "@/lib/seat/store";
-import {
-  confirmDigits,
-  formatClock,
-  formatRemain,
-  isValidEmail,
-  statusTitle,
-  type KitchenStatus,
-  type Receipt,
-} from "@/lib/orders/receipt";
+import { confirmDigits, formatClock, formatRemain, isValidEmail, statusTitle, type KitchenStatus, type Receipt } from "@/lib/orders/receipt";
 import { commitReceipt } from "@/lib/orders/sync";
 import type { CatalogItem } from "@/lib/menu/catalog";
 import { optionSummary } from "@/lib/menu/options";
@@ -56,17 +48,10 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
   const kitchenIndex = kitchenStep(receipt.kitchenStatus, delivery);
   const arrived = receipt.kitchenStatus === "done" || (kitchenIndex === null && left === 0);
 
-  const steps = delivery
-    ? ["Paid", "Preparing", "On the way", "At your seat"]
-    : ["Paid", "Preparing", "Ready"];
+  const steps = delivery ? ["Paid", "Preparing", "On the way", "At your seat"] : ["Paid", "Preparing", "Ready"];
   // Position along the step row, in step units. Segment i fills from circle i to
   // i + 1, and circle i + 1 lights the moment that segment is full.
-  const stepPos =
-    kitchenIndex !== null
-      ? kitchenIndex
-      : arrived
-        ? steps.length - 1
-        : progress * (steps.length - 1);
+  const stepPos = kitchenIndex !== null ? kitchenIndex : arrived ? steps.length - 1 : progress * (steps.length - 1);
   const stepIndex = arrived ? steps.length - 1 : Math.min(steps.length - 2, Math.floor(stepPos));
   const segmentFill = (i: number) => Math.min(1, Math.max(0, stepPos - i));
 
@@ -113,10 +98,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
           <m.p variants={fadeUp} className="mt-5 text-[11px] font-medium uppercase tracking-[0.16em] text-muted">
             {receipt.stadiumName} · Order {receipt.orderNumber}
           </m.p>
-          <m.h1
-            variants={fadeUp}
-            className="font-display mt-2 text-[32px] font-semibold leading-[0.95] tracking-[-0.045em]"
-          >
+          <m.h1 variants={fadeUp} className="font-display mt-2 text-[32px] font-semibold leading-[0.95] tracking-[-0.045em]">
             {title}
           </m.h1>
           <m.p variants={fadeUp} className="mt-2 text-[15px] text-muted">
@@ -133,9 +115,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
           <ul className="rule">
             {receipt.lines.map((l, i) => (
               <li key={`${l.productId}-${i}`} className="flex items-baseline gap-2 py-3 text-[15px] text-muted">
-                <span className="inline-block min-w-5 rounded-md bg-surface-secondary px-1 text-center text-[12px] font-semibold tabular-nums">
-                  {l.qty}
-                </span>
+                <span className="inline-block min-w-5 rounded-md bg-surface-secondary px-1 text-center text-[12px] font-semibold tabular-nums">{l.qty}</span>
                 <span className="line-through">{l.name}</span>
               </li>
             ))}
@@ -152,12 +132,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
   }
 
   return (
-    <m.div
-      variants={stagger(0.08, 0.5)}
-      initial="hidden"
-      animate="show"
-      className="flex flex-col gap-5 pb-10"
-    >
+    <m.div variants={stagger(0.08, 0.5)} initial="hidden" animate="show" className="flex flex-col gap-5 pb-10">
       <header className="flex flex-col items-start pr-12">
         <m.div variants={fadeUp}>
           <BackLink href={`/${receipt.stadiumSlug}`}>Back</BackLink>
@@ -168,18 +143,9 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
         <m.p variants={fadeUp} className="mt-5 text-[11px] font-medium uppercase tracking-[0.16em] text-muted">
           {receipt.stadiumName} · Order {receipt.orderNumber}
         </m.p>
-        <m.h1
-          variants={fadeUp}
-          className="font-display mt-2 text-[32px] font-semibold leading-[0.95] tracking-[-0.045em]"
-        >
+        <m.h1 variants={fadeUp} className="font-display mt-2 text-[32px] font-semibold leading-[0.95] tracking-[-0.045em]">
           <AnimatePresence mode="wait" initial={false}>
-            <m.span
-              key={title}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="inline-block"
-            >
+            <m.span key={title} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="inline-block">
               {title}
             </m.span>
           </AnimatePresence>
@@ -199,19 +165,13 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
         </m.p>
       </header>
 
-      <m.section
-        variants={fadeUp}
-        className="rounded-[20px] border border-border bg-surface px-5 py-6"
-        aria-label="Hand-off code"
-      >
+      <m.section variants={fadeUp} className="rounded-[20px] border border-border bg-surface px-5 py-6" aria-label="Hand-off code">
         <p className="text-center text-[11px] font-medium uppercase tracking-[0.16em] text-muted">
           {delivery ? "Show this to the runner" : "Show this at the counter"}
         </p>
         <HandOffCode code={receipt.confirmCode} fallback={receipt.orderNumber} />
         <p className="mt-4 text-center text-[13px] leading-snug text-muted">
-          {delivery
-            ? "They type these four digits to confirm the order reached you."
-            : "Staff type these four digits to hand your order over."}
+          {delivery ? "They type these four digits to confirm the order reached you." : "Staff type these four digits to hand your order over."}
         </p>
       </m.section>
 
@@ -225,17 +185,9 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
           </Ring>
           <div className="min-w-0">
             <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/60">
-              {receipt.timing === "scheduled"
-                ? "Scheduled for"
-                : arrived
-                  ? "Status"
-                  : delivery
-                    ? "Arriving"
-                    : "Ready around"}
+              {receipt.timing === "scheduled" ? "Scheduled for" : arrived ? "Status" : delivery ? "Arriving" : "Ready around"}
             </p>
-            <p className="font-display mt-1 text-[22px] font-semibold tracking-tight text-white">
-              {formatClock(receipt.readyAt)}
-            </p>
+            <p className="font-display mt-1 text-[22px] font-semibold tracking-tight text-white">{formatClock(receipt.readyAt)}</p>
             <p className="mt-1 text-[13px] text-white/60">
               {receipt.timing === "asap" ? `Usually ${receipt.etaMin}–${receipt.etaMax} min` : "Exact time you picked"}
             </p>
@@ -250,16 +202,9 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
             const last = i === steps.length - 1;
             const labelPos = i === 0 ? "left-0" : last ? "right-0" : "left-1/2 -translate-x-1/2";
             return (
-              <li
-                key={s}
-                className={["relative flex items-center", i === 0 ? "shrink-0" : "flex-1"].join(" ")}
-                aria-current={current ? "step" : undefined}
-              >
+              <li key={s} className={["relative flex items-center", i === 0 ? "shrink-0" : "flex-1"].join(" ")} aria-current={current ? "step" : undefined}>
                 {i > 0 ? (
-                  <span
-                    aria-hidden
-                    className="relative mx-1.5 h-[2px] flex-1 overflow-hidden rounded-full bg-white/25"
-                  >
+                  <span aria-hidden className="relative mx-1.5 h-[2px] flex-1 overflow-hidden rounded-full bg-white/25">
                     <m.span
                       className="absolute inset-y-0 left-0 bg-white"
                       initial={{ width: 0 }}
@@ -274,16 +219,10 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
                     animate={{ backgroundColor: done ? "#ffffff" : "rgba(255,255,255,0.35)", scale: current ? 1.15 : 1 }}
                     transition={SPRING}
                   >
-                    {current && !arrived ? (
-                      <span className="absolute inset-0 rounded-full bg-white/60 [animation:ping_1.8s_ease-out_infinite]" />
-                    ) : null}
+                    {current && !arrived ? <span className="absolute inset-0 rounded-full bg-white/60 [animation:ping_1.8s_ease-out_infinite]" /> : null}
                   </m.span>
                   <span
-                    className={[
-                      "absolute top-full mt-2 whitespace-nowrap text-[11px] font-medium",
-                      labelPos,
-                      done ? "text-white" : "text-white/45",
-                    ].join(" ")}
+                    className={["absolute top-full mt-2 whitespace-nowrap text-[11px] font-medium", labelPos, done ? "text-white" : "text-white/45"].join(" ")}
                   >
                     {s}
                   </span>
@@ -294,9 +233,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
         </ol>
       </m.section>
 
-      {canAddMore ? (
-        <SecondRound receipt={receipt} drinks={drinks} now={now} onUpdate={setReceipt} />
-      ) : null}
+      {canAddMore ? <SecondRound receipt={receipt} drinks={drinks} now={now} onUpdate={setReceipt} /> : null}
 
       {delivery ? (
         <m.section variants={fadeUp} className="rounded-[20px] border border-border bg-surface p-5">
@@ -306,9 +243,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-[15px] font-medium">A runner has your order</p>
-              <p className="mt-1 text-[13px] leading-snug text-muted">
-                They look for the seat number first. Add a landmark if the aisle is packed.
-              </p>
+              <p className="mt-1 text-[13px] leading-snug text-muted">They look for the seat number first. Add a landmark if the aisle is packed.</p>
             </div>
           </div>
           <label htmlFor="runner-note" className="sr-only">
@@ -417,9 +352,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
                   {l.qty}
                 </span>
                 <span className="font-medium">{l.name}</span>
-                {l.options?.length ? (
-                  <span className="mt-0.5 block text-[13px] text-muted">{optionSummary(l.options)}</span>
-                ) : null}
+                {l.options?.length ? <span className="mt-0.5 block text-[13px] text-muted">{optionSummary(l.options)}</span> : null}
                 {l.note ? <span className="mt-0.5 block text-[13px] text-muted">{l.note}</span> : null}
               </span>
             </li>
@@ -469,10 +402,7 @@ function DeclinedMark() {
 function HandOffCode({ code, fallback }: { code?: string; fallback: string }) {
   const digits = confirmDigits(code, fallback);
   return (
-    <p
-      className="mt-4 flex justify-center gap-2.5"
-      aria-label={`Hand-off code ${digits.join("")}`}
-    >
+    <p className="mt-4 flex justify-center gap-2.5" aria-label={`Hand-off code ${digits.join("")}`}>
       {digits.map((d, i) => (
         <m.span
           key={`${d}-${i}`}

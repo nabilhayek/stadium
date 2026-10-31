@@ -15,10 +15,11 @@ import { cn } from "@/lib/utils";
 import { AssistantPanel } from "./assistant-panel";
 import { DesignerCanvas, type CanvasApi } from "./designer-canvas";
 import { CategoriesDialog, ClearMapDialog, PublishDialog } from "./dialogs";
-import { Inspector } from "./inspector";
+import { DrawerHeader, iconButton } from "./fields";
+import { Inspector, ObjectList, ObjectsButton } from "./inspector";
 import { deleteSelection, duplicateSelection, findRow, groupRowsAsSection, keyOf, renumberRows, seatKey, splitSelection, transformSelection } from "./ops";
 import { allLoose, SelectionBar } from "./selection-bar";
-import { groupOf, TOOL_HINT, ToolRail } from "./tool-rail";
+import { groupOf, ToolRail } from "./tool-rail";
 import type { AssistChip, ToolId } from "./tools";
 import { useHistory } from "./use-history";
 
@@ -64,6 +65,10 @@ function useWideScreen() {
   );
 }
 
+function isEmptyMap(doc: SeatMapDoc) {
+  return doc.sections.length === 0 && doc.decorations.length === 0 && doc.pois.length === 0;
+}
+
 export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
   const { doc, commit, undo, redo, canUndo, canRedo, lastKey } = useHistory(initial.draft);
   const [selection, setSelection] = useState<Set<string>>(() => new Set());
@@ -84,6 +89,8 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [blocked, setBlocked] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [objectsOpen, setObjectsOpen] = useState(false);
+  const [spotlight, setSpotlight] = useState<string | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiBuilding, setAiBuilding] = useState(false);
   const wide = useWideScreen();
@@ -264,8 +271,7 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
     (next: SeatMapDoc, key: string) => {
       commit(next, key, true);
       setSelection(new Set());
-      const hasContent = next.sections.length > 0 || next.decorations.length > 0 || next.pois.length > 0;
-      if (hasContent) requestAnimationFrame(() => canvasApi.current?.reveal());
+      if (!isEmptyMap(next)) requestAnimationFrame(() => canvasApi.current?.reveal());
     },
     [commit],
   );
@@ -478,12 +484,7 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
             <CircleAlert className="size-4" aria-hidden />
             {issues.length ? `${issues.length} issue${issues.length === 1 ? "" : "s"}` : "No issues"}
           </button>
-          <button
-            type="button"
-            onClick={() => setConfirmClear(true)}
-            disabled={preview || aiBusy || (doc.sections.length === 0 && doc.decorations.length === 0 && doc.pois.length === 0)}
-            className={secondary}
-          >
+          <button type="button" onClick={() => setConfirmClear(true)} disabled={preview || aiBusy || isEmptyMap(doc)} className={secondary}>
             <Trash2 className="size-4" aria-hidden />
             Clear
           </button>
@@ -547,6 +548,7 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
               <DesignerCanvas
                 doc={doc}
                 selection={liveSelection}
+                spotlight={objectsOpen ? spotlight : null}
                 tool={tool}
                 snapStep={snapStep}
                 snapAngle={snapAngle}
@@ -559,11 +561,6 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
                 apiRef={canvasApi}
                 crafting={aiBuilding}
               />
-              {TOOL_HINT[tool] && !aiBusy ? (
-                <p className="pointer-events-none absolute top-3 left-1/2 max-w-[90%] -translate-x-1/2 truncate rounded-full bg-white/95 px-3 py-1 text-[12px] text-neutral-600 shadow-[0_2px_8px_-2px_rgba(17,17,17,0.15)]">
-                  {TOOL_HINT[tool]}
-                </p>
-              ) : null}
               <SelectionBar
                 selection={liveSelection}
                 canGroup={canGroupSelected}
@@ -577,25 +574,34 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
               />
               {aiBusy ? (
                 <div className="absolute inset-0 z-10 cursor-progress">
-                  <p role="status" className="absolute top-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-neutral-900 px-3 py-1 text-[12px] font-medium text-white shadow-lg">
+                  <p
+                    role="status"
+                    className="absolute top-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-neutral-900 px-3 py-1 text-[12px] font-medium text-white shadow-lg"
+                  >
                     <Loader2 className="size-3.5 animate-spin" aria-hidden />
                     The assistant is editing the map
                   </p>
                 </div>
               ) : null}
             </div>
-            {assistantOpen ? null : <Inspector
-              doc={doc}
-              selection={liveSelection}
-              issues={issues}
-              onChange={(next, key) => commit(next, key)}
-              onSelect={setSelection}
-              onDelete={removeSelected}
-              onDuplicate={duplicateSelected}
-              onFocus={() => canvasApi.current?.focusSelection(liveSelection)}
-              onManageCategories={() => setDialog("categories")}
-              onNotify={(message) => toast({ message })}
-            />}
+            {assistantOpen ? null : (
+              <div className="relative flex shrink-0">
+                <ObjectsButton open={objectsOpen} onToggle={() => setObjectsOpen((v) => !v)} />
+                <ObjectList doc={doc} selection={liveSelection} onSelect={setSelection} onHover={setSpotlight} open={objectsOpen} />
+                <Inspector
+                  doc={doc}
+                  selection={liveSelection}
+                  issues={issues}
+                  onChange={(next, key) => commit(next, key)}
+                  onSelect={setSelection}
+                  onDelete={removeSelected}
+                  onDuplicate={duplicateSelected}
+                  onFocus={() => canvasApi.current?.focusSelection(liveSelection)}
+                  onManageCategories={() => setDialog("categories")}
+                  onNotify={(message) => toast({ message })}
+                />
+              </div>
+            )}
           </>
         )}
         <AssistantPanel
@@ -680,17 +686,11 @@ function IconButton({
 function IssuesPanel({ issues, onPick, onClose }: { issues: SeatMapIssue[]; onPick: (issue: SeatMapIssue) => void; onClose: () => void }) {
   return (
     <div className="absolute bottom-4 left-16 z-20 flex max-h-[45vh] w-[340px] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-[0_16px_40px_-12px_rgba(17,17,17,0.25)]">
-      <div className="flex h-10 shrink-0 items-center justify-between border-b border-neutral-200 pr-1.5 pl-3.5">
-        <p className="text-[13px] font-semibold">Issues</p>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close issues"
-          className="grid size-7 place-items-center rounded-full text-neutral-500 hover:bg-neutral-100! hover:text-neutral-900"
-        >
+      <DrawerHeader title="Issues">
+        <button type="button" onClick={onClose} title="Close issues" aria-label="Close issues" className={iconButton}>
           <X className="size-4" aria-hidden />
         </button>
-      </div>
+      </DrawerHeader>
       {issues.length ? (
         <ul className="overflow-y-auto p-1.5">
           {issues.map((issue, i) => (
@@ -708,7 +708,7 @@ function IssuesPanel({ issues, onPick, onClose }: { issues: SeatMapIssue[]; onPi
           ))}
         </ul>
       ) : (
-        <p className="px-3.5 py-4 text-[13px] text-neutral-500">Nothing to fix. Sections, rows and seat numbers are consistent.</p>
+        <p className="px-4 py-4 text-[13px] text-neutral-500">Nothing to fix. Sections, rows and seat numbers are consistent.</p>
       )}
     </div>
   );

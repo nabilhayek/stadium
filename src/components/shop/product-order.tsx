@@ -52,10 +52,7 @@ export function ProductOrder({ stadiumSlug, currency, product }: Props) {
       if (check.groupId) document.getElementById(`group-${check.groupId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    getCartStore(stadiumSlug).add(
-      { productId: product.id, name: product.name, unitCents: unit, options: check.chosen },
-      qty,
-    );
+    getCartStore(stadiumSlug).add({ productId: product.id, name: product.name, unitCents: unit, options: check.chosen }, qty);
     navigator.vibrate?.(10);
     toast({ message: qty > 1 ? `${qty} × ${product.name} added` : `${product.name} added`, status: "success" });
     setSelected(defaultSelection(groups));
@@ -101,12 +98,7 @@ export function ProductOrder({ stadiumSlug, currency, product }: Props) {
                 const type = group.selection === "SINGLE" ? "radio" : "checkbox";
                 return (
                   <li key={option.id} className="border-t border-separator first:border-t-0">
-                    <label
-                      className={[
-                        "flex min-h-12 items-center gap-3 py-2",
-                        disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer",
-                      ].join(" ")}
-                    >
+                    <label className={["flex min-h-12 items-center gap-3 py-2", disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"].join(" ")}>
                       <input
                         type={type}
                         name={group.id}
@@ -126,13 +118,7 @@ export function ProductOrder({ stadiumSlug, currency, product }: Props) {
                           on ? "border-foreground bg-foreground text-background" : "border-border bg-surface",
                         ].join(" ")}
                       >
-                        {on ? (
-                          type === "radio" ? (
-                            <span className="size-2 rounded-full bg-background" />
-                          ) : (
-                            <Check className="size-3.5" strokeWidth={3} />
-                          )
-                        ) : null}
+                        {on ? type === "radio" ? <span className="size-2 rounded-full bg-background" /> : <Check className="size-3.5" strokeWidth={3} /> : null}
                       </span>
                       <span className="min-w-0 flex-1 text-[15px] leading-snug">{option.name}</span>
                       <span className="shrink-0 text-[14px] tabular-nums text-muted">

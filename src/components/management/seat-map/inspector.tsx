@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Settings2, TextAlignCenter, TextAlignEnd, TextAlignStart, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { ChevronRight, PanelLeft, Settings2, TextAlignCenter, TextAlignEnd, TextAlignStart, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -35,7 +35,20 @@ import {
 } from "@/lib/seatmap/schema";
 import type { SeatMapIssue } from "@/lib/seatmap/validate";
 import { cn } from "@/lib/utils";
-import { ColorField, Disclosure, FieldRow, linkButton, NumberField, Panel, ScaleSlider, Segmented, SliderField, smallButton, TextField } from "./fields";
+import {
+  ColorField,
+  Disclosure,
+  DrawerHeader,
+  FieldRow,
+  linkButton,
+  NumberField,
+  Panel,
+  ScaleSlider,
+  Segmented,
+  SliderField,
+  smallButton,
+  TextField,
+} from "./fields";
 import {
   addRows,
   alignSelectedRows,
@@ -76,7 +89,13 @@ const DECORATION_NAMES: Record<(typeof DECORATION_KINDS)[number], string> = {
   venue: "Venue shape",
   text: "Text",
 };
-const POI_NAMES: Record<(typeof POI_KINDS)[number], string> = { kitchen: "Kitchen", pickup: "Pickup point", entrance: "Entrance", exit: "Entrance", stairs: "Stairs" };
+const POI_NAMES: Record<(typeof POI_KINDS)[number], string> = {
+  kitchen: "Kitchen",
+  pickup: "Pickup point",
+  entrance: "Entrance",
+  exit: "Entrance",
+  stairs: "Stairs",
+};
 
 export function Inspector(props: Props) {
   const { doc, selection } = props;
@@ -103,6 +122,161 @@ export function Inspector(props: Props) {
   );
 }
 
+export function ObjectList({
+  doc,
+  selection,
+  onSelect,
+  onHover,
+  open,
+}: Pick<Props, "doc" | "selection" | "onSelect"> & { onHover: (key: string | null) => void; open: boolean }) {
+  const parts = splitSelection(selection);
+  const venues = doc.decorations.filter((d) => d.kind === "venue");
+  const shapes = doc.decorations.filter((d) => d.kind !== "venue");
+  const empty = !doc.sections.length && !doc.decorations.length && !doc.pois.length;
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const item = (key: string, active: boolean) => ({ active, onClick: () => onSelect(new Set([key])), onHover: (on: boolean) => onHover(on ? key : null) });
+  return (
+    <aside
+      aria-label="Objects"
+      aria-hidden={!open}
+      inert={!open}
+      className={cn(
+        "h-full shrink-0 overflow-hidden bg-white motion-safe:transition-[width] motion-safe:duration-200",
+        open ? "w-[320px] border-l border-neutral-200" : "w-0",
+      )}
+    >
+      <div className="flex h-full w-[320px] flex-col">
+        <DrawerHeader title="Objects" />
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 py-3" onPointerLeave={() => onHover(null)}>
+          {empty ? <p className="px-2 text-[12px] text-neutral-500">Nothing on the map yet.</p> : null}
+          {venues.length ? (
+            <ObjectGroup title="Venue">
+              {venues.map((d) => (
+                <ObjectRow key={d.id} {...item(keyOf("d", d.id), parts.decorations.has(d.id))}>
+                  {d.label || "Venue shape"}
+                  {d.field === "football" ? <span className="ml-auto text-[11px] text-neutral-400">Pitch</span> : null}
+                </ObjectRow>
+              ))}
+            </ObjectGroup>
+          ) : null}
+          {doc.sections.length ? (
+            <ObjectGroup title="Sections">
+              {doc.sections.map((s) => {
+                const shown = expanded[s.id] ?? (parts.sections.has(s.id) || s.rows.some((r) => parts.rows.has(r.id)));
+                return (
+                  <div key={s.id}>
+                    <div className="flex items-center">
+                      {s.rows.length ? (
+                        <button
+                          type="button"
+                          aria-label={shown ? "Collapse rows" : "Expand rows"}
+                          onClick={() => setExpanded((m) => ({ ...m, [s.id]: !shown }))}
+                          className="grid size-6 shrink-0 place-items-center rounded-md text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                        >
+                          <ChevronRight className={cn("size-3.5 transition-transform", shown && "rotate-90")} aria-hidden />
+                        </button>
+                      ) : (
+                        <span className="size-6 shrink-0" />
+                      )}
+                      <ObjectRow {...item(keyOf("s", s.id), parts.sections.has(s.id))} flush>
+                        <span className="min-w-0 flex-1 truncate">{s.loose ? s.name || "Unassigned" : s.name || s.code}</span>
+                        <span className="text-[11px] text-neutral-400 tabular-nums">{sectionSeatCount(s)}</span>
+                      </ObjectRow>
+                    </div>
+                    {shown
+                      ? s.rows.map((r) => (
+                          <ObjectRow key={r.id} indent {...item(keyOf("r", r.id), parts.rows.has(r.id))}>
+                            Row {r.label}
+                          </ObjectRow>
+                        ))
+                      : null}
+                  </div>
+                );
+              })}
+            </ObjectGroup>
+          ) : null}
+          {shapes.length ? (
+            <ObjectGroup title="Shapes">
+              {shapes.map((d) => (
+                <ObjectRow key={d.id} {...item(keyOf("d", d.id), parts.decorations.has(d.id))}>
+                  {d.label || DECORATION_NAMES[d.kind]}
+                </ObjectRow>
+              ))}
+            </ObjectGroup>
+          ) : null}
+          {doc.pois.length ? (
+            <ObjectGroup title="Places">
+              {doc.pois.map((p) => (
+                <ObjectRow key={p.id} {...item(keyOf("p", p.id), parts.pois.has(p.id))}>
+                  {p.label || POI_NAMES[p.kind]}
+                </ObjectRow>
+              ))}
+            </ObjectGroup>
+          ) : null}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+export function ObjectsButton({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={open}
+      aria-label={open ? "Hide objects" : "Show objects"}
+      className="absolute top-3 left-0 z-20 grid size-8 -translate-x-[calc(100%+10px)] place-items-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-[0_2px_8px_-2px_rgba(17,17,17,0.18)] transition-colors hover:bg-neutral-50 focus-visible:outline-2 focus-visible:outline-blue-500"
+    >
+      <PanelLeft className="size-4" aria-hidden />
+    </button>
+  );
+}
+
+function ObjectGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="px-2 pb-0.5 text-[11px] font-medium tracking-wide text-neutral-400 uppercase">{title}</p>
+      <div className="flex flex-col">{children}</div>
+    </div>
+  );
+}
+
+function ObjectRow({
+  active,
+  indent,
+  flush,
+  onClick,
+  onHover,
+  children,
+}: {
+  active: boolean;
+  indent?: boolean;
+  flush?: boolean;
+  onClick: () => void;
+  onHover: (on: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onPointerEnter={() => onHover(true)}
+      onPointerLeave={() => onHover(false)}
+      onFocus={() => onHover(true)}
+      onBlur={() => onHover(false)}
+      className={cn(
+        "flex min-w-0 items-center gap-2 rounded-md py-1 text-left text-[13px] leading-tight transition-colors focus-visible:outline-2 focus-visible:outline-blue-500",
+        flush ? "flex-1 px-1.5" : "w-full px-2",
+        indent && "pl-8",
+        active ? "bg-neutral-100 font-medium text-neutral-900" : "text-neutral-700 hover:bg-neutral-50",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 /** Compact title at the top of a selection panel: the kind on the left, selection code on the right. */
 function Heading({ kind, title, subtitle }: { kind?: string; title: string; subtitle?: string }) {
   return (
@@ -123,10 +297,7 @@ function Issues({ issues }: { issues: SeatMapIssue[] }) {
       {issues.map((issue, i) => (
         <li
           key={i}
-          className={cn(
-            "rounded-lg px-2.5 py-2 text-[12px] leading-snug",
-            issue.level === "error" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800",
-          )}
+          className={cn("rounded-lg px-2.5 py-2 text-[12px] leading-snug", issue.level === "error" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800")}
         >
           {issue.message}
         </li>
@@ -142,10 +313,9 @@ function NumberingDefaults({ doc, onChange }: Pick<Props, "doc" | "onChange">) {
   const set = (patch: { rows?: Partial<SeatMapNumbering["rows"]>; seats?: Partial<SeatMapNumbering["seats"]> }, field: string) =>
     onChange({ ...doc, numbering: { rows: { ...n.rows, ...patch.rows }, seats: { ...n.seats, ...patch.seats } } }, `numbering:${field}`);
   return (
-    <Panel title="Numbering defaults">
-      <p className="text-[12px] leading-snug text-neutral-500">New rows and seats are labelled this way. Rows you already placed keep their numbers.</p>
+    <Panel title="Numbering">
       <p className="text-[12px] font-medium text-neutral-800">Rows</p>
-      <FieldRow label="Labels" htmlFor="num-row-style">
+      <FieldRow label="Style" htmlFor="num-row-style">
         <Segmented
           id="num-row-style"
           size="sm"
@@ -159,7 +329,14 @@ function NumberingDefaults({ doc, onChange }: Pick<Props, "doc" | "onChange">) {
         />
       </FieldRow>
       <FieldRow label="Start at" htmlFor="num-row-from">
-        <NumberField id="num-row-from" value={n.rows.from} min={n.rows.style === "numbers" ? 0 : 1} max={999} digits={0} onChange={(from) => set({ rows: { from: Math.round(from) } }, "row-from")} />
+        <NumberField
+          id="num-row-from"
+          value={n.rows.from}
+          min={n.rows.style === "numbers" ? 0 : 1}
+          max={999}
+          digits={0}
+          onChange={(from) => set({ rows: { from: Math.round(from) } }, "row-from")}
+        />
       </FieldRow>
       <FieldRow label="Direction" htmlFor="num-row-dir">
         <Segmented
@@ -168,17 +345,31 @@ function NumberingDefaults({ doc, onChange }: Pick<Props, "doc" | "onChange">) {
           value={n.rows.reverse ? "up" : "down"}
           onChange={(v) => set({ rows: { reverse: v === "up" } }, "row-dir")}
           options={[
-            { value: "down", label: "Front first", ariaLabel: "Front row first" },
-            { value: "up", label: "Back first", ariaLabel: "Back row first" },
+            { value: "down", label: "Front", ariaLabel: "Front row first" },
+            { value: "up", label: "Back", ariaLabel: "Back row first" },
           ]}
         />
       </FieldRow>
       <FieldRow label="Step" htmlFor="num-row-step" hint={numberingPreview("rows", n)}>
-        <NumberField id="num-row-step" value={n.rows.step} min={1} max={99} digits={0} onChange={(step) => set({ rows: { step: Math.round(step) } }, "row-step")} />
+        <NumberField
+          id="num-row-step"
+          value={n.rows.step}
+          min={1}
+          max={99}
+          digits={0}
+          onChange={(step) => set({ rows: { step: Math.round(step) } }, "row-step")}
+        />
       </FieldRow>
       <p className="mt-1 text-[12px] font-medium text-neutral-800">Seats</p>
       <FieldRow label="Start at" htmlFor="num-seat-from">
-        <NumberField id="num-seat-from" value={n.seats.from} min={0} max={9999} digits={0} onChange={(from) => set({ seats: { from: Math.round(from) } }, "seat-from")} />
+        <NumberField
+          id="num-seat-from"
+          value={n.seats.from}
+          min={0}
+          max={9999}
+          digits={0}
+          onChange={(from) => set({ seats: { from: Math.round(from) } }, "seat-from")}
+        />
       </FieldRow>
       <FieldRow label="Direction" htmlFor="num-seat-dir">
         <Segmented
@@ -187,13 +378,20 @@ function NumberingDefaults({ doc, onChange }: Pick<Props, "doc" | "onChange">) {
           value={n.seats.reverse ? "left" : "right"}
           onChange={(v) => set({ seats: { reverse: v === "left" } }, "seat-dir")}
           options={[
-            { value: "right", label: "Left → right" },
-            { value: "left", label: "Right → left" },
+            { value: "right", label: "L → R" },
+            { value: "left", label: "R → L" },
           ]}
         />
       </FieldRow>
       <FieldRow label="Step" htmlFor="num-seat-step" hint={numberingPreview("seats", n)}>
-        <NumberField id="num-seat-step" value={n.seats.step} min={1} max={99} digits={0} onChange={(step) => set({ seats: { step: Math.round(step) } }, "seat-step")} />
+        <NumberField
+          id="num-seat-step"
+          value={n.seats.step}
+          min={1}
+          max={99}
+          digits={0}
+          onChange={(step) => set({ seats: { step: Math.round(step) } }, "seat-step")}
+        />
       </FieldRow>
     </Panel>
   );
@@ -255,17 +453,6 @@ function VenuePanel(props: Props) {
         </ul>
       </Panel>
       <NumberingDefaults doc={doc} onChange={props.onChange} />
-      <Panel title="How to">
-        <ul className="flex flex-col gap-1.5 text-[13px] leading-snug text-neutral-600">
-          <li>Draw a section, then draw its rows. A row can have fewer seats, packed at the normal gap or stretched edge to edge.</li>
-          <li>Loges, labelled areas and text (T) are names on the map. Tables place chairs around a number.</li>
-          <li>Draw seats anywhere. Select unassigned rows and group them into a section — the outline follows the seats.</li>
-          <li>Row, curved row and block of rows: click once, move, then click again. A curved row bends until a third click. Hold Alt to ignore the grid.</li>
-          <li>Zoomed in, clicking a seat selects its row. Click a chair in that row to pick it. Double-click selects the section.</li>
-          <li>Space-drag, right-drag or the hand tool pans. The wheel zooms.</li>
-          <li>Drafts save on their own. Publish when the map is ready for the shop.</li>
-        </ul>
-      </Panel>
     </>
   );
 }
@@ -289,7 +476,6 @@ function MultiPanel({ doc, selection, onChange }: Props) {
     <>
       <Heading kind="Selection" title={`${total} items`} subtitle={bits.join(" · ")} />
       <Panel title="">
-        <p className="text-[12px] leading-snug text-neutral-500">Drag the rotation handle on the canvas to turn them together. Use the floating bar to delete, duplicate or zoom.</p>
         {sections.length ? (
           <FieldRow label="Category" htmlFor="multi-category">
             <CategorySelect
@@ -329,9 +515,16 @@ function CategorySelect({ id, doc, value, onChange }: { id: string; doc: SeatMap
 /* ---------- one section ---------- */
 
 function SectionPanel({ doc, section, issues, onChange, onSelect, onManageCategories, onNotify }: Props & { section: SeatMapSection }) {
-  const set = (patch: Partial<SeatMapSection>, field: string) => onChange(updateSection(doc, section.id, (s) => ({ ...s, ...patch })), `${section.id}:${field}`);
+  const set = (patch: Partial<SeatMapSection>, field: string) =>
+    onChange(
+      updateSection(doc, section.id, (s) => ({ ...s, ...patch })),
+      `${section.id}:${field}`,
+    );
   const setLabel = (patch: Partial<SeatMapSection["label"]>, field: string) =>
-    onChange(updateSection(doc, section.id, (s) => ({ ...s, label: { ...s.label, ...patch } })), `${section.id}:label:${field}`);
+    onChange(
+      updateSection(doc, section.id, (s) => ({ ...s, label: { ...s.label, ...patch } })),
+      `${section.id}:label:${field}`,
+    );
   const seats = sectionSeatCount(section);
   const codeTaken = doc.sections.some((s) => s.id !== section.id && s.code === section.code);
   const mine = issues.filter((i) => i.target === `s:${section.id}` || section.rows.some((r) => i.target === `r:${r.id}`));
@@ -342,7 +535,11 @@ function SectionPanel({ doc, section, issues, onChange, onSelect, onManageCatego
       <Heading
         kind="Section"
         title={section.name || `Section ${section.code}`}
-        subtitle={isTable ? `Table · ${section.rows[0]?.seats ?? 0} chairs` : `${seats.toLocaleString("en")} seats · ${section.rows.length} row${section.rows.length === 1 ? "" : "s"}`}
+        subtitle={
+          isTable
+            ? `Table · ${section.rows[0]?.seats ?? 0} chairs`
+            : `${seats.toLocaleString("en")} seats · ${section.rows.length} row${section.rows.length === 1 ? "" : "s"}`
+        }
       />
       <Issues issues={mine} />
       <Panel title="">
@@ -357,7 +554,12 @@ function SectionPanel({ doc, section, issues, onChange, onSelect, onManageCatego
             ) : null
           }
         >
-          <SectionCodeField section={section} onCommit={(code) => set({ code, name: section.name.endsWith(section.code) ? section.name.slice(0, -section.code.length) + code : section.name }, "code")} />
+          <SectionCodeField
+            section={section}
+            onCommit={(code) =>
+              set({ code, name: section.name.endsWith(section.code) ? section.name.slice(0, -section.code.length) + code : section.name }, "code")
+            }
+          />
         </FieldRow>
         <FieldRow label="Name" htmlFor="section-name">
           <TextField id="section-name" value={section.name} maxLength={60} accept={(v) => Boolean(v.trim())} onChange={(name) => set({ name }, "name")} />
@@ -382,8 +584,11 @@ function SectionPanel({ doc, section, issues, onChange, onSelect, onManageCatego
           <TableFields doc={doc} section={section} onChange={onChange} />
         ) : (
           <>
-            <FieldRow label="Shown as" htmlFor="section-display">
-              <Select value={section.display === "block" ? "block" : "seats"} onValueChange={(display) => set({ display: display as SeatMapSection["display"] }, "display")}>
+            <FieldRow label="Show" htmlFor="section-display">
+              <Select
+                value={section.display === "block" ? "block" : "seats"}
+                onValueChange={(display) => set({ display: display as SeatMapSection["display"] }, "display")}
+              >
                 <SelectTrigger id="section-display" size="sm" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -393,23 +598,21 @@ function SectionPanel({ doc, section, issues, onChange, onSelect, onManageCatego
                 </SelectContent>
               </Select>
             </FieldRow>
-            {section.display === "block" ? <p className="text-[12px] leading-snug text-neutral-500">A solid labelled area. Switch it back to seats to show its rows again.</p> : null}
             {section.display === "seats" && !section.rows.length ? <GenerateSeats doc={doc} section={section} onChange={onChange} onSelect={onSelect} /> : null}
           </>
         )}
         {section.rows.length ? (
           <button type="button" className={cn(linkButton, "self-start")} onClick={() => onSelect(new Set(section.rows.map((r) => keyOf("r", r.id))))}>
-            Edit its rows →
+            Rows →
           </button>
         ) : null}
       </Panel>
-      {section.display === "seats" && !isTable && section.rows.length ? <SectionShape doc={doc} section={section} onChange={onChange} onNotify={onNotify} /> : null}
+      {section.display === "seats" && !isTable && section.rows.length ? (
+        <SectionShape doc={doc} section={section} onChange={onChange} onNotify={onNotify} />
+      ) : null}
       <Panel title="More">
-        <Disclosure
-          title="Label on the map"
-          summary={section.label.visible ? (section.label.text || section.code) : "Hidden"}
-        >
-          <FieldRow label="Shown text" htmlFor="label-text">
+        <Disclosure title="Label" summary={section.label.visible ? section.label.text || section.code : "Hidden"}>
+          <FieldRow label="Text" htmlFor="label-text">
             <TextField id="label-text" value={section.label.text} placeholder={section.code} maxLength={24} onChange={(text) => setLabel({ text }, "text")} />
           </FieldRow>
           <FieldRow label="Visible" htmlFor="label-visible">
@@ -421,15 +624,15 @@ function SectionPanel({ doc, section, issues, onChange, onSelect, onManageCatego
           <FieldRow label="Rotation" htmlFor="label-rotation">
             <NumberField id="label-rotation" value={section.label.rotation} suffix="°" step={5} onChange={(r) => setLabel({ rotation: r }, "rotation")} />
           </FieldRow>
-          <FieldRow label="Offset X" htmlFor="label-dx">
+          <FieldRow label="X" htmlFor="label-dx">
             <NumberField id="label-dx" value={section.label.dx / 10} suffix="m" step={0.5} onChange={(v) => setLabel({ dx: v * 10 }, "dx")} />
           </FieldRow>
-          <FieldRow label="Offset Y" htmlFor="label-dy">
+          <FieldRow label="Y" htmlFor="label-dy">
             <NumberField id="label-dy" value={section.label.dy / 10} suffix="m" step={0.5} onChange={(v) => setLabel({ dy: v * 10 }, "dy")} />
           </FieldRow>
         </Disclosure>
-        <Disclosure title="Delivery hint" summary={section.entrance || "None"}>
-          <FieldRow label="Entrance" htmlFor="section-entrance" hint={<span>For runners, e.g. “Gate C, stairs 12”.</span>}>
+        <Disclosure title="Delivery" summary={section.entrance || "None"}>
+          <FieldRow label="Entrance" htmlFor="section-entrance">
             <TextField id="section-entrance" value={section.entrance} maxLength={40} onChange={(entrance) => set({ entrance }, "entrance")} />
           </FieldRow>
         </Disclosure>
@@ -450,12 +653,11 @@ function TableFields({ doc, section, onChange }: Pick<Props, "doc" | "onChange">
 
   return (
     <>
-      <p className="text-[12px] leading-snug text-neutral-500">{round ? "Chairs sit on a circle around the table." : "Chairs sit on the left and right of the table."} Guests book a chair.</p>
       <FieldRow label="Chairs" htmlFor="table-chairs">
         <NumberField id="table-chairs" value={row.seats} min={1} max={24} digits={0} onChange={(n) => setRow({ seats: Math.round(n) }, "chairs")} />
       </FieldRow>
       {round ? (
-        <FieldRow label="Open spaces" htmlFor="table-open" hint={<span className="text-neutral-500">Empty places between chairs.</span>}>
+        <FieldRow label="Gaps" htmlFor="table-open">
           <NumberField
             id="table-open"
             value={row.gaps.length}
@@ -494,9 +696,10 @@ function TableFields({ doc, section, onChange }: Pick<Props, "doc" | "onChange">
 
 function TableScale({ doc, section, onChange }: Pick<Props, "doc" | "onChange"> & { section: SeatMapSection }) {
   const row = section.rows[0];
-  const base = useRef(section);
-  if (base.current.id !== section.id) base.current = section;
-  const origin = base.current.rows[0];
+  const [held, setHeld] = useState(section);
+  if (held.id !== section.id) setHeld(section);
+  const start = held.id === section.id ? held : section;
+  const origin = start.rows[0];
   if (!row || !origin || origin.boxW <= 0) return null;
   return (
     <FieldRow label="Scale" htmlFor="table-scale">
@@ -504,8 +707,7 @@ function TableScale({ doc, section, onChange }: Pick<Props, "doc" | "onChange"> 
         id="table-scale"
         value={row.boxW / origin.boxW}
         onChange={(scale) => {
-          const next = base.current;
-          const grown = next.points.map(([x, y]): Point => [origin.x + (x - origin.x) * scale, origin.y + (y - origin.y) * scale]);
+          const grown = start.points.map(([x, y]): Point => [origin.x + (x - origin.x) * scale, origin.y + (y - origin.y) * scale]);
           onChange(
             updateSection(doc, section.id, (s) => ({
               ...s,
@@ -549,11 +751,10 @@ function GenerateSeats({ doc, section, onChange, onSelect }: Pick<Props, "doc" |
 
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-neutral-50 px-3 py-2.5">
-      <p className="text-[12px] leading-snug text-neutral-500">Fill this section with even rows, from the top-left corner to the bottom-right.</p>
       <FieldRow label="Rows" htmlFor="gen-rows">
         <NumberField id="gen-rows" value={rows} min={1} max={MAX_ROWS_PER_SECTION} digits={0} onChange={(n) => setRows(Math.max(1, Math.round(n)))} />
       </FieldRow>
-      <FieldRow label="Seats per row" htmlFor="gen-seats">
+      <FieldRow label="Per row" htmlFor="gen-seats">
         <NumberField id="gen-seats" value={seats} min={1} max={MAX_SEATS_PER_ROW} digits={0} onChange={(n) => setSeats(Math.max(1, Math.round(n)))} />
       </FieldRow>
       {error ? <p className="text-[12px] leading-snug text-red-600">{error}</p> : null}
@@ -600,12 +801,20 @@ function SeatsPanel({ doc, selection, onChange }: Props) {
   const n = picks.length;
   return (
     <>
-      <Heading kind="Seats" title={n === 1 ? `Seat ${numbers[0]}` : `${n.toLocaleString("en")} seats`} subtitle={rows.length === 1 ? `Row ${rows[0].label}` : `${rows.length} rows`} />
+      <Heading
+        kind="Seats"
+        title={n === 1 ? `Seat ${numbers[0]}` : `${n.toLocaleString("en")} seats`}
+        subtitle={rows.length === 1 ? `Row ${rows[0].label}` : `${rows.length} rows`}
+      />
       <Panel title="">
-        <FieldRow label="Wheelchair seat" htmlFor="seat-wheelchair" hint="Shows a wheelchair icon above the seat number.">
-          <Switch id="seat-wheelchair" checked={wheelchair} disabled={!n} onCheckedChange={(on) => onChange(setWheelchair(doc, picks, on), "seats:wheelchair")} />
+        <FieldRow label="Wheelchair" htmlFor="seat-wheelchair">
+          <Switch
+            id="seat-wheelchair"
+            checked={wheelchair}
+            disabled={!n}
+            onCheckedChange={(on) => onChange(setWheelchair(doc, picks, on), "seats:wheelchair")}
+          />
         </FieldRow>
-        <p className="text-[12px] leading-snug text-neutral-500">Delete leaves that number unused and keeps the gap. Renumber makes the remaining seats run in order, without moving them.</p>
         {rows.some(rowNeedsRenumber) ? (
           <button type="button" className={cn(linkButton, "self-start")} onClick={() => onChange(renumberRows(doc, ids), "seats:renumber")}>
             Renumber seats
@@ -766,23 +975,40 @@ function PaddingSidesIcon({ separate }: { separate: boolean }) {
 
 /** How the block sits: its bend, whether it follows the venue shape, and the outline around it. */
 function SectionShape({ doc, section, onChange, onNotify }: Pick<Props, "doc" | "onChange" | "onNotify"> & { section: SeatMapSection }) {
-  const set = (patch: Partial<SeatMapSection>, field: string) => onChange(updateSection(doc, section.id, (s) => ({ ...s, ...patch })), `${section.id}:${field}`);
+  const set = (patch: Partial<SeatMapSection>, field: string) =>
+    onChange(
+      updateSection(doc, section.id, (s) => ({ ...s, ...patch })),
+      `${section.id}:${field}`,
+    );
   const hasVenue = venuesOf(doc).length > 0;
   const rowIds = new Set(section.rows.map((r) => r.id));
   const lines = section.rows.filter((r) => r.layout === "line").length;
   return (
     <Panel title="Shape">
-      <FieldRow label="Curve" htmlFor="section-bend" hint={section.follow !== "off" ? "Off while the block follows the venue shape." : "Negative bends the other way."}>
-        <SliderField id="section-bend" label="Curve" value={section.bend} suffix="°" min={-360} max={360} digits={0} onChange={(bend) => set({ bend }, "bend")} />
+      <FieldRow label="Curve" htmlFor="section-bend">
+        <SliderField
+          id="section-bend"
+          label="Curve"
+          value={section.bend}
+          suffix="°"
+          min={-360}
+          max={360}
+          digits={0}
+          onChange={(bend) => set({ bend }, "bend")}
+        />
       </FieldRow>
-      <FieldRow layout="stack" label="Venue shape" htmlFor="section-follow" hint={hasVenue ? "Rows wrap around the nearest venue shape, held at the middle of the block. Padding keeps the section off it." : "Draw a venue shape first (Shapes in the tool rail)."}>
+      <FieldRow layout="stack" label="Follow" htmlFor="section-follow" hint={hasVenue ? undefined : "Draw a venue shape first."}>
         <Segmented
           id="section-follow"
           size="sm"
           value={!hasVenue || section.follow === "off" ? "off" : "on"}
           onChange={(follow) => {
             if (!hasVenue || follow === section.follow) return;
-            if (follow === "off") onChange(updateSection(doc, section.id, (s) => detachVenueFollow(s, venuesOf(doc))), `${section.id}:follow`);
+            if (follow === "off")
+              onChange(
+                updateSection(doc, section.id, (s) => detachVenueFollow(s, venuesOf(doc))),
+                `${section.id}:follow`,
+              );
             else set({ follow: "on", face: "auto" }, "follow");
           }}
           options={[
@@ -792,7 +1018,7 @@ function SectionShape({ doc, section, onChange, onNotify }: Pick<Props, "doc" | 
         />
       </FieldRow>
       {lines > 1 ? (
-        <FieldRow label="Align rows">
+        <FieldRow label="Align">
           <AlignButtons
             onAlign={(mode) => {
               const next = alignSelectedRows(doc, rowIds, mode);
@@ -802,7 +1028,7 @@ function SectionShape({ doc, section, onChange, onNotify }: Pick<Props, "doc" | 
           />
         </FieldRow>
       ) : null}
-      <FieldRow layout="stack" label="Outline" htmlFor="section-outline" hint={section.outline === "auto" ? "Follows the seats. Dragging a corner switches back to drawn." : undefined}>
+      <FieldRow layout="stack" label="Outline" htmlFor="section-outline">
         <Segmented
           id="section-outline"
           size="sm"
@@ -815,7 +1041,7 @@ function SectionShape({ doc, section, onChange, onNotify }: Pick<Props, "doc" | 
         />
       </FieldRow>
       {section.outline === "auto" ? (
-        <FieldRow layout="stack" label="Padding" htmlFor="section-pad" hint="Space between the seats and the outline. The side facing a venue shape stays that far off it.">
+        <FieldRow layout="stack" label="Padding" htmlFor="section-pad">
           <PaddingField key={section.id} id="section-pad" padding={section.padding} onChange={(padding) => set({ padding }, "pad")} />
         </FieldRow>
       ) : null}
@@ -887,20 +1113,38 @@ function RowsPanel({ doc, ids, issues, onChange, onSelect, onNotify }: Props & {
       >
         {loose ? (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-[12px] leading-snug text-amber-800">
-            Not in a section yet. Press <kbd className="rounded border border-amber-200 bg-white px-1 text-[10px] font-semibold">G</kbd> or use the floating bar to group them.
+            Not in a section yet. Press <kbd className="rounded border border-amber-200 bg-white px-1 text-[10px] font-semibold">G</kbd> or use the floating bar
+            to group them.
           </p>
         ) : null}
         {single ? (
           <FieldRow label="Label" htmlFor="row-label">
-            <TextField id="row-label" value={single.label} maxLength={8} accept={(v) => Boolean(v.trim())} onChange={(label) => patch((r) => ({ ...r, label: label.trim() }), "label")} />
+            <TextField
+              id="row-label"
+              value={single.label}
+              maxLength={8}
+              accept={(v) => Boolean(v.trim())}
+              onChange={(label) => patch((r) => ({ ...r, label: label.trim() }), "label")}
+            />
           </FieldRow>
         ) : (
-          <FieldRow label="Label from" htmlFor="row-labels" hint="Front to back: 1, 2, 3… or A, B, C…">
+          <FieldRow label="From" htmlFor="row-labels">
             <TextField id="row-labels" value={ordered[0].label} maxLength={8} accept={(v) => Boolean(v.trim())} onChange={relabel} />
           </FieldRow>
         )}
-        <FieldRow label={allLines ? "Seats" : "Chairs"} htmlFor="row-seats" hint={removed ? `${removed} removed` : !single ? `${seats.toLocaleString("en")} in total` : undefined}>
-          <NumberField id="row-seats" value={common(rows.map((r) => r.seats))} min={1} max={MAX_SEATS_PER_ROW} digits={0} onChange={(n) => patch((r) => applySeatCount(r, n, r.spread), "seats")} />
+        <FieldRow
+          label={allLines ? "Seats" : "Chairs"}
+          htmlFor="row-seats"
+          hint={removed ? `${removed} removed` : !single ? `${seats.toLocaleString("en")} in total` : undefined}
+        >
+          <NumberField
+            id="row-seats"
+            value={common(rows.map((r) => r.seats))}
+            min={1}
+            max={MAX_SEATS_PER_ROW}
+            digits={0}
+            onChange={(n) => patch((r) => applySeatCount(r, n, r.spread), "seats")}
+          />
         </FieldRow>
         {allLines ? (
           <FieldRow label="Spacing" htmlFor="row-spread">
@@ -916,14 +1160,20 @@ function RowsPanel({ doc, ids, issues, onChange, onSelect, onNotify }: Props & {
           </FieldRow>
         ) : null}
         <FieldRow label="Rotation" htmlFor="row-rotation">
-          <NumberField id="row-rotation" value={common(rows.map((r) => r.rotation))} suffix="°" step={1} onChange={(n) => patch((r) => ({ ...r, rotation: n }), "rotation")} />
+          <NumberField
+            id="row-rotation"
+            value={common(rows.map((r) => r.rotation))}
+            suffix="°"
+            step={1}
+            onChange={(n) => patch((r) => ({ ...r, rotation: n }), "rotation")}
+          />
         </FieldRow>
 
         <Disclosure title="Row geometry" summary={allLines ? "Curve, spacing" : "Open spaces"} defaultOpen={allLines}>
           {allLines ? (
             <>
               {block ? (
-                <FieldRow label="Curve" htmlFor="row-curve" hint="Bends the whole block around one centre, so rows never overlap.">
+                <FieldRow label="Curve" htmlFor="row-curve">
                   <SliderField
                     id="row-curve"
                     label="Curve"
@@ -932,15 +1182,29 @@ function RowsPanel({ doc, ids, issues, onChange, onSelect, onNotify }: Props & {
                     min={-360}
                     max={360}
                     digits={0}
-                    onChange={(bend) => onChange(updateSection(doc, block.id, (s) => ({ ...s, bend })), `${block.id}:bend`)}
+                    onChange={(bend) =>
+                      onChange(
+                        updateSection(doc, block.id, (s) => ({ ...s, bend })),
+                        `${block.id}:bend`,
+                      )
+                    }
                   />
                 </FieldRow>
               ) : (
                 <FieldRow label="Curve" htmlFor="row-curve">
-                  <SliderField id="row-curve" label="Curve" value={common(rows.map((r) => r.curve))} suffix="°" min={-270} max={270} digits={0} onChange={(n) => patch((r) => ({ ...r, curve: n }), "curve")} />
+                  <SliderField
+                    id="row-curve"
+                    label="Curve"
+                    value={common(rows.map((r) => r.curve))}
+                    suffix="°"
+                    min={-270}
+                    max={270}
+                    digits={0}
+                    onChange={(n) => patch((r) => ({ ...r, curve: n }), "curve")}
+                  />
                 </FieldRow>
               )}
-              <FieldRow label="Seat spacing" htmlFor="row-pitch">
+              <FieldRow label="Seats" htmlFor="row-pitch">
                 <SliderField
                   id="row-pitch"
                   label="Seat spacing"
@@ -953,12 +1217,21 @@ function RowsPanel({ doc, ids, issues, onChange, onSelect, onNotify }: Props & {
                 />
               </FieldRow>
               {!single ? (
-                <FieldRow label="Row spacing" htmlFor="row-spacing">
-                  <SliderField id="row-spacing" label="Row spacing" value={spacing === null ? null : spacing / 10} suffix="m" step={0.01} min={0.3} max={3} onChange={setSpacing} />
+                <FieldRow label="Rows" htmlFor="row-spacing">
+                  <SliderField
+                    id="row-spacing"
+                    label="Row spacing"
+                    value={spacing === null ? null : spacing / 10}
+                    suffix="m"
+                    step={0.01}
+                    min={0.3}
+                    max={3}
+                    onChange={setSpacing}
+                  />
                 </FieldRow>
               ) : null}
               {!single ? (
-                <FieldRow label="Align rows">
+                <FieldRow label="Align">
                   <AlignButtons
                     onAlign={(mode) => {
                       const next = alignSelectedRows(doc, ids, mode);
@@ -971,31 +1244,53 @@ function RowsPanel({ doc, ids, issues, onChange, onSelect, onNotify }: Props & {
             </>
           ) : null}
           {allRings ? (
-            <FieldRow label="Open spaces" htmlFor="row-open" hint="Empty places between the chairs.">
-              <NumberField id="row-open" value={common(rows.map((r) => r.gaps.length))} min={0} max={12} digits={0} onChange={(n) => patch((r) => ({ ...r, gaps: Array.from({ length: Math.round(n) }, () => 0) }), "open")} />
+            <FieldRow label="Gaps" htmlFor="row-open">
+              <NumberField
+                id="row-open"
+                value={common(rows.map((r) => r.gaps.length))}
+                min={0}
+                max={12}
+                digits={0}
+                onChange={(n) => patch((r) => ({ ...r, gaps: Array.from({ length: Math.round(n) }, () => 0) }), "open")}
+              />
             </FieldRow>
           ) : null}
         </Disclosure>
 
-        <Disclosure
-          title="Seat numbering"
-          summary={numberingSummary(rows)}
-        >
+        <Disclosure title="Seat numbering" summary={numberingSummary(rows)}>
           <FieldRow label="Start at" htmlFor="row-start">
-            <NumberField id="row-start" value={common(rows.map((r) => r.start))} min={0} max={9999} digits={0} onChange={(n) => patch((r) => ({ ...r, start: Math.round(n), numbers: [] }), "start")} />
+            <NumberField
+              id="row-start"
+              value={common(rows.map((r) => r.start))}
+              min={0}
+              max={9999}
+              digits={0}
+              onChange={(n) => patch((r) => ({ ...r, start: Math.round(n), numbers: [] }), "start")}
+            />
           </FieldRow>
-          <FieldRow label="Step" htmlFor="row-step" hint="2 gives odd or even numbers.">
-            <NumberField id="row-step" value={common(rows.map((r) => r.step))} min={1} max={99} digits={0} onChange={(n) => patch((r) => ({ ...r, step: Math.round(n), numbers: [] }), "step")} />
+          <FieldRow label="Step" htmlFor="row-step">
+            <NumberField
+              id="row-step"
+              value={common(rows.map((r) => r.step))}
+              min={1}
+              max={99}
+              digits={0}
+              onChange={(n) => patch((r) => ({ ...r, step: Math.round(n), numbers: [] }), "step")}
+            />
           </FieldRow>
-          <FieldRow label="Right to left" htmlFor="row-reverse">
-            <Switch id="row-reverse" checked={common(rows.map((r) => r.reverse)) ?? false} onCheckedChange={(reverse) => patch((r) => ({ ...r, reverse, numbers: [] }), "reverse")} />
+          <FieldRow label="RTL" htmlFor="row-reverse">
+            <Switch
+              id="row-reverse"
+              checked={common(rows.map((r) => r.reverse)) ?? false}
+              onCheckedChange={(reverse) => patch((r) => ({ ...r, reverse, numbers: [] }), "reverse")}
+            />
           </FieldRow>
           {allLines ? (
-            <FieldRow label="Aisle after" htmlFor="row-gaps" hint="Seat numbers followed by a gap, e.g. 8, 16.">
+            <FieldRow label="Aisles" htmlFor="row-gaps">
               <GapsField rows={rows} onChange={(gaps) => patch((r) => ({ ...r, gaps }), "gaps")} />
             </FieldRow>
           ) : null}
-          <FieldRow label="Wheelchair" htmlFor="row-wheel" hint="Seat numbers that show a wheelchair icon, e.g. 1, 4.">
+          <FieldRow label="Wheelchair" htmlFor="row-wheel">
             <WheelchairField rows={rows} onChange={(wheelchair) => patch((r) => ({ ...r, wheelchair }), "wheelchair")} />
           </FieldRow>
           {single ? (
@@ -1034,7 +1329,17 @@ function WheelchairField({ rows, onChange }: { rows: SeatMapRow[]; onChange: (wh
       placeholder={shared === null ? "Mixed" : "None"}
       maxLength={120}
       onChange={(text) => {
-        const wheelchair = [...new Set(text.split(/[\s,]+/).filter(Boolean).map(Number).filter((n) => Number.isInteger(n) && n >= 0))].slice(0, MAX_SEATS_PER_ROW).sort((a, b) => a - b);
+        const wheelchair = [
+          ...new Set(
+            text
+              .split(/[\s,]+/)
+              .filter(Boolean)
+              .map(Number)
+              .filter((n) => Number.isInteger(n) && n >= 0),
+          ),
+        ]
+          .slice(0, MAX_SEATS_PER_ROW)
+          .sort((a, b) => a - b);
         onChange(wheelchair);
       }}
     />
@@ -1050,7 +1355,17 @@ function GapsField({ rows, onChange }: { rows: SeatMapRow[]; onChange: (gaps: nu
       placeholder={shared === null ? "Mixed" : "None"}
       maxLength={120}
       onChange={(text) => {
-        const gaps = [...new Set(text.split(/[\s,]+/).filter(Boolean).map(Number).filter((n) => Number.isInteger(n) && n >= 0))].slice(0, 40).sort((a, b) => a - b);
+        const gaps = [
+          ...new Set(
+            text
+              .split(/[\s,]+/)
+              .filter(Boolean)
+              .map(Number)
+              .filter((n) => Number.isInteger(n) && n >= 0),
+          ),
+        ]
+          .slice(0, 40)
+          .sort((a, b) => a - b);
         onChange(gaps);
       }}
     />
@@ -1069,23 +1384,48 @@ function VenueShapePanel({ doc, id, onChange, onDelete }: Props & { id: string }
     <>
       <Heading kind="Shape" title="Venue shape" subtitle={`${(d.w / 10).toLocaleString("en")} × ${(d.h / 10).toLocaleString("en")} m`} />
       <Panel title="">
-        <p className="text-[12px] leading-snug text-neutral-500">
-          {followers ? `${followers} section${followers === 1 ? "" : "s"} follow this shape.` : "Open a section and turn Venue shape on to wrap its rows around this shape."}
-        </p>
-        <FieldRow label="Position X" htmlFor="venue-x">
+        {followers ? <p className="text-[12px] text-neutral-500">{followers} follow this.</p> : null}
+        <FieldRow label="Pitch" htmlFor="venue-pitch">
+          <Switch id="venue-pitch" checked={d.field === "football"} onCheckedChange={(on) => set({ field: on ? "football" : "none" }, "field")} />
+        </FieldRow>
+        <FieldRow label="X" htmlFor="venue-x">
           <NumberField id="venue-x" value={d.x / 10} suffix="m" step={0.5} onChange={(n) => set({ x: n * 10 }, "x")} />
         </FieldRow>
-        <FieldRow label="Position Y" htmlFor="venue-y">
+        <FieldRow label="Y" htmlFor="venue-y">
           <NumberField id="venue-y" value={d.y / 10} suffix="m" step={0.5} onChange={(n) => set({ y: n * 10 }, "y")} />
         </FieldRow>
         <FieldRow label="Width" htmlFor="venue-w">
-          <NumberField id="venue-w" value={d.w / 10} suffix="m" step={0.5} min={1} onChange={(n) => set({ w: n * 10, radius: Math.min(d.radius, n * 5) }, "w")} />
+          <NumberField
+            id="venue-w"
+            value={d.w / 10}
+            suffix="m"
+            step={0.5}
+            min={1}
+            onChange={(n) => set({ w: n * 10, radius: Math.min(d.radius, n * 5) }, "w")}
+          />
         </FieldRow>
         <FieldRow label="Height" htmlFor="venue-h">
-          <NumberField id="venue-h" value={d.h / 10} suffix="m" step={0.5} min={1} onChange={(n) => set({ h: n * 10, radius: Math.min(d.radius, n * 5) }, "h")} />
+          <NumberField
+            id="venue-h"
+            value={d.h / 10}
+            suffix="m"
+            step={0.5}
+            min={1}
+            onChange={(n) => set({ h: n * 10, radius: Math.min(d.radius, n * 5) }, "h")}
+          />
         </FieldRow>
-        <FieldRow label="Corner radius" htmlFor="venue-radius">
-          <SliderField id="venue-radius" label="Corner radius" value={Math.min(d.radius / 10, maxRadius)} suffix="m" step={0.5} min={0} max={Math.max(0.5, maxRadius)} digits={1} onChange={(n) => set({ radius: n * 10 }, "radius")} />
+        <FieldRow label="Corners" htmlFor="venue-radius">
+          <SliderField
+            id="venue-radius"
+            label="Corners"
+            value={Math.min(d.radius / 10, maxRadius)}
+            suffix="m"
+            step={0.5}
+            min={0}
+            max={Math.max(0.5, maxRadius)}
+            digits={1}
+            onChange={(n) => set({ radius: n * 10 }, "radius")}
+          />
         </FieldRow>
         <FieldRow label="Rotation" htmlFor="venue-rotation">
           <NumberField id="venue-rotation" value={d.rotation} suffix="°" step={5} onChange={(n) => set({ rotation: n }, "rotation")} />
@@ -1105,7 +1445,7 @@ function VenueShapePanel({ doc, id, onChange, onDelete }: Props & { id: string }
 function DecorationPanel(props: Props & { id: string }) {
   const { doc, id, onChange } = props;
   const d = doc.decorations.find((x) => x.id === id);
-  const base = useRef({ w: d?.w ?? 1, h: d?.h ?? 1 });
+  const [base] = useState(() => ({ w: d?.w ?? 1, h: d?.h ?? 1 }));
   if (!d) return null;
   if (d.kind === "venue") return <VenueShapePanel {...props} />;
   const set = (patch: Partial<typeof d>, field: string) => onChange(updateDecoration(doc, id, patch), `${id}:${field}`);
@@ -1141,11 +1481,9 @@ function DecorationPanel(props: Props & { id: string }) {
         <FieldRow label="Scale" htmlFor="deco-scale">
           <ScaleSlider
             id="deco-scale"
-            value={(text ? d.h : d.w) / (text ? base.current.h : base.current.w || 1)}
+            value={(text ? d.h : d.w) / (text ? base.h : base.w || 1)}
             onChange={(scale) =>
-              text
-                ? set({ h: Math.max(2, base.current.h * scale) }, "scale")
-                : set({ w: Math.max(2, base.current.w * scale), h: Math.max(2, base.current.h * scale) }, "scale")
+              text ? set({ h: Math.max(2, base.h * scale) }, "scale") : set({ w: Math.max(2, base.w * scale), h: Math.max(2, base.h * scale) }, "scale")
             }
           />
         </FieldRow>
@@ -1164,14 +1502,14 @@ function DecorationPanel(props: Props & { id: string }) {
 
 function PoiPanel({ doc, id, onChange }: Props & { id: string }) {
   const p = doc.pois.find((x) => x.id === id);
-  const base = useRef({ w: p?.w || 1, h: p?.h || 1, kind: p?.kind });
-  if (p && (base.current.kind !== p.kind || base.current.w <= 0)) base.current = { w: p.w || 1, h: p.h || 1, kind: p.kind };
+  const [base, setBase] = useState(() => ({ w: p?.w || 1, h: p?.h || 1, kind: p?.kind }));
+  if (p && base.kind !== p.kind) setBase({ w: p.w || 1, h: p.h || 1, kind: p.kind });
   if (!p) return null;
   const shaped = p.kind === "stairs" || p.kind === "entrance" || p.kind === "exit";
   const kindName = p.kind === "stairs" ? "Stairs" : p.kind === "entrance" || p.kind === "exit" ? "Entrance" : "Point";
   return (
     <>
-      <Heading kind="Point of interest" title={p.label || kindName} subtitle={kindName} />
+      <Heading kind="Point" title={p.label || kindName} subtitle={kindName} />
       <Panel title="">
         <FieldRow label="Type" htmlFor="poi-kind">
           <Select
@@ -1198,32 +1536,56 @@ function PoiPanel({ doc, id, onChange }: Props & { id: string }) {
           </Select>
         </FieldRow>
         <FieldRow label="Label" htmlFor="poi-label">
-          <TextField id="poi-label" value={p.label} maxLength={40} placeholder={shaped ? "A" : undefined} onChange={(label) => onChange(updatePoi(doc, id, { label }), `${id}:label`)} />
+          <TextField
+            id="poi-label"
+            value={p.label}
+            maxLength={40}
+            placeholder={shaped ? "A" : undefined}
+            onChange={(label) => onChange(updatePoi(doc, id, { label }), `${id}:label`)}
+          />
         </FieldRow>
         {shaped ? (
           <>
             <FieldRow label="Width" htmlFor="poi-w">
-              <NumberField id="poi-w" value={p.w / 10} suffix="m" step={0.1} min={0.4} onChange={(n) => onChange(updatePoi(doc, id, { w: n * 10 }), `${id}:w`)} />
+              <NumberField
+                id="poi-w"
+                value={p.w / 10}
+                suffix="m"
+                step={0.1}
+                min={0.4}
+                onChange={(n) => onChange(updatePoi(doc, id, { w: n * 10 }), `${id}:w`)}
+              />
             </FieldRow>
             <FieldRow label="Height" htmlFor="poi-h">
-              <NumberField id="poi-h" value={p.h / 10} suffix="m" step={0.1} min={0.4} onChange={(n) => onChange(updatePoi(doc, id, { h: n * 10 }), `${id}:h`)} />
+              <NumberField
+                id="poi-h"
+                value={p.h / 10}
+                suffix="m"
+                step={0.1}
+                min={0.4}
+                onChange={(n) => onChange(updatePoi(doc, id, { h: n * 10 }), `${id}:h`)}
+              />
             </FieldRow>
-            <FieldRow label="Rotation" htmlFor="poi-rotation" hint={<span className="text-neutral-500">{p.kind === "stairs" ? "Turn the bar so it sits in the aisle." : "0 points up the map."}</span>}>
-              <NumberField id="poi-rotation" value={p.rotation} suffix="°" step={5} onChange={(n) => onChange(updatePoi(doc, id, { rotation: n }), `${id}:rotation`)} />
+            <FieldRow label="Rotation" htmlFor="poi-rotation">
+              <NumberField
+                id="poi-rotation"
+                value={p.rotation}
+                suffix="°"
+                step={5}
+                onChange={(n) => onChange(updatePoi(doc, id, { rotation: n }), `${id}:rotation`)}
+              />
             </FieldRow>
             {p.w > 0 && p.h > 0 ? (
               <FieldRow label="Scale" htmlFor="poi-scale">
                 <ScaleSlider
                   id="poi-scale"
-                  value={p.w / (base.current.w || 1)}
-                  onChange={(scale) => onChange(updatePoi(doc, id, { w: Math.max(4, base.current.w * scale), h: Math.max(4, base.current.h * scale) }), `${id}:scale`)}
+                  value={p.w / base.w}
+                  onChange={(scale) => onChange(updatePoi(doc, id, { w: Math.max(4, base.w * scale), h: Math.max(4, base.h * scale) }), `${id}:scale`)}
                 />
               </FieldRow>
             ) : null}
           </>
-        ) : (
-          <p className="text-[12px] leading-snug text-neutral-500">Kitchens and pickup points are stops a future runner-direction map routes between.</p>
-        )}
+        ) : null}
       </Panel>
     </>
   );

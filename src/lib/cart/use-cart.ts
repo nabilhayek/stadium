@@ -6,11 +6,7 @@ import { getCartStore } from "./store";
 /** Subscribes to the cart for one stadium. Server snapshot is always empty, so SSR/hydration match. */
 export function useCart(stadiumSlug: string) {
   const store = getCartStore(stadiumSlug);
-  const state = useSyncExternalStore(
-    store.subscribe,
-    store.getSnapshot,
-    store.getServerSnapshot,
-  );
+  const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
   return { state, store };
 }
 

@@ -31,9 +31,11 @@ export type PaymentDraft = CheckoutDraft | ExtraDraft;
 
 const DEVICE_ID = /^[a-z0-9-]{8,64}$/i;
 
-export function checkoutDraft(input: Omit<CheckoutDraft, "kind" | "lines" | "currency" | "stadiumName"> & {
-  priced: PricedOrder;
-}): CheckoutDraft {
+export function checkoutDraft(
+  input: Omit<CheckoutDraft, "kind" | "lines" | "currency" | "stadiumName"> & {
+    priced: PricedOrder;
+  },
+): CheckoutDraft {
   return {
     kind: "checkout",
     orderNumber: input.orderNumber,
@@ -67,10 +69,7 @@ export function parseDraft(value: unknown): PaymentDraft | null {
 
 /** Receipt written only after Stripe says the charge succeeded. */
 export function receiptFromDraft(draft: CheckoutDraft, paidAt: number): Receipt | null {
-  const readyAt =
-    draft.timing === "scheduled" && draft.scheduledAt && draft.scheduledAt > paidAt
-      ? draft.scheduledAt
-      : paidAt + draft.etaMax * 60_000;
+  const readyAt = draft.timing === "scheduled" && draft.scheduledAt && draft.scheduledAt > paidAt ? draft.scheduledAt : paidAt + draft.etaMax * 60_000;
   const totalCents = draft.lines.reduce((sum, line) => sum + line.qty * (line.unitCents ?? 0), 0);
   return toReceipt({
     ...draft,

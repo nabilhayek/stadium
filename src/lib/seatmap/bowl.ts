@@ -1,7 +1,10 @@
 import {
   boundsIntersect,
   boundsOf,
+  fieldOf,
   makeRow,
+  PITCH_GRASS,
+  pitchInVenue,
   moveSection,
   normalizeAngle,
   outlineOfSeats,
@@ -46,35 +49,56 @@ const SHAPE_RADIUS: Record<BowlShape, number> = { rounded: 0.32, oval: 0.5, squa
 
 const DEFAULT_FIELD = { w: 1050, h: 680 };
 
-/** The venue shape seating is built around: the one nearest the field, else the first. */
+/** The venue shape seating is built around: the one with a pitch, else the one nearest the stage, else the first. */
 export function mainVenue(doc: SeatMapDoc): SeatMapDecoration | null {
   const venues = venuesOf(doc);
   if (!venues.length) return null;
-  const field = doc.decorations.find((d) => d.kind === "field") ?? doc.decorations.find((d) => d.kind === "stage");
-  if (!field) return venues[0];
-  return venues.reduce((best, v) => (Math.hypot(v.x - field.x, v.y - field.y) < Math.hypot(best.x - field.x, best.y - field.y) ? v : best));
+  const pitched = venues.find((v) => v.field === "football");
+  if (pitched) return pitched;
+  const stage = doc.decorations.find((d) => d.kind === "stage");
+  if (!stage) return venues[0];
+  return venues.reduce((best, v) => (Math.hypot(v.x - stage.x, v.y - stage.y) < Math.hypot(best.x - stage.x, best.y - stage.y) ? v : best));
 }
 
-/** A venue shape `apron` outside the field (or the default pitch when there is none). */
-export function venueAround(doc: SeatMapDoc, shape: BowlShape, apron: number): SeatMapDecoration {
-  const field = doc.decorations.find((d) => d.kind === "field") ?? doc.decorations.find((d) => d.kind === "stage");
+export type FieldRect = { x: number; y: number; w: number; h: number; rotation: number };
+
+/**
+ * A venue shape `apron` outside the playing area: `around`, else the pitch or stage
+ * already there, else a default pitch. With `pitch` the shape grows until the pitch
+ * it draws inside reaches the full size of the area.
+ */
+export function venueAround(doc: SeatMapDoc, shape: BowlShape, apron: number, around?: FieldRect, pitch = false): SeatMapDecoration {
+  const field = around ?? fieldOf(doc) ?? doc.decorations.find((d) => d.kind === "stage");
   const turned = field ? Math.abs(Math.sin((field.rotation * Math.PI) / 180)) > 0.7 : false;
   const fw = field ? (turned ? field.h : field.w) : DEFAULT_FIELD.w;
   const fh = field ? (turned ? field.w : field.h) : DEFAULT_FIELD.h;
-  const w = Math.round(fw + apron * 2);
-  const h = Math.round(fh + apron * 2);
-  return {
-    id: newId("d"),
-    kind: "venue",
-    x: field?.x ?? 0,
-    y: field?.y ?? 0,
-    w,
-    h,
-    rotation: 0,
-    label: "",
-    color: "#f0a77a",
-    radius: Math.round(Math.min(w, h) * SHAPE_RADIUS[shape]),
+  const make = (extra: number): SeatMapDecoration => {
+    const w = Math.round(fw + (apron + extra) * 2);
+    const h = Math.round(fh + (apron + extra) * 2);
+    return {
+      id: newId("d"),
+      kind: "venue",
+      x: field?.x ?? 0,
+      y: field?.y ?? 0,
+      w,
+      h,
+      rotation: 0,
+      label: "",
+      color: "#f0a77a",
+      radius: Math.round(Math.min(w, h) * SHAPE_RADIUS[shape]),
+      field: pitch ? "football" : "none",
+    };
   };
+  if (!pitch) return make(0);
+  let extra = 0;
+  let venue = make(0);
+  while (extra < 400) {
+    const fitted = pitchInVenue(venue);
+    if (Math.max(fitted.w, fitted.h) / PITCH_GRASS.w >= Math.max(fw, fh) - 1) break;
+    extra += 5;
+    venue = make(extra);
+  }
+  return venue;
 }
 
 /** The venue path, adding a venue shape around the field first when the map has none. */
@@ -349,7 +373,7 @@ export function pushOut(doc: SeatMapDoc, path: VenuePath, from: number, by: numb
     const span = spanOf(path, s, venues);
     if (!span || span.front < from - 1) return s;
     if (s.follow !== "off") return shiftOnPath(doc, path, s, 0, by);
-    const p = path.at(path.project((s.points[0]?.[0] ?? 0), (s.points[0]?.[1] ?? 0), span.front), span.front);
+    const p = path.at(path.project(s.points[0]?.[0] ?? 0, s.points[0]?.[1] ?? 0, span.front), span.front);
     return moveSection(s, { angle: 0, px: 0, py: 0, dx: p.nx * by, dy: p.ny * by });
   });
   const pois = doc.pois.map((p) => {

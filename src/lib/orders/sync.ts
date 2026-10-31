@@ -80,10 +80,7 @@ export function flushOrderSync(): Promise<void> {
   return inflight;
 }
 
-export type FetchResult =
-  | { status: "found"; receipt: Receipt }
-  | { status: "missing" }
-  | { status: "offline" };
+export type FetchResult = { status: "found"; receipt: Receipt } | { status: "missing" } | { status: "offline" };
 
 /** Server fallback for one order. Saves nothing — the caller decides what to keep. */
 export async function fetchReceipt(stadiumSlug: string, orderNumber: string): Promise<FetchResult> {

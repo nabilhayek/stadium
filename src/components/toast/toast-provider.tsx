@@ -1,16 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type KeyboardEvent,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import { animate, m, useAnimation, useMotionValue, type PanInfo, type Variants } from "framer-motion";
 import { EASE } from "@/components/motion/variants";
 
@@ -77,10 +67,7 @@ function createStore(): Store {
       const id = crypto.randomUUID();
       const status = options.status ?? "default";
       const duration = options.duration ?? defaultDuration(status);
-      store.toasts = [
-        ...store.toasts,
-        { id, message: options.message, status, duration, phase: "open", exitWithStack: false },
-      ];
+      store.toasts = [...store.toasts, { id, message: options.message, status, duration, phase: "open", exitWithStack: false }];
       emit(store);
       return id;
     },
@@ -145,15 +132,13 @@ export function useToast() {
 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const store = useRef<Store>(null);
-  if (!store.current) store.current = createStore();
-  const current = store.current;
-  const api = useMemo<ToastApi>(() => ({ toast: current.toast, dismiss: current.dismiss }), [current]);
+  const [store] = useState(createStore);
+  const api = useMemo<ToastApi>(() => ({ toast: store.toast, dismiss: store.dismiss }), [store]);
 
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <ToastViewport store={current} />
+      <ToastViewport store={store} />
     </ToastContext.Provider>
   );
 }
@@ -168,6 +153,7 @@ function ToastViewport({ store }: { store: Store }) {
     () => store.toasts,
   );
   const [expanded, setExpanded] = useState(false);
+  if (expanded && toasts.length <= 3) setExpanded(false);
   const stackX = useMotionValue(0);
   const stacked = toasts.length > 3 && !expanded;
 
@@ -187,10 +173,6 @@ function ToastViewport({ store }: { store: Store }) {
     },
     [store],
   );
-
-  useEffect(() => {
-    if (toasts.length <= 3) setExpanded(false);
-  }, [toasts.length]);
 
   useEffect(() => {
     const sliding = toasts.some((item) => item.exitWithStack);
@@ -310,9 +292,7 @@ function ToastCard({
       role={piled && !covered ? "button" : undefined}
       tabIndex={piled && !covered ? 0 : undefined}
       aria-expanded={piled && !covered ? false : undefined}
-      aria-label={
-        piled && !covered ? `${item.message}. Show all ${total} notifications, or swipe right to dismiss the stack` : undefined
-      }
+      aria-label={piled && !covered ? `${item.message}. Show all ${total} notifications, or swipe right to dismiss the stack` : undefined}
       aria-hidden={covered ? true : undefined}
     >
       <m.div
@@ -328,12 +308,9 @@ function ToastCard({
         dragDirectionLock
         onDragEnd={piled && draggable ? onDragEnd : undefined}
         onTap={piled && item.phase === "open" ? onExpand : undefined}
-        className={[
-          "w-full",
-          piled && !covered
-            ? "rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111]"
-            : "",
-        ].join(" ")}
+        className={["w-full", piled && !covered ? "rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111]" : ""].join(
+          " ",
+        )}
       >
         <m.div
           style={{ x: ownX }}
@@ -347,20 +324,20 @@ function ToastCard({
           onDragEnd={!piled && draggable ? onDragEnd : undefined}
           className="w-full"
         >
-        <m.div initial={{ opacity: 0, scale: 0.94 }} animate={controls} variants={pill} className="w-full">
-          <div
-            role={item.status === "error" ? "alert" : "status"}
-            title={item.message}
-            className={[
-              "flex h-11 w-full items-center justify-center rounded-full px-4 text-center text-base font-medium select-none md:h-10",
-              "[box-shadow:0px_0px_20px_0px_rgba(0,0,0,0.5)]",
-              piled ? "cursor-pointer" : "",
-              TONE[item.status],
-            ].join(" ")}
-          >
-            <p className="line-clamp-2 w-full leading-tight">{item.message}</p>
-          </div>
-        </m.div>
+          <m.div initial={{ opacity: 0, scale: 0.94 }} animate={controls} variants={pill} className="w-full">
+            <div
+              role={item.status === "error" ? "alert" : "status"}
+              title={item.message}
+              className={[
+                "flex h-11 w-full items-center justify-center rounded-full px-4 text-center text-base font-medium select-none md:h-10",
+                "[box-shadow:0px_0px_20px_0px_rgba(0,0,0,0.5)]",
+                piled ? "cursor-pointer" : "",
+                TONE[item.status],
+              ].join(" ")}
+            >
+              <p className="line-clamp-2 w-full leading-tight">{item.message}</p>
+            </div>
+          </m.div>
         </m.div>
       </m.div>
     </m.div>

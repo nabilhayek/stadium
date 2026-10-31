@@ -21,10 +21,7 @@ export type PricedOrder = {
 export type QuoteError = { error: "no-stadium" | "bad-lines" | "unavailable" | "sold-out" | "options" | "too-small" };
 
 /** Price a basket from the database. Client prices are ignored; options are re-checked against the live menu. */
-export async function quoteOrder(
-  stadiumSlug: string,
-  requested: QuoteRequestLine[],
-): Promise<PricedOrder | QuoteError> {
+export async function quoteOrder(stadiumSlug: string, requested: QuoteRequestLine[]): Promise<PricedOrder | QuoteError> {
   if (!Array.isArray(requested) || requested.length === 0 || requested.length > MAX_LINES) {
     return { error: "bad-lines" };
   }

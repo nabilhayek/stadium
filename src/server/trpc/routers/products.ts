@@ -38,9 +38,7 @@ export const productsRouter = router({
     )
     .mutation(({ input }) => setProductFlags(input.stadium, input.id, input.flags)),
 
-  delete: kitchenProcedure
-    .input(z.object({ stadium: stadiumSlug, id: productId }))
-    .mutation(({ input }) => deleteProduct(input.stadium, input.id)),
+  delete: kitchenProcedure.input(z.object({ stadium: stadiumSlug, id: productId })).mutation(({ input }) => deleteProduct(input.stadium, input.id)),
 
   uploadToken: kitchenProcedure
     .input(z.object({ stadium: stadiumSlug, filename: z.string().max(200), contentType: z.string().max(60) }))

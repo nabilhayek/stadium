@@ -86,11 +86,11 @@ export function useCheckoutPay({ stadiumSlug, currency, amountCents, warm, onRec
   const [cardComplete, setCardComplete] = useState(false);
   const sessionRef = useRef<Session | null>(null);
   const requestRef = useRef<PaymentRequest | null>(null);
-  const cardCompleteRef = useRef(false);
   const recovered = useRef(false);
   const onRecoveredRef = useRef(onRecovered);
-  onRecoveredRef.current = onRecovered;
-  cardCompleteRef.current = cardComplete;
+  useEffect(() => {
+    onRecoveredRef.current = onRecovered;
+  });
 
   const remember = useCallback(
     (patch: Partial<Session>) => {
@@ -135,14 +135,11 @@ export function useCheckoutPay({ stadiumSlug, currency, amountCents, warm, onRec
     [remember, stadiumSlug, trpc],
   );
 
-  const recover = useCallback(
-    (result: PayResult) => {
-      if (recovered.current) return;
-      recovered.current = true;
-      onRecoveredRef.current(result);
-    },
-    [],
-  );
+  const recover = useCallback((result: PayResult) => {
+    if (recovered.current) return;
+    recovered.current = true;
+    onRecoveredRef.current(result);
+  }, []);
 
   useEffect(() => {
     const session = readSession(stadiumSlug);
@@ -157,11 +154,10 @@ export function useCheckoutPay({ stadiumSlug, currency, amountCents, warm, onRec
     };
   }, [finalize, recover, stadiumSlug]);
 
+  // Wallets refuse charges under 50 cents, so there is nothing to ask the browser.
+  const tooSmall = amountCents < 50;
   useEffect(() => {
-    if (!stripe || amountCents < 50) {
-      if (amountCents < 50) setWallets({ apple: false, google: false, checked: true });
-      return;
-    }
+    if (!stripe || tooSmall) return;
     const request = stripe.paymentRequest({
       country: "NL",
       currency: currency.toLowerCase(),
@@ -178,7 +174,7 @@ export function useCheckoutPay({ stadiumSlug, currency, amountCents, warm, onRec
     return () => {
       cancelled = true;
     };
-  }, [amountCents, currency, stripe]);
+  }, [amountCents, currency, stripe, tooSmall]);
 
   const prepare = useCallback(
     async (details: Omit<PayDetails, "method">) => {
@@ -187,12 +183,7 @@ export function useCheckoutPay({ stadiumSlug, currency, amountCents, warm, onRec
       const identity = sessionRef.current ?? readSession(stadiumSlug);
       sessionRef.current = identity;
       const mark = fingerprint(details);
-      if (
-        identity.clientSecret &&
-        identity.paymentIntentId &&
-        identity.fingerprint === mark &&
-        identity.amountCents
-      ) {
+      if (identity.clientSecret && identity.paymentIntentId && identity.fingerprint === mark && identity.amountCents) {
         return { ok: true as const, session: identity, settled: false };
       }
       const data = await trpc.payments.prepare.mutate({
@@ -220,7 +211,9 @@ export function useCheckoutPay({ stadiumSlug, currency, amountCents, warm, onRec
 
   const warmKey = warm ? fingerprint(warm) : "";
   const warmRef = useRef(warm);
-  warmRef.current = warm;
+  useEffect(() => {
+    warmRef.current = warm;
+  });
   useEffect(() => {
     if (!warmKey || !warmRef.current) return;
     const handle = window.setTimeout(() => {
@@ -246,14 +239,11 @@ export function useCheckoutPay({ stadiumSlug, currency, amountCents, warm, onRec
 
     if (details.method === "card") {
       const card = elements?.getElement(CardNumberElement);
-      if (!card || !cardCompleteRef.current) {
+      if (!card || !cardComplete) {
         remember({ awaiting: false });
         return { ok: false, message: "Check the card number, expiry and CVC.", openCard: true };
       }
-      const result = await stripe.confirmCardPayment(
-        prepared.session.clientSecret,
-        { payment_method: { card }, return_url: returnUrl },
-      );
+      const result = await stripe.confirmCardPayment(prepared.session.clientSecret, { payment_method: { card }, return_url: returnUrl });
       if (result.error) {
         remember({ awaiting: false });
         return { ok: false, message: describe(result.error) };
@@ -321,5 +311,11 @@ export function useCheckoutPay({ stadiumSlug, currency, amountCents, warm, onRec
     return finalize(prepared.session);
   }
 
-  return { wallets, setCardComplete, submit, orderNumber: sessionRef.current?.orderNumber ?? "" };
+  return {
+    wallets: tooSmall ? { apple: false, google: false, checked: true } : wallets,
+    setCardComplete,
+    submit,
+    /** Read when paying. The session is restored from storage after mount. */
+    orderNumber: () => sessionRef.current?.orderNumber ?? "",
+  };
 }

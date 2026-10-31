@@ -78,7 +78,7 @@ export function SeatMapView({ doc, seatState, onSeatTap, className }: Props) {
       e.destroy();
       engine.current = null;
     };
-  }, []);
+  }, [x, y]);
 
   useEffect(() => {
     engine.current?.setScene(buildScene(doc));
@@ -92,16 +92,22 @@ export function SeatMapView({ doc, seatState, onSeatTap, className }: Props) {
     <div className={cn("relative overflow-hidden bg-[#f4f4f2]", className)}>
       <canvas ref={canvas} className="absolute inset-0 size-full select-none" aria-label="Venue map" role="img" />
       <Tooltip tip={tip && tip.scene.doc === doc ? tip : null} x={x} y={y} />
-      <ZoomControls
-        onZoomIn={() => engine.current?.zoomBy(1.6)}
-        onZoomOut={() => engine.current?.zoomBy(1 / 1.6)}
-        onFit={() => engine.current?.fit()}
-      />
+      <ZoomControls onZoomIn={() => engine.current?.zoomBy(1.6)} onZoomOut={() => engine.current?.zoomBy(1 / 1.6)} onFit={() => engine.current?.fit()} />
     </div>
   );
 }
 
-export function ZoomControls({ onZoomIn, onZoomOut, onFit, className }: { onZoomIn: () => void; onZoomOut: () => void; onFit: () => void; className?: string }) {
+export function ZoomControls({
+  onZoomIn,
+  onZoomOut,
+  onFit,
+  className,
+}: {
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onFit: () => void;
+  className?: string;
+}) {
   const button =
     "grid size-10 place-items-center bg-white! text-neutral-700 transition-colors duration-150 hover:bg-neutral-50! hover:text-neutral-900 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-500";
   return (

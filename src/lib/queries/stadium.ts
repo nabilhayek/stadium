@@ -1,73 +1,78 @@
+import { cacheLife, cacheTag } from "next/cache";
 import { withDb } from "@/lib/db";
 import { toNutrition } from "@/lib/menu/nutrition";
 import type { MenuOptionGroup } from "@/lib/menu/options";
 import { FALLBACK_ARENA } from "./fallback-arena";
 
-export const MENU_REVALIDATE_SECONDS = 60;
+export const MENU_TAG = (slug: string) => `menu:${slug}`;
+export const STADIUMS_TAG = "stadiums";
 
 /** Everything the shop and checkout pages need, in one round trip. */
 export async function getStadiumMenu(slug: string) {
+  "use cache";
+  cacheTag(MENU_TAG(slug));
+  cacheLife("minutes");
   try {
     return await withDb(async (db) => {
-    const stadium = await db.stadium.findFirst({
-    where: { slug, isActive: true },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      city: true,
-      currency: true,
-      sections: {
-        orderBy: { sortOrder: "asc" },
-        select: { id: true, code: true, name: true },
-      },
-      products: {
-        where: { isAvailable: true },
-        orderBy: { sortOrder: "asc" },
+      const stadium = await db.stadium.findFirst({
+        where: { slug, isActive: true },
         select: {
           id: true,
+          slug: true,
           name: true,
-          description: true,
-          imageUrl: true,
-          priceCents: true,
-          categoryId: true,
-          isSoldOut: true,
-          nutrition: true,
-          allergens: true,
-          optionGroups: {
+          city: true,
+          currency: true,
+          sections: {
+            orderBy: { sortOrder: "asc" },
+            select: { id: true, code: true, name: true },
+          },
+          products: {
+            where: { isAvailable: true },
             orderBy: { sortOrder: "asc" },
             select: {
               id: true,
               name: true,
-              selection: true,
-              required: true,
-              maxSelect: true,
-              options: {
+              description: true,
+              imageUrl: true,
+              priceCents: true,
+              categoryId: true,
+              isSoldOut: true,
+              nutrition: true,
+              allergens: true,
+              optionGroups: {
                 orderBy: { sortOrder: "asc" },
-                select: { id: true, name: true, priceCents: true, isDefault: true, isSoldOut: true },
+                select: {
+                  id: true,
+                  name: true,
+                  selection: true,
+                  required: true,
+                  maxSelect: true,
+                  options: {
+                    orderBy: { sortOrder: "asc" },
+                    select: { id: true, name: true, priceCents: true, isDefault: true, isSoldOut: true },
+                  },
+                },
               },
             },
           },
         },
-      },
-    },
-  });
-  if (!stadium) return null;
+      });
+      if (!stadium) return null;
 
-  const usedCategoryIds = new Set(stadium.products.map((p) => p.categoryId));
-  const categories = await db.category.findMany({
-    where: { id: { in: [...usedCategoryIds] } },
-    orderBy: { sortOrder: "asc" },
-    select: { id: true, slug: true, name: true, icon: true },
-  });
+      const usedCategoryIds = new Set(stadium.products.map((p) => p.categoryId));
+      const categories = await db.category.findMany({
+        where: { id: { in: [...usedCategoryIds] } },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, slug: true, name: true, icon: true },
+      });
 
-    const products = stadium.products.map(({ nutrition, allergens, optionGroups, ...p }) => ({
-      ...p,
-      nutrition: toNutrition(nutrition),
-      allergens: allergens ?? [],
-      optionGroups: optionGroups satisfies MenuOptionGroup[],
-    }));
-    return { ...stadium, products, categories };
+      const products = stadium.products.map(({ nutrition, allergens, optionGroups, ...p }) => ({
+        ...p,
+        nutrition: toNutrition(nutrition),
+        allergens: allergens ?? [],
+        optionGroups: optionGroups satisfies MenuOptionGroup[],
+      }));
+      return { ...stadium, products, categories };
     });
   } catch (e) {
     if (slug === FALLBACK_ARENA.slug) {
@@ -89,7 +94,10 @@ export function findMenuProduct(menu: StadiumMenu, productId: string) {
   return { product, category };
 }
 
-export function getActiveStadiums() {
+export async function getActiveStadiums() {
+  "use cache";
+  cacheTag(STADIUMS_TAG);
+  cacheLife("minutes");
   return withDb((db) =>
     db.stadium.findMany({
       where: { isActive: true },

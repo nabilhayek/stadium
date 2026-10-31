@@ -1,0 +1,16 @@
+node_modules
+.next
+out
+build
+coverage
+.vercel
+.swc
+.workflow-data
+.agents
+.cursor
+src/generated
+src/app/.well-known/workflow
+prisma/migrations
+package-lock.json
+next-env.d.ts
+*.md

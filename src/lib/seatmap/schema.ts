@@ -44,7 +44,10 @@ export const rowSchema = z.object({
   /** Total arc angle in degrees. 0 is straight; positive bends the ends up (local -y). */
   curve: z.number().min(-270).max(270),
   /** Centre-to-centre seat distance. */
-  pitch: z.number().min(SEAT_RADIUS * 2).max(60),
+  pitch: z
+    .number()
+    .min(SEAT_RADIUS * 2)
+    .max(60),
   /** Number printed on the first seat. */
   start: z.number().int().min(0).max(9999),
   /** Added per seat: 2 gives odd or even numbering. */
@@ -115,6 +118,7 @@ export const sectionSchema = z.object({
   padding: z.tuple([z.number().min(0).max(200), z.number().min(0).max(200), z.number().min(0).max(200), z.number().min(0).max(200)]).default([3, 3, 3, 3]),
 });
 
+/** "field" is only read from maps saved before the pitch became a venue option; `parseSeatMap` lifts it. */
 export const DECORATION_KINDS = ["stage", "field", "rect", "ellipse", "wall", "column", "venue", "text"] as const;
 export type DecorationKind = (typeof DECORATION_KINDS)[number];
 
@@ -131,6 +135,8 @@ export const decorationSchema = z.object({
   color,
   /** Corner radius of a venue shape. */
   radius: z.number().min(0).max(100_000).default(0),
+  /** A venue shape can draw a pitch fitted inside itself. */
+  field: z.enum(["none", "football"]).default("none"),
 });
 
 export const POI_KINDS = ["kitchen", "entrance", "exit", "stairs", "pickup"] as const;
@@ -208,7 +214,32 @@ export function emptySeatMap(): SeatMapDoc {
 /** Stored JSON from before a schema change, or hand-edited rows, fall back to an empty map. */
 export function parseSeatMap(value: unknown): SeatMapDoc | null {
   const parsed = seatMapSchema.safeParse(value);
-  return parsed.success ? parsed.data : null;
+  return parsed.success ? liftFields(parsed.data) : null;
+}
+
+/** Turns an old pitch object into the pitch option of the venue shape around it, or into a venue shape of its own. */
+function liftFields(doc: SeatMapDoc): SeatMapDoc {
+  const fields = doc.decorations.filter((d) => d.kind === "field");
+  if (!fields.length) return doc;
+  let decorations = doc.decorations.filter((d) => d.kind !== "field");
+  for (const f of fields) {
+    const host = decorations.find((d) => d.kind === "venue" && contains(d, f.x, f.y));
+    if (host) {
+      decorations = decorations.map((d) => (d === host ? { ...d, field: "football" as const } : d));
+    } else {
+      const w = f.w * 1.2;
+      const h = f.h * 1.25;
+      decorations.push({ ...f, kind: "venue", w, h, label: "", color: "#f0a77a", radius: Math.min(w, h) / 6, field: "football" });
+    }
+  }
+  return { ...doc, decorations };
+}
+
+function contains(d: SeatMapDecoration, x: number, y: number) {
+  const a = (d.rotation * Math.PI) / 180;
+  const dx = x - d.x;
+  const dy = y - d.y;
+  return Math.abs(dx * Math.cos(a) + dy * Math.sin(a)) <= d.w / 2 && Math.abs(-dx * Math.sin(a) + dy * Math.cos(a)) <= d.h / 2;
 }
 
 export function newId(prefix = ""): string {

@@ -74,7 +74,8 @@ export function createSeatMapTools(state: SeatMapState, publish: Publish) {
 
   return {
     get_map: tool({
-      description: "Describe the current map: field, venue shape, rings, sections, seats per category, points, issues. Use sections=true for per-section seat counts.",
+      description:
+        "Describe the current map: field, venue shape, rings, sections, seats per category, points, issues. Use sections=true for per-section seat counts.",
       inputSchema: z.object({ sections: z.boolean().optional(), ring: z.number().int().min(1).max(99).optional() }),
       execute: async ({ sections, ring }) => describeMap(state.doc, sections ? "sections" : "summary", ring),
     }),
@@ -87,7 +88,7 @@ export function createSeatMapTools(state: SeatMapState, publish: Publish) {
 
     set_field: tool({
       description:
-        "Set the field in the centre and the venue shape (bowl) around it that all seating follows. Call it first for a new venue. The bowl can only be reshaped while no seating stands on it.",
+        "Size the venue shape (bowl) that all seating follows around the playing area. Football draws its pitch inside the bowl; none removes the pitch. Call it first for a new venue. The bowl can only be reshaped while no seating stands on it.",
       inputSchema: z.object({
         kind: z.enum([...(Object.keys(FIELD_PRESETS) as FieldKind[]), "none"]),
         length_m: z.number().min(5).max(500).optional(),
@@ -107,7 +108,10 @@ export function createSeatMapTools(state: SeatMapState, publish: Publish) {
         section_seats: z.array(z.number().int().min(1)).max(99).optional().describe("Exact seats per section, one number per section"),
         pattern,
         rows: z.number().int().min(1).max(100).optional().describe("Fixed row count (otherwise derived from seats)"),
-        arc: z.object({ from: z.number(), to: z.number() }).optional().describe("Only part of the way round: bearings in degrees clockwise from north, e.g. 120 to 240 is the south end"),
+        arc: z
+          .object({ from: z.number(), to: z.number() })
+          .optional()
+          .describe("Only part of the way round: bearings in degrees clockwise from north, e.g. 120 to 240 is the south end"),
         gap_m: z.number().min(0).max(60).optional().describe("Walkway in front of this ring. Default 4.5 m behind another tier"),
         aisle_m: z.number().min(0.4).max(6).optional().describe("Aisle between sections. Default 1.4 m"),
         category,
@@ -135,7 +139,8 @@ export function createSeatMapTools(state: SeatMapState, publish: Publish) {
     }),
 
     add_stand: tool({
-      description: "Add a straight grandstand along one side of the bowl (north = top), behind anything already on that side. Codes N1, N2… for north and so on.",
+      description:
+        "Add a straight grandstand along one side of the bowl (north = top), behind anything already on that side. Codes N1, N2… for north and so on.",
       inputSchema: z.object({
         side,
         sections: z.number().int().min(1).max(40).optional(),
@@ -233,11 +238,13 @@ export function createSeatMapTools(state: SeatMapState, publish: Publish) {
         ring: z.number().int().min(1).max(99).optional().describe("Place on the concourse behind this ring"),
         labels: z.array(z.string().max(40)).max(48).optional(),
       }),
-      execute: async (i) => apply(addPoints(state.doc, { kind: i.kind, count: i.count, bearings: i.bearings, startBearing: i.start_bearing, ring: i.ring, labels: i.labels })),
+      execute: async (i) =>
+        apply(addPoints(state.doc, { kind: i.kind, count: i.count, bearings: i.bearings, startBearing: i.start_bearing, ring: i.ring, labels: i.labels })),
     }),
 
     add_shape: tool({
-      description: "Add a stage, area, wall, column or text label. Place with anchor (inside the field edge on that side), or x/y metres from the field centre when nothing else fits.",
+      description:
+        "Add a stage, area, wall, column or text label. Place with anchor (inside the field edge on that side), or x/y metres from the field centre when nothing else fits.",
       inputSchema: z.object({
         kind: z.enum(["stage", "rect", "ellipse", "wall", "column", "text"]),
         w_m: z.number().min(0.5).max(1000),
@@ -249,7 +256,9 @@ export function createSeatMapTools(state: SeatMapState, publish: Publish) {
         label: z.string().max(60).optional(),
       }),
       execute: async (i) =>
-        apply(addShape(state.doc, { kind: i.kind, w: m(i.w_m)!, h: m(i.h_m)!, anchor: i.anchor, x: m(i.x_m), y: m(i.y_m), rotation: i.rotation, label: i.label })),
+        apply(
+          addShape(state.doc, { kind: i.kind, w: m(i.w_m)!, h: m(i.h_m)!, anchor: i.anchor, x: m(i.x_m), y: m(i.y_m), rotation: i.rotation, label: i.label }),
+        ),
     }),
 
     update_sections: tool({
@@ -265,11 +274,21 @@ export function createSeatMapTools(state: SeatMapState, publish: Publish) {
         rows: z.number().int().min(1).max(100).optional().describe("Row count, seats kept unless also given"),
       }),
       execute: async (i) =>
-        apply(updateSections(state.doc, sel(i.target), { category: i.category, name: i.name, entrance: i.entrance, seats: i.seats, seatsDelta: i.seats_delta, rows: i.rows })),
+        apply(
+          updateSections(state.doc, sel(i.target), {
+            category: i.category,
+            name: i.name,
+            entrance: i.entrance,
+            seats: i.seats,
+            seatsDelta: i.seats_delta,
+            rows: i.rows,
+          }),
+        ),
     }),
 
     move_sections: tool({
-      description: "Slide sections along the bowl (slide_m, + is clockwise) and/or further from the field (out_m). x/y moves and turns only for sections off the bowl.",
+      description:
+        "Slide sections along the bowl (slide_m, + is clockwise) and/or further from the field (out_m). x/y moves and turns only for sections off the bowl.",
       inputSchema: z.object({
         target,
         slide_m: z.number().min(-2000).max(2000).optional(),
@@ -278,15 +297,22 @@ export function createSeatMapTools(state: SeatMapState, publish: Publish) {
         dy_m: z.number().min(-2000).max(2000).optional(),
         rotate_deg: z.number().min(-360).max(360).optional(),
       }),
-      execute: async (i) => apply(moveSections(state.doc, sel(i.target), { along: m(i.slide_m), out: m(i.out_m), dx: m(i.dx_m), dy: m(i.dy_m), turn: i.rotate_deg })),
+      execute: async (i) =>
+        apply(moveSections(state.doc, sel(i.target), { along: m(i.slide_m), out: m(i.out_m), dx: m(i.dx_m), dy: m(i.dy_m), turn: i.rotate_deg })),
     }),
 
     remove: tool({
       description: "Remove sections (target), points by kind, and/or shapes by kind.",
       inputSchema: z.object({
         target: target.optional(),
-        points: z.array(z.enum(["entrance", "exit", "stairs", "kitchen", "pickup", "all"])).max(6).optional(),
-        shapes: z.array(z.enum(["stage", "field", "rect", "ellipse", "wall", "column", "venue", "text", "all"])).max(9).optional(),
+        points: z
+          .array(z.enum(["entrance", "exit", "stairs", "kitchen", "pickup", "all"]))
+          .max(6)
+          .optional(),
+        shapes: z
+          .array(z.enum(["stage", "rect", "ellipse", "wall", "column", "venue", "text", "all"]))
+          .max(8)
+          .optional(),
       }),
       execute: async (i) => apply(removeItems(state.doc, { target: i.target && sel(i.target), points: i.points, shapes: i.shapes })),
     }),
@@ -316,7 +342,7 @@ export function instructionsFor(doc: SeatMapDoc): string {
   return `You design seat maps for stadiums and arenas by calling tools. The user watches the map update live.
 
 How the map works
-- A field sits in the centre with a venue shape (the bowl) around it. All seating stands on the bowl and follows its curve; the tools place it and solve rows and seats, so never work out coordinates or seats per row yourself.
+- A venue shape (the bowl) surrounds the playing area; a football pitch is drawn inside it, never outside. All seating stands on the bowl and follows its curve; the tools place it and solve rows and seats, so never work out coordinates or seats per row yourself.
 - Say where things go: a whole ring, an arc of bearings (degrees clockwise from north, the top), a side (north/east/south/west), next to a section, or behind one. New tiers stack behind what is already on that stretch.
 - Ring 1 is innermost with sections 101, 102…; ring 2 has 201…; section 1 of each ring is centred at the top and numbers run clockwise. Stands use N1, E1, S1, W1….
 - Sizes are in metres. Defaults: seat width 0.55 m, row depth 0.8 m, aisles 1.4 m, walkway 4.5 m between tiers.

@@ -1,0 +1,83 @@
+name: Deploy
+
+# Builds and deploys with the Vercel CLI once CI has passed on the same commit.
+# Off until the repository variable VERCEL_CLI_DEPLOY is "true"; turn off Vercel's Git auto-deploys at the same time
+# (Project Settings -> Git, or `"git": { "deploymentEnabled": false }` in vercel.json) so every commit deploys once.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+concurrency:
+  group: deploy-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  VERCEL_CLI: vercel@51.4.0
+  NEXT_TELEMETRY_DISABLED: 1
+
+jobs:
+  deploy:
+    if: >-
+      vars.VERCEL_CLI_DEPLOY == 'true' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: ${{ github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push' && 'production' || 'preview' }}
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm install -g ${{ env.VERCEL_CLI }}
+
+      - name: Target
+        id: target
+        run: |
+          if [ "${{ github.event.workflow_run.head_branch }}" = "main" ] && [ "${{ github.event.workflow_run.event }}" = "push" ]; then
+            echo "env=production" >> "$GITHUB_OUTPUT"
+            echo "flag=--prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "env=preview" >> "$GITHUB_OUTPUT"
+            echo "flag=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pull Vercel settings and env
+        run: vercel pull --yes --environment=${{ steps.target.outputs.env }}
+
+      - name: Build
+        run: vercel build ${{ steps.target.outputs.flag }}
+
+      - name: Deploy
+        id: deploy
+        run: echo "url=$(vercel deploy --prebuilt ${{ steps.target.outputs.flag }})" >> "$GITHUB_OUTPUT"
+
+      - name: Comment preview URL
+        if: steps.target.outputs.env == 'preview' && github.event.workflow_run.pull_requests[0]
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = "<!-- vercel-preview -->";
+            const issue_number = context.payload.workflow_run.pull_requests[0].number;
+            const body = `${marker}\nPreview: ${{ steps.deploy.outputs.url }}\nCommit: \`${context.payload.workflow_run.head_sha.slice(0, 7)}\``;
+            const { owner, repo } = context.repo;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const mine = comments.find((c) => c.body?.startsWith(marker));
+            if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            else await github.rest.issues.createComment({ owner, repo, issue_number, body });

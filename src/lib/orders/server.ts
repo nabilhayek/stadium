@@ -5,8 +5,9 @@
 
 import type { Prisma } from "@/generated/prisma/client";
 import { withDb } from "@/lib/db";
+import { notifyOrder } from "@/lib/live/hub";
 import type { Receipt } from "./receipt";
-import { publicReceipt, toReceipt } from "./shape";
+import { publicReceipt, toReceipt, type PublicReceipt } from "./shape";
 
 const HISTORY_LIMIT = 30;
 
@@ -19,7 +20,7 @@ function fromRow(row: Row): Receipt | null {
 }
 
 /** Receipt as anyone holding the URL may see it — no write secret. */
-export async function getReceipt(stadiumSlug: string, orderNumber: string): Promise<Receipt | null> {
+export async function getReceipt(stadiumSlug: string, orderNumber: string): Promise<PublicReceipt | null> {
   return withDb(async (db) => {
     const row = await db.receipt.findFirst({
       where: { orderNumber, stadium: { slug: stadiumSlug } },
@@ -65,7 +66,7 @@ export async function putReceipt(receipt: Receipt, opts?: { authoritative?: bool
   const { token, deviceId } = receipt;
   if (!token || !deviceId) return "forbidden";
 
-  return withDb(async (db) => {
+  const result = await withDb(async (db): Promise<PutResult> => {
     const stadium = await db.stadium.findUnique({ where: { slug: receipt.stadiumSlug }, select: { id: true } });
     if (!stadium) return "no-stadium";
 
@@ -85,16 +86,17 @@ export async function putReceipt(receipt: Receipt, opts?: { authoritative?: bool
         }
       : {};
     // Money and lines stay as the payment wrote them, unless this write is the payment itself.
-    const phoneSafe = previous && !opts?.authoritative
-      ? {
-          ...previous,
-          runnerNote: receipt.runnerNote,
-          seat: receipt.seat,
-          ...(receipt.email ? { email: receipt.email } : {}),
-          token,
-          deviceId,
-        }
-      : receipt;
+    const phoneSafe =
+      previous && !opts?.authoritative
+        ? {
+            ...previous,
+            runnerNote: receipt.runnerNote,
+            seat: receipt.seat,
+            ...(receipt.email ? { email: receipt.email } : {}),
+            token,
+            deviceId,
+          }
+        : receipt;
     const merged = { ...phoneSafe, ...kitchenOwned };
     const body = publicReceipt(merged) as unknown as Prisma.InputJsonValue;
     const columns = {
@@ -114,4 +116,7 @@ export async function putReceipt(receipt: Receipt, opts?: { authoritative?: bool
     });
     return "created";
   });
+
+  if (result === "created" || result === "updated") await notifyOrder(receipt.stadiumSlug, receipt.orderNumber);
+  return result;
 }

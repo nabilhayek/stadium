@@ -5,13 +5,7 @@ import { AlertTriangle, Bike, CalendarClock, Check, MessageSquare, MoreHorizonta
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { formatCents } from "@/lib/money";
 import { formatRemain } from "@/lib/orders/receipt";
-import {
-  ACCEPT_WINDOW_MS,
-  DEFAULT_PREP_MINUTES,
-  PREP_MINUTES,
-  type DeskOrder,
-  type KitchenChange,
-} from "@/lib/management/board";
+import { ACCEPT_WINDOW_MS, DEFAULT_PREP_MINUTES, PREP_MINUTES, type DeskOrder, type KitchenChange } from "@/lib/management/board";
 
 type Props = {
   order: DeskOrder;
@@ -37,8 +31,7 @@ export function OrderCard({ order, now, prep, onPrep, ghost = false, onChange, o
   const slotOverdue = scheduled && order.status !== "ready" && slotLeft != null && slotLeft <= 0;
   const prepOverdue = !scheduled && order.status === "accepted" && now > 0 && now >= order.readyAt;
   const warned = asapLate || dueSoon || slotOverdue || prepOverdue;
-  const actionFill =
-    order.status === "new" && (asapLate || dueSoon) ? "bg-orange-500!" : order.status === "ready" ? "bg-green-500!" : "bg-blue-500!";
+  const actionFill = order.status === "new" && (asapLate || dueSoon) ? "bg-orange-500!" : order.status === "ready" ? "bg-green-500!" : "bg-blue-500!";
 
   return (
     <article
@@ -56,11 +49,7 @@ export function OrderCard({ order, now, prep, onPrep, ghost = false, onChange, o
             <p className="font-display text-[19px] font-semibold leading-none tracking-tight">#{order.orderNumber}</p>
             <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
               <Chip className={delivery ? "bg-blue-600 text-white" : "bg-emerald-600 text-white"}>
-                {delivery ? (
-                  <Bike className="size-3.5" strokeWidth={2.2} aria-hidden />
-                ) : (
-                  <ShoppingBag className="size-3.5" strokeWidth={2.2} aria-hidden />
-                )}
+                {delivery ? <Bike className="size-3.5" strokeWidth={2.2} aria-hidden /> : <ShoppingBag className="size-3.5" strokeWidth={2.2} aria-hidden />}
                 {delivery ? "Delivery" : "Pick-up"}
               </Chip>
               {scheduled && order.scheduledAt ? (
@@ -119,15 +108,11 @@ export function OrderCard({ order, now, prep, onPrep, ghost = false, onChange, o
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-[14px] font-medium leading-5">{line.name}</span>
-                      {line.options?.length ? (
-                        <span className="mt-0.5 block text-[12px] leading-4 text-neutral-700">{line.options.join(" · ")}</span>
-                      ) : null}
+                      {line.options?.length ? <span className="mt-0.5 block text-[12px] leading-4 text-neutral-700">{line.options.join(" · ")}</span> : null}
                       {line.note ? <span className="mt-0.5 block text-[12px] leading-4 text-neutral-500">{line.note}</span> : null}
                     </span>
                     {line.unitCents != null ? (
-                      <span className="shrink-0 text-[13px] tabular-nums text-neutral-600">
-                        {formatCents(line.unitCents * line.qty, order.currency)}
-                      </span>
+                      <span className="shrink-0 text-[13px] tabular-nums text-neutral-600">{formatCents(line.unitCents * line.qty, order.currency)}</span>
                     ) : null}
                   </li>
                 ))}
@@ -286,17 +271,7 @@ function Timer({ order, now, late }: { order: DeskOrder; now: number; late: bool
   );
 }
 
-function ClockRing({
-  minutes,
-  progress,
-  clock,
-  label,
-}: {
-  minutes: number | null;
-  progress: number;
-  clock: string;
-  label: string;
-}) {
+function ClockRing({ minutes, progress, clock, label }: { minutes: number | null; progress: number; clock: string; label: string }) {
   return (
     <span className="flex w-12 flex-col items-center" aria-label={label}>
       {minutes == null ? (
@@ -305,12 +280,7 @@ function ClockRing({
         </StatusDisc>
       ) : (
         <Ring progress={progress}>
-          <span
-            className={[
-              "font-semibold tabular-nums leading-none text-neutral-900",
-              minutes >= 100 ? "text-[13px]" : "text-[15px]",
-            ].join(" ")}
-          >
+          <span className={["font-semibold tabular-nums leading-none text-neutral-900", minutes >= 100 ? "text-[13px]" : "text-[15px]"].join(" ")}>
             {minutes}
           </span>
         </Ring>
@@ -394,15 +364,7 @@ function Menu({ children, onClose }: { children: React.ReactNode; onClose: () =>
   );
 }
 
-function MenuItem({
-  children,
-  tone = "neutral",
-  onSelect,
-}: {
-  children: React.ReactNode;
-  tone?: "neutral" | "danger";
-  onSelect: () => void;
-}) {
+function MenuItem({ children, tone = "neutral", onSelect }: { children: React.ReactNode; tone?: "neutral" | "danger"; onSelect: () => void }) {
   return (
     <button
       type="button"

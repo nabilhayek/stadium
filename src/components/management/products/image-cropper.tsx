@@ -159,8 +159,10 @@ export function ImageCropper({ src, onCancel, onConfirm }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- a custom crop widget: focusable so the arrow and +/- keys work */}
       <div
         ref={frame}
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- see above
         tabIndex={0}
         role="group"
         aria-label="Photo crop. Drag or use the arrow keys to move, plus and minus to zoom."

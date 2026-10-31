@@ -13,9 +13,7 @@ export const kitchenRouter = router({
   /** Column counts and late tickets for the sidebar. */
   summary: kitchenProcedure.input(z.object({ stadium: stadiumSlug })).query(({ input }) => boardSummary(input.stadium)),
 
-  overview: kitchenProcedure
-    .input(z.object({ stadium: stadiumSlug, range }))
-    .query(({ input }) => kitchenOverview(input.stadium, input.range)),
+  overview: kitchenProcedure.input(z.object({ stadium: stadiumSlug, range })).query(({ input }) => kitchenOverview(input.stadium, input.range)),
 
   update: kitchenProcedure
     .input(z.object({ stadium: stadiumSlug, orderNumber, change: kitchenChange }))

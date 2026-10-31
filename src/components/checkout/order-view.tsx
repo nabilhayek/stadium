@@ -38,12 +38,7 @@ export function OrderView({ stadiumSlug }: Props) {
   if (!mounted || !now || live) return null;
 
   return (
-    <m.div
-      variants={stagger(0.08)}
-      initial="hidden"
-      animate="show"
-      className="flex min-h-[70dvh] flex-col justify-center pr-12"
-    >
+    <m.div variants={stagger(0.08)} initial="hidden" animate="show" className="flex min-h-[70dvh] flex-col justify-center pr-12">
       <m.h1 variants={fadeUp} className="font-display text-[28px] font-semibold tracking-[-0.03em]">
         No active order
       </m.h1>

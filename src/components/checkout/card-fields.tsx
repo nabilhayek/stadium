@@ -41,16 +41,10 @@ export function CardFields({ onComplete }: Props) {
         />
       </Field>
       <Field label="Expiry">
-        <CardExpiryElement
-          options={{ ...options, placeholder: "MM / YY" }}
-          onChange={(event) => setParts((prev) => ({ ...prev, expiry: event.complete }))}
-        />
+        <CardExpiryElement options={{ ...options, placeholder: "MM / YY" }} onChange={(event) => setParts((prev) => ({ ...prev, expiry: event.complete }))} />
       </Field>
       <Field label="CVC">
-        <CardCvcElement
-          options={{ ...options, placeholder: "123" }}
-          onChange={(event) => setParts((prev) => ({ ...prev, cvc: event.complete }))}
-        />
+        <CardCvcElement options={{ ...options, placeholder: "123" }} onChange={(event) => setParts((prev) => ({ ...prev, cvc: event.complete }))} />
       </Field>
     </div>
   );

@@ -184,9 +184,7 @@ export function SecondRound({ receipt, drinks, now, onUpdate }: Props) {
                     <li key={drink.productId} className="flex items-center justify-between gap-3 py-2.5">
                       <span className="min-w-0">
                         <span className="block truncate text-[15px] font-medium">{drink.name}</span>
-                        <span className="text-[13px] tabular-nums text-muted">
-                          {formatCents(drink.unitCents, currency)}
-                        </span>
+                        <span className="text-[13px] tabular-nums text-muted">{formatCents(drink.unitCents, currency)}</span>
                       </span>
                       <QtyControl
                         name={drink.name}
@@ -200,11 +198,7 @@ export function SecondRound({ receipt, drinks, now, onUpdate }: Props) {
               </ul>
 
               {ordered.length > SHORTLIST && !showAll ? (
-                <button
-                  type="button"
-                  onClick={() => setShowAll(true)}
-                  className="mt-1 text-[13px] font-medium text-link"
-                >
+                <button type="button" onClick={() => setShowAll(true)} className="mt-1 text-[13px] font-medium text-link">
                   Show all {ordered.length} drinks
                 </button>
               ) : null}
@@ -219,13 +213,7 @@ export function SecondRound({ receipt, drinks, now, onUpdate }: Props) {
                     transition={{ duration: 0.24, ease: EASE }}
                     className="overflow-hidden"
                   >
-                    <PillButton
-                      size="lg"
-                      variant="primary"
-                      className="mt-3 w-full justify-between"
-                      disabled={paying}
-                      onClick={pay}
-                    >
+                    <PillButton size="lg" variant="primary" className="mt-3 w-full justify-between" disabled={paying} onClick={pay}>
                       <span>{paying ? "Adding…" : "Add to this round"}</span>
                       <span className="tabular-nums">{formatCents(cents, currency)}</span>
                     </PillButton>
@@ -240,36 +228,17 @@ export function SecondRound({ receipt, drinks, now, onUpdate }: Props) {
   );
 }
 
-function QtyControl({
-  name,
-  qty,
-  onAdd,
-  onSub,
-}: {
-  name: string;
-  qty: number;
-  onAdd: () => void;
-  onSub: () => void;
-}) {
+function QtyControl({ name, qty, onAdd, onSub }: { name: string; qty: number; onAdd: () => void; onSub: () => void }) {
   if (qty === 0) {
     return (
-      <button
-        type="button"
-        onClick={onAdd}
-        aria-label={`Add ${name}`}
-        className="button button--primary button--sm shrink-0"
-      >
+      <button type="button" onClick={onAdd} aria-label={`Add ${name}`} className="button button--primary button--sm shrink-0">
         Add
       </button>
     );
   }
 
   return (
-    <div
-      className="flex shrink-0 items-center gap-0.5 rounded-full bg-foreground p-0.5 text-background"
-      role="group"
-      aria-label={`${name} quantity`}
-    >
+    <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-foreground p-0.5 text-background" role="group" aria-label={`${name} quantity`}>
       <button
         type="button"
         onClick={onSub}
@@ -280,24 +249,12 @@ function QtyControl({
       </button>
       <span className="relative block h-5 min-w-5 overflow-hidden text-center text-[14px] font-semibold tabular-nums">
         <AnimatePresence mode="wait" initial={false}>
-          <m.span
-            key={qty}
-            initial={{ y: 12, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -12, opacity: 0 }}
-            transition={SPRING}
-            className="block"
-          >
+          <m.span key={qty} initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -12, opacity: 0 }} transition={SPRING} className="block">
             {qty}
           </m.span>
         </AnimatePresence>
       </span>
-      <button
-        type="button"
-        onClick={onAdd}
-        aria-label={`Increase ${name}`}
-        className="grid size-8 place-items-center rounded-full"
-      >
+      <button type="button" onClick={onAdd} aria-label={`Increase ${name}`} className="grid size-8 place-items-center rounded-full">
         <Plus className="size-3.5" strokeWidth={2.4} />
       </button>
     </div>

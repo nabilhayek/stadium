@@ -39,6 +39,7 @@ import type { AdminProduct, ProductCatalog } from "@/lib/management/products";
 import { formatCents } from "@/lib/money";
 import { useTRPC } from "@/lib/trpc/react";
 import { cn } from "@/lib/utils";
+import { Badge, FilterTabs, ghostButton, PageHeader, primaryButton, secondaryButton } from "../ui";
 import { CategoriesSheet } from "./categories-sheet";
 import { ProductEditor, type EditorTarget } from "./product-editor";
 import { useSortable } from "./use-sortable";
@@ -47,7 +48,7 @@ type Props = { stadiumSlug: string; catalog: ProductCatalog };
 
 type Filter = "all" | "live" | "soldout" | "disabled";
 
-const FILTERS: { id: Filter; label: string }[] = [
+const FILTERS: readonly { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "live", label: "Available" },
   { id: "soldout", label: "Sold out" },
@@ -120,9 +121,7 @@ export function ProductsManager({ stadiumSlug, catalog }: Props) {
         s.toLowerCase().includes(query),
       );
     });
-    return categories
-      .map((c) => ({ category: c, products: visible.filter((p) => p.categoryId === c.id) }))
-      .filter((s) => s.products.length > 0);
+    return categories.map((c) => ({ category: c, products: visible.filter((p) => p.categoryId === c.id) })).filter((s) => s.products.length > 0);
   }, [products, categories, filter, category, query]);
 
   const shown = sections.reduce((n, s) => n + s.products.length, 0);
@@ -200,54 +199,27 @@ export function ProductsManager({ stadiumSlug, catalog }: Props) {
 
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-[24px] font-semibold leading-tight tracking-[-0.02em]">Products</h1>
-          <p className="mt-1 text-[14px] text-neutral-500">What’s on the menu at {catalog.stadiumName}. Changes reach the shop within a minute.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setCategoriesSession((n) => n + 1);
-              setCategoriesOpen(true);
-            }}
-            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-neutral-200 bg-white! px-4 text-[14px] font-medium transition-colors duration-150 hover:bg-neutral-50! focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-          >
-            <Tags className="size-4 text-neutral-500" aria-hidden />
-            Categories
-          </button>
-          <button
-            type="button"
-            onClick={() => openEditor({ kind: "new" })}
-            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-neutral-900! px-4 text-[14px] font-medium text-white! transition-colors duration-150 hover:bg-neutral-700! focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-          >
-            <Plus className="size-4" aria-hidden />
-            New product
-            <kbd className="ml-1 hidden rounded border border-white/20 px-1 text-[11px] leading-4 text-white/70 sm:inline">N</kbd>
-          </button>
-        </div>
-      </div>
+      <PageHeader title="Products" description={`What’s on the menu at ${catalog.stadiumName}. Changes reach the shop within a minute.`}>
+        <button
+          type="button"
+          onClick={() => {
+            setCategoriesSession((n) => n + 1);
+            setCategoriesOpen(true);
+          }}
+          className={secondaryButton}
+        >
+          <Tags className="size-4 text-neutral-500" aria-hidden />
+          Categories
+        </button>
+        <button type="button" onClick={() => openEditor({ kind: "new" })} className={primaryButton}>
+          <Plus className="size-4" aria-hidden />
+          New product
+          <kbd className="ml-1 hidden rounded border border-white/20 px-1 text-[11px] leading-4 text-white/70 sm:inline">N</kbd>
+        </button>
+      </PageHeader>
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
-        <div role="tablist" aria-label="Filter products" className="flex rounded-lg border border-neutral-200 bg-neutral-50 p-0.5">
-          {FILTERS.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              role="tab"
-              aria-selected={filter === f.id}
-              onClick={() => setFilter(f.id)}
-              className={cn(
-                "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium transition-colors duration-150",
-                filter === f.id ? "bg-white! text-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.08)]" : "text-neutral-500 hover:text-neutral-900",
-              )}
-            >
-              {f.label}
-              <span className="text-[12px] tabular-nums text-neutral-400">{counts[f.id]}</span>
-            </button>
-          ))}
-        </div>
+        <FilterTabs label="Filter products" value={filter} onChange={setFilter} options={FILTERS.map((f) => ({ ...f, count: counts[f.id] }))} />
         <Select value={category} onValueChange={setCategory}>
           <SelectTrigger size="sm" aria-label="Filter by category" className="w-40">
             <SelectValue />
@@ -268,9 +240,7 @@ export function ProductsManager({ stadiumSlug, catalog }: Props) {
         <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-neutral-200 px-4 py-16 text-center">
           <PackageOpen className="size-5 text-neutral-400" aria-hidden />
           <p className="text-[14px] font-medium">{narrowed ? "No products match" : "No products yet"}</p>
-          <p className="text-[13px] text-neutral-500">
-            {narrowed ? "Clear the search or pick another filter." : "Add the first thing fans can order."}
-          </p>
+          <p className="text-[13px] text-neutral-500">{narrowed ? "Clear the search or pick another filter." : "Add the first thing fans can order."}</p>
           {!narrowed ? (
             <button
               type="button"
@@ -329,7 +299,7 @@ export function ProductsManager({ stadiumSlug, catalog }: Props) {
                       onClick={() => setSorting({ categoryId: c.id, ids: rows.map((p) => p.id) })}
                       disabled={narrowed}
                       title={narrowed ? "Clear the search and filters to reorder" : undefined}
-                      className="inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-medium text-neutral-600 transition-colors duration-150 hover:bg-neutral-200/60! hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:pointer-events-none disabled:opacity-40"
+                      className={ghostButton}
                     >
                       <ArrowUpDown className="size-3.5" aria-hidden />
                       Reorder
@@ -337,11 +307,7 @@ export function ProductsManager({ stadiumSlug, catalog }: Props) {
                   ) : null}
                 </div>
                 {isSorting && sorting ? (
-                  <SortableRows
-                    products={rows}
-                    ids={sorting.ids}
-                    onChange={(ids) => setSorting({ categoryId: c.id, ids })}
-                  />
+                  <SortableRows products={rows} ids={sorting.ids} onChange={(ids) => setSorting({ categoryId: c.id, ids })} />
                 ) : (
                   <ul className="divide-y divide-neutral-200 overflow-hidden rounded-b-xl">
                     {rows.map((p) => (
@@ -403,8 +369,8 @@ export function ProductsManager({ stadiumSlug, catalog }: Props) {
         <AlertDialogContent>
           <AlertDialogTitle>Delete {deleting?.name}?</AlertDialogTitle>
           <AlertDialogDescription>
-            It disappears from the shop right away, along with its options. Past orders keep their receipts. To take it off the menu
-            for a while, disable it instead.
+            It disappears from the shop right away, along with its options. Past orders keep their receipts. To take it off the menu for a while, disable it
+            instead.
           </AlertDialogDescription>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -471,7 +437,10 @@ function ProductRow({
       </span>
       <span className="w-20 shrink-0 text-right text-[14px] font-medium tabular-nums">{formatCents(p.priceCents, currency)}</span>
 
-      <label className="hidden shrink-0 items-center gap-2 text-[12px] text-neutral-500 sm:flex" title={p.isAvailable ? "Shown in the shop" : "Hidden from the shop"}>
+      <label
+        className="hidden shrink-0 items-center gap-2 text-[12px] text-neutral-500 sm:flex"
+        title={p.isAvailable ? "Shown in the shop" : "Hidden from the shop"}
+      >
         <Switch checked={p.isAvailable} onCheckedChange={(isAvailable) => onToggle({ isAvailable })} aria-label={`Show ${p.name} in shop`} />
       </label>
 
@@ -554,13 +523,14 @@ function SortableRows({ products, ids, onChange }: { products: AdminProduct[]; i
   );
 }
 
-function Badge({ tone, children }: { tone: string; children: string }) {
-  return <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold text-white", tone)}>{children}</span>;
-}
-
 function Thumb({ product: p }: { product: AdminProduct }) {
   return (
-    <span className={cn("relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-lg border border-neutral-200 bg-photo", (!p.isAvailable || p.isSoldOut) && "opacity-60 grayscale")}>
+    <span
+      className={cn(
+        "relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-lg border border-neutral-200 bg-photo",
+        (!p.isAvailable || p.isSoldOut) && "opacity-60 grayscale",
+      )}
+    >
       {p.imageUrl ? (
         <Image src={p.imageUrl} alt="" fill sizes="44px" className="bg-photo object-contain" />
       ) : (

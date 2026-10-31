@@ -3,17 +3,25 @@
 import { useChat } from "@ai-sdk/react";
 import { WorkflowChatTransport } from "@ai-sdk/workflow/client";
 import type { UIMessage } from "ai";
-import { ArrowUp, Check, CircleAlert, RotateCcw, Sparkles, Square, Undo2, X } from "lucide-react";
+import { ArrowUp, Check, CircleAlert, RotateCcw, Square, Undo2, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/components/ui/input-group";
 import { Message, MessageContent } from "@/components/ui/message";
-import { MessageScroller, MessageScrollerButton, MessageScrollerContent, MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport } from "@/components/ui/message-scroller";
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from "@/components/ui/message-scroller";
 import { Spinner } from "@/components/ui/spinner";
 import { applyPatch, type SeatMapPatch } from "@/lib/seatmap/agent/patch";
 import { ringNumbers } from "@/lib/seatmap/build";
-import { seatMapSchema, type SeatMapDoc } from "@/lib/seatmap/schema";
+import { parseSeatMap, type SeatMapDoc } from "@/lib/seatmap/schema";
 import { cn } from "@/lib/utils";
+import { DrawerHeader, iconButton } from "./fields";
 
 type Props = {
   doc: SeatMapDoc;
@@ -124,13 +132,13 @@ export function AssistantPanel({ doc, lastKey, open, onApply, onBusyChange, onBu
     onData: (part) => {
       if (part.type !== "data-seatmap") return;
       const next = applyPatch(docRef.current, part.data as SeatMapPatch);
-      const parsed = next && seatMapSchema.safeParse(next);
-      if (!parsed?.success) {
+      const parsed = next && parseSeatMap(next);
+      if (!parsed) {
         setRejected(true);
         return;
       }
-      docRef.current = parsed.data;
-      onApply(parsed.data, turnKey.current);
+      docRef.current = parsed;
+      onApply(parsed, turnKey.current);
     },
     onFinish: ({ message }) => setTurn({ key: turnKey.current, messageId: message.id }),
   });
@@ -180,37 +188,27 @@ export function AssistantPanel({ doc, lastKey, open, onApply, onBusyChange, onBu
 
   return (
     <aside aria-label="Assistant" hidden={!open} className="flex w-[360px] shrink-0 flex-col border-l border-neutral-200 bg-white">
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-neutral-200 pr-1.5 pl-4">
-        <Sparkles className="size-4 text-neutral-500" aria-hidden />
-        <p className="text-[13px] font-semibold">Assistant</p>
-        <div className="ml-auto flex items-center">
-          {!empty ? (
-            <button
-              type="button"
-              onClick={() => {
-                setMessages([]);
-                setTurn(null);
-                clearError();
-              }}
-              disabled={busy}
-              title="New conversation"
-              aria-label="New conversation"
-              className="grid size-8 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100! hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:opacity-35"
-            >
-              <RotateCcw className="size-4" aria-hidden />
-            </button>
-          ) : null}
+      <DrawerHeader title="Assistant">
+        {!empty ? (
           <button
             type="button"
-            onClick={onClose}
-            title="Close assistant"
-            aria-label="Close assistant"
-            className="grid size-8 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100! hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-blue-500"
+            onClick={() => {
+              setMessages([]);
+              setTurn(null);
+              clearError();
+            }}
+            disabled={busy}
+            title="New conversation"
+            aria-label="New conversation"
+            className={iconButton}
           >
-            <X className="size-4" aria-hidden />
+            <RotateCcw className="size-4" aria-hidden />
           </button>
-        </div>
-      </div>
+        ) : null}
+        <button type="button" onClick={onClose} title="Close assistant" aria-label="Close assistant" className={iconButton}>
+          <X className="size-4" aria-hidden />
+        </button>
+      </DrawerHeader>
 
       <MessageScrollerProvider autoScroll defaultScrollPosition="end">
         <MessageScroller className="flex-1">
@@ -245,7 +243,9 @@ export function AssistantPanel({ doc, lastKey, open, onApply, onBusyChange, onBu
                       <Message align="end">
                         <MessageContent>
                           <Bubble align="end">
-                            <BubbleContent className="whitespace-pre-wrap">{message.parts.map((p) => (p.type === "text" ? p.text : "")).join("")}</BubbleContent>
+                            <BubbleContent className="whitespace-pre-wrap">
+                              {message.parts.map((p) => (p.type === "text" ? p.text : "")).join("")}
+                            </BubbleContent>
                           </Bubble>
                         </MessageContent>
                       </Message>

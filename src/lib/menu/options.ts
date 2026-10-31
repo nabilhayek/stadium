@@ -27,9 +27,7 @@ export type MenuOptionGroup = {
 /** What a cart or receipt line remembers about a pick, so later menu edits do not rewrite history. */
 export type ChosenOption = { id: string; group: string; name: string; cents: number };
 
-export type SelectionCheck =
-  | { ok: true; chosen: ChosenOption[]; extraCents: number }
-  | { ok: false; groupId: string | null; message: string };
+export type SelectionCheck = { ok: true; chosen: ChosenOption[]; extraCents: number } | { ok: false; groupId: string | null; message: string };
 
 /** Defaults the kitchen marked, minus anything sold out. */
 export function defaultSelection(groups: MenuOptionGroup[]): string[] {

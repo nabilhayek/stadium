@@ -87,8 +87,7 @@ export function useSortable({ ids, onReorder, nameOf }: Options) {
       },
       onKeyDown(e: KeyboardEvent<HTMLElement>) {
         const at = latest.current.indexOf(id);
-        const to =
-          e.key === "ArrowUp" ? at - 1 : e.key === "ArrowDown" ? at + 1 : e.key === "Home" ? 0 : e.key === "End" ? latest.current.length - 1 : null;
+        const to = e.key === "ArrowUp" ? at - 1 : e.key === "ArrowDown" ? at + 1 : e.key === "Home" ? 0 : e.key === "End" ? latest.current.length - 1 : null;
         if (to === null) return;
         e.preventDefault();
         move(id, to);

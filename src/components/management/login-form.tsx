@@ -3,11 +3,13 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, signUp } from "@/lib/auth-client";
+import { useTranslations } from "next-intl";
 import { useToast } from "@/components/toast/toast-provider";
 
 type Props = { stadiumSlug: string; canRegister: boolean };
 
 export function LoginForm({ stadiumSlug, canRegister }: Props) {
+  const t = useTranslations("login");
   const router = useRouter();
   const [mode, setMode] = useState<"sign-in" | "create">(canRegister ? "create" : "sign-in");
   const [name, setName] = useState("");
@@ -26,7 +28,7 @@ export function LoginForm({ stadiumSlug, canRegister }: Props) {
         : await signIn.email({ email, password, callbackURL: next });
     setPending(false);
     if (result.error) {
-      toast({ message: result.error.message ?? "Could not sign in.", status: "error" });
+      toast({ message: result.error.message ?? t("couldNotSignIn"), status: "error" });
       return;
     }
     router.push(next);
@@ -37,7 +39,7 @@ export function LoginForm({ stadiumSlug, canRegister }: Props) {
     <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-3">
       {mode === "create" ? (
         <label className="block">
-          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Name</span>
+          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">{t("name")}</span>
           <input
             required
             value={name}
@@ -48,7 +50,7 @@ export function LoginForm({ stadiumSlug, canRegister }: Props) {
         </label>
       ) : null}
       <label className="block">
-        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Email</span>
+        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">{t("email")}</span>
         <input
           required
           type="email"
@@ -59,7 +61,7 @@ export function LoginForm({ stadiumSlug, canRegister }: Props) {
         />
       </label>
       <label className="block">
-        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Password</span>
+        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">{t("password")}</span>
         <input
           required
           type="password"
@@ -71,16 +73,16 @@ export function LoginForm({ stadiumSlug, canRegister }: Props) {
         />
       </label>
       <button type="submit" disabled={pending} className="button button--primary button--lg mt-2 w-full">
-        {pending ? "Please wait" : mode === "create" ? "Create kitchen account" : "Sign in"}
+        {pending ? t("pleaseWait") : mode === "create" ? t("createAccount") : t("signIn")}
       </button>
       {canRegister && mode === "sign-in" ? (
         <button type="button" className="text-[13px] text-muted" onClick={() => setMode("create")}>
-          First time here? Create the kitchen account
+          {t("firstTime")}
         </button>
       ) : null}
       {mode === "create" && !canRegister ? null : mode === "create" ? (
         <button type="button" className="text-[13px] text-muted" onClick={() => setMode("sign-in")}>
-          Already have an account? Sign in
+          {t("alreadyHave")}
         </button>
       ) : null}
     </form>

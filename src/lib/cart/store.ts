@@ -41,11 +41,12 @@ function asLine(raw: unknown): CartLine | null {
   const o = raw as Record<string, unknown>;
   if (typeof o.productId !== "string" || typeof o.name !== "string") return null;
   if (typeof o.unitCents !== "number" || typeof o.qty !== "number" || o.qty <= 0) return null;
-  const options = Array.isArray(o.options)
-    ? o.options.map(asOption).filter((x): x is ChosenOption => x !== null)
-    : [];
+  const options = Array.isArray(o.options) ? o.options.map(asOption).filter((x): x is ChosenOption => x !== null) : [];
   const line: CartLine = {
-    key: lineKey(o.productId, options.map((x) => x.id)),
+    key: lineKey(
+      o.productId,
+      options.map((x) => x.id),
+    ),
     productId: o.productId,
     name: o.name,
     unitCents: o.unitCents,
@@ -57,7 +58,14 @@ function asLine(raw: unknown): CartLine | null {
 }
 
 export function toCartLine(p: AddableProduct, qty = 1): CartLine {
-  const line: CartLine = { ...p, key: lineKey(p.productId, (p.options ?? []).map((o) => o.id)), qty };
+  const line: CartLine = {
+    ...p,
+    key: lineKey(
+      p.productId,
+      (p.options ?? []).map((o) => o.id),
+    ),
+    qty,
+  };
   if (!line.options?.length) delete line.options;
   return line;
 }
@@ -146,11 +154,7 @@ class CartStore {
 
   setNote = (key: string, note: string) => {
     const trimmed = note.trim();
-    this.set(
-      this.state.lines.map((l) =>
-        l.key === key ? { ...l, note: trimmed || undefined } : l,
-      ),
-    );
+    this.set(this.state.lines.map((l) => (l.key === key ? { ...l, note: trimmed || undefined } : l)));
   };
 
   remove = (key: string) => this.setQty(key, 0);

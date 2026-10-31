@@ -181,9 +181,7 @@ export async function prepareCheckout(input: PrepareInput): Promise<PrepareResul
   };
 }
 
-export type FinalizeResult =
-  | { ok: true; receipt: Receipt }
-  | { ok: false; status: number; message: string; processing?: boolean };
+export type FinalizeResult = { ok: true; receipt: Receipt } | { ok: false; status: number; message: string; processing?: boolean };
 
 /** Confirm Stripe still agrees, then write the kitchen ticket. Idempotent. */
 export async function finalizeCheckout(paymentIntentId: string, clientSecret: string): Promise<FinalizeResult> {
@@ -326,10 +324,7 @@ export async function refundOrder(stadiumSlug: string, orderNumber: string): Pro
   const stripe = getStripe();
   for (const payment of payments) {
     try {
-      const refund = await stripe.refunds.create(
-        { payment_intent: payment.paymentIntentId },
-        { idempotencyKey: `refund:${payment.paymentIntentId}` },
-      );
+      const refund = await stripe.refunds.create({ payment_intent: payment.paymentIntentId }, { idempotencyKey: `refund:${payment.paymentIntentId}` });
       await markRefunded(payment.paymentIntentId, refund.id);
     } catch (error) {
       const code = error instanceof Stripe.errors.StripeError ? error.code : undefined;
@@ -494,12 +489,7 @@ export async function chargeExtra(input: ExtraInput): Promise<FinalizeResult> {
   return { ok: true, receipt: next };
 }
 
-async function applyExtra(
-  paymentId: string,
-  stadiumSlug: string,
-  orderNumber: string,
-  lines: Receipt["lines"],
-): Promise<Receipt | null> {
+async function applyExtra(paymentId: string, stadiumSlug: string, orderNumber: string, lines: Receipt["lines"]): Promise<Receipt | null> {
   const claimed = await withDb((db) =>
     db.payment.updateMany({
       where: { id: paymentId, applied: false, state: "SUCCEEDED" },

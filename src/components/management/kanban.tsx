@@ -3,21 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useNow } from "@/lib/hooks/use-now";
+import { kitchenStreamUrl, useLiveStream } from "@/lib/hooks/use-live-stream";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/react";
-import {
-  BOARD_COLUMNS,
-  DEFAULT_PREP_MINUTES,
-  previewAccept,
-  type BoardStatus,
-  type DeskOrder,
-  type KitchenChange,
-} from "@/lib/management/board";
+import { BOARD_COLUMNS, DEFAULT_PREP_MINUTES, previewAccept, type BoardStatus, type DeskOrder, type KitchenChange } from "@/lib/management/board";
 import { DeclineDialog } from "./decline-dialog";
 import { OrderCard } from "./order-card";
 import { useToast } from "@/components/toast/toast-provider";
 
-type Props = { stadiumSlug: string; orders: DeskOrder[] };
+type Props = { stadiumSlug: string; orders: DeskOrder[]; streamToken: string };
 
 const COLUMN_DOT: Record<BoardStatus, string> = {
   new: "bg-blue-500",
@@ -25,7 +19,7 @@ const COLUMN_DOT: Record<BoardStatus, string> = {
   ready: "bg-green-500",
 };
 
-/** Ask the server for fresh cards this often while nobody is mid-gesture. */
+/** Poll this often only while the live stream is down. */
 const REFRESH_MS = 8_000;
 /** Mouse: drag once the pointer travels this far. */
 const MOUSE_SLOP_PX = 6;
@@ -48,7 +42,7 @@ type Drag = {
 /** Where a card should appear before the server confirms. `null` means it left the board. */
 type Override = { status: BoardStatus; readyAt?: number; acceptedAt?: number } | null;
 
-export function Kanban({ stadiumSlug, orders }: Props) {
+export function Kanban({ stadiumSlug, orders, streamToken }: Props) {
   const router = useRouter();
   const trpc = useTRPC();
   const { mutateAsync: updateOrder } = useMutation(trpc.kitchen.update.mutationOptions());
@@ -98,20 +92,33 @@ export function Kanban({ stadiumSlug, orders }: Props) {
 
   const query = (useSearchParams().get("q") ?? "").toLowerCase();
   const matches = (o: DeskOrder) =>
-    !query ||
-    [o.orderNumber, o.seat ?? "", ...o.lines.flatMap((l) => [l.name, ...(l.options ?? [])])].some((s) =>
-      s.toLowerCase().includes(query),
-    );
+    !query || [o.orderNumber, o.seat ?? "", ...o.lines.flatMap((l) => [l.name, ...(l.options ?? [])])].some((s) => s.toLowerCase().includes(query));
 
-  // Keep the board live. Pause while a card is in hand or a dialog is open.
+  // Keep the board live. Pause while a card is in hand or a dialog is open; a
+  // change that lands meanwhile is picked up as soon as the hands are free.
   const busy = drag !== null || declining !== null;
+  const [stale, setStale] = useState(0);
+  const live = useLiveStream(kitchenStreamUrl(stadiumSlug, streamToken), { order: () => setStale((n) => n + 1) });
+
   useEffect(() => {
-    if (busy) return;
+    if (!stale || busy) return;
+    const id = window.setTimeout(() => {
+      // Our own update is still saving; look again once it lands.
+      if (inflight.current > 0) return setStale((n) => n + 1);
+      setStale(0);
+      router.refresh();
+    }, 150);
+    return () => window.clearTimeout(id);
+  }, [stale, busy, router]);
+
+  // While the stream is open, refetch only on a change, so a quiet day lets the database sleep.
+  useEffect(() => {
+    if (busy || live) return;
     const id = window.setInterval(() => {
       if (inflight.current === 0 && document.visibilityState === "visible") router.refresh();
     }, REFRESH_MS);
     return () => window.clearInterval(id);
-  }, [busy, router]);
+  }, [busy, live, router]);
 
   const apply = useCallback(
     (order: DeskOrder, change: KitchenChange) => {
@@ -243,8 +250,8 @@ export function Kanban({ stadiumSlug, orders }: Props) {
     if (!mouse) hold = window.setTimeout(begin, HOLD_MS);
   }
 
-  const dragging = drag ? visible.find((o) => o.orderNumber === drag.orderNumber) ?? null : null;
-  const decliningOrder = declining ? visible.find((o) => o.orderNumber === declining) ?? null : null;
+  const dragging = drag ? (visible.find((o) => o.orderNumber === drag.orderNumber) ?? null) : null;
+  const decliningOrder = declining ? (visible.find((o) => o.orderNumber === declining) ?? null) : null;
 
   return (
     <div className={drag ? "cursor-grabbing" : undefined}>
@@ -269,9 +276,7 @@ export function Kanban({ stadiumSlug, orders }: Props) {
               <header className="flex h-8 items-center gap-2 px-2">
                 <span className={["size-2 rounded-full", COLUMN_DOT[column.id]].join(" ")} aria-hidden />
                 <h2 className="text-[14px] font-medium text-neutral-900">{column.label}</h2>
-                <span className="ml-auto text-[13px] tabular-nums text-neutral-500">
-                  {query ? `${cards.length} of ${all.length}` : all.length}
-                </span>
+                <span className="ml-auto text-[13px] tabular-nums text-neutral-500">{query ? `${cards.length} of ${all.length}` : all.length}</span>
               </header>
 
               {cards.length === 0 ? (

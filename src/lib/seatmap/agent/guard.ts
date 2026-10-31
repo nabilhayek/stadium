@@ -29,9 +29,7 @@ export function promptMessages(messages: UIMessage[]): UIMessage[] {
     .map((msg) => ({
       id: msg.id,
       role: msg.role,
-      parts: msg.parts
-        .filter((p) => p.type === "text")
-        .map((p) => ({ type: "text" as const, text: (p as { text: string }).text.slice(0, MAX_TEXT) })),
+      parts: msg.parts.filter((p) => p.type === "text").map((p) => ({ type: "text" as const, text: (p as { text: string }).text.slice(0, MAX_TEXT) })),
     }))
     .filter((msg) => (msg.role === "user" || msg.role === "assistant") && msg.parts.some((p) => p.text.trim()));
 }

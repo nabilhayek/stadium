@@ -124,9 +124,9 @@ export function toReceipt(input: unknown): Receipt | null {
 }
 
 /** What a stranger with the URL may see: the receipt without its secrets. */
-export function publicReceipt(receipt: Receipt): Receipt {
-  const copy: Receipt = { ...receipt };
-  delete copy.token;
-  delete copy.deviceId;
-  return copy;
+export type PublicReceipt = Omit<Receipt, "token" | "deviceId">;
+
+export function publicReceipt(receipt: Receipt): PublicReceipt {
+  const { token: _token, deviceId: _deviceId, ...rest } = receipt;
+  return rest;
 }

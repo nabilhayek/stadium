@@ -8,7 +8,7 @@
  *
  * Bump VERSION to invalidate all caches on deploy.
  */
-const VERSION = "v4";
+const VERSION = "v6";
 const STATIC_CACHE = `static-${VERSION}`;
 const PAGE_CACHE = `pages-${VERSION}`;
 const KNOWN = new Set([STATIC_CACHE, PAGE_CACHE]);
@@ -72,7 +72,8 @@ async function cacheFirst(request, cacheName) {
   const hit = await cache.match(request);
   if (hit) return hit;
   const res = await fetch(request);
-  if (res.ok) cache.put(request, res.clone());
+  // Dev chunks keep their names while their contents change; only `next start` marks them immutable.
+  if (res.ok && /immutable/.test(res.headers.get("cache-control") || "")) cache.put(request, res.clone());
   return res;
 }
 
@@ -88,14 +89,22 @@ async function staleWhileRevalidate(request, cacheName) {
   return hit || refresh;
 }
 
+function pageKey(request) {
+  const match = (request.headers.get("cookie") || "").match(/(?:^|;\s*)locale=(sv|da|en)(?:;|$)/);
+  const url = new URL(request.url);
+  url.searchParams.set("__locale", match ? match[1] : "device");
+  return new Request(url.toString(), { method: "GET" });
+}
+
 async function networkFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
+  const key = pageKey(request);
   try {
     const res = await fetch(request);
-    if (res.ok) cache.put(request, res.clone());
+    if (res.ok) cache.put(key, res.clone());
     return res;
   } catch {
-    const hit = await cache.match(request);
+    const hit = await cache.match(key);
     if (hit) return hit;
     return new Response("<h1>Offline</h1><p>Reconnect to load the menu.</p>", {
       status: 503,

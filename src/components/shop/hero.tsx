@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { m } from "framer-motion";
 import type { ReactNode } from "react";
 import { useEntrance } from "@/components/motion/entrance";
@@ -14,6 +15,7 @@ type Props = {
 
 /** Dark spotlight hero on the light canvas — venue name, seat chip, drifting glows. */
 export function Hero({ name, city, children }: Props) {
+  const t = useTranslations("shop");
   const entrance = useEntrance();
   return (
     <m.section
@@ -25,16 +27,10 @@ export function Hero({ name, city, children }: Props) {
       <SpotGradient />
 
       <m.div variants={stagger(0.07, 0.15)} initial={entrance ? "hidden" : false} animate="show" className="pr-14">
-        <m.p
-          variants={fadeUp}
-          className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/70"
-        >
-          Order to your seat
+        <m.p variants={fadeUp} className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/70">
+          {t("orderToSeat")}
         </m.p>
-        <m.h1
-          variants={fadeUp}
-          className="font-display mt-2 text-[32px] font-semibold leading-[0.95] tracking-[-0.045em] text-white"
-        >
+        <m.h1 variants={fadeUp} className="font-display mt-2 text-[32px] font-semibold leading-[0.95] tracking-[-0.045em] text-white">
           {name}
         </m.h1>
         {city ? (

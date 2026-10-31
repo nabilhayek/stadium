@@ -188,6 +188,52 @@ export function venuesOf(doc: SeatMapDoc): SeatMapDecoration[] {
   return doc.decorations.filter((d) => d.kind === "venue");
 }
 
+/** Grass beyond the 105 × 68 m lines, as a share of the line size. */
+export const PITCH_GRASS = { w: 1.06, h: 1.09 };
+const PITCH_RATIO = (105 * PITCH_GRASS.w) / (68 * PITCH_GRASS.h);
+
+/**
+ * The largest pitch (grass included) along the venue's long side that clears its rim,
+ * rounded corners too. Sizes are along the venue's own axes; `turned` means the
+ * long side is the venue's height.
+ */
+export function pitchInVenue(venue: SeatMapDecoration): { w: number; h: number; turned: boolean } {
+  const turned = venue.h > venue.w;
+  const long = Math.max(venue.w, venue.h) / 2;
+  const short = Math.min(venue.w, venue.h) / 2;
+  const rim = Math.max(0, Math.min(venue.radius, short));
+  const inset = Math.max(10, short * 0.06);
+  const fits = (b: number) => {
+    const dx = b * PITCH_RATIO - (long - rim);
+    const dy = b - (short - rim);
+    return dx <= 0 || dy <= 0 || Math.hypot(dx, dy) <= rim - inset;
+  };
+  let hi = Math.max(0, Math.min(short - inset, (long - inset) / PITCH_RATIO));
+  let b = hi;
+  if (!fits(b)) {
+    let lo = 0;
+    for (let i = 0; i < 24; i++) {
+      const mid = (lo + hi) / 2;
+      if (fits(mid)) lo = mid;
+      else hi = mid;
+    }
+    b = lo;
+  }
+  const w = b * 2 * PITCH_RATIO;
+  const h = b * 2;
+  return turned ? { w: h, h: w, turned } : { w, h, turned };
+}
+
+/** The pitch lines a venue shape draws, in world terms: centre, length, width and the turn of its length. */
+export function fieldOf(doc: SeatMapDoc): { x: number; y: number; w: number; h: number; rotation: number } | null {
+  const venue = doc.decorations.find((d) => d.kind === "venue" && d.field === "football");
+  if (!venue) return null;
+  const p = pitchInVenue(venue);
+  const length = Math.max(p.w, p.h) / PITCH_GRASS.w;
+  const width = Math.min(p.w, p.h) / PITCH_GRASS.h;
+  return { x: venue.x, y: venue.y, w: length, h: width, rotation: venue.rotation + (p.turned ? 90 : 0) };
+}
+
 /** Every slot of every row, after the section's bend or venue path. `starts[r]` is row r's first index. */
 export function placeSection(section: SeatMapSection, venues: readonly SeatMapDecoration[]) {
   const total = section.rows.reduce((n, r) => n + r.seats, 0);
@@ -955,7 +1001,12 @@ function fitEdge(pts: readonly Point[]): EdgeLine | null {
  * around a venue is moved until the chairs you see sit on one edge — equal stored
  * positions still fan out once the path bends.
  */
-export function alignSectionRows(section: SeatMapSection, venues: readonly SeatMapDecoration[], rowIds: ReadonlySet<string>, mode: "start" | "center" | "end"): SeatMapSection {
+export function alignSectionRows(
+  section: SeatMapSection,
+  venues: readonly SeatMapDecoration[],
+  rowIds: ReadonlySet<string>,
+  mode: "start" | "center" | "end",
+): SeatMapSection {
   const picked = section.rows.filter((r) => rowIds.has(r.id) && r.layout === "line" && liveSeatCount(r) > 0);
   if (picked.length < 2) return section;
   if (section.follow === "off" || section.display !== "seats" || !venues.length) {
@@ -997,10 +1048,7 @@ export function alignSectionRows(section: SeatMapSection, venues: readonly SeatM
       if (!ref) return row;
       const dist = line.nx * ref.x + line.ny * ref.y - line.c;
       if (Math.abs(dist) < 0.15) return row;
-      const nudged = placeSection(
-        { ...current, rows: current.rows.map((r) => (r.id === row.id ? { ...r, x: r.x + ux, y: r.y + uy } : r)) },
-        venues,
-      );
+      const nudged = placeSection({ ...current, rows: current.rows.map((r) => (r.id === row.id ? { ...r, x: r.x + ux, y: r.y + uy } : r)) }, venues);
       const ri = current.rows.findIndex((r) => r.id === row.id);
       const slot = ref.at - placed.starts[ri];
       const nx = nudged.xs[nudged.starts[ri] + slot] - ref.x;
@@ -1564,7 +1612,12 @@ export type RowPlan = { seats: number; spread: "packed" | "edge" };
  * Straight rows filling a section from its top-left corner to its bottom-right.
  * The count is exact: seats share the width, rows share the height.
  */
-export function fillSectionGrid(section: SeatMapSection, rowCount: number, perRow: number, numbering: SeatMapNumbering = DEFAULT_NUMBERING): { rows: SeatMapRow[] } | { error: string } {
+export function fillSectionGrid(
+  section: SeatMapSection,
+  rowCount: number,
+  perRow: number,
+  numbering: SeatMapNumbering = DEFAULT_NUMBERING,
+): { rows: SeatMapRow[] } | { error: string } {
   const rowsN = Math.max(1, Math.min(MAX_ROWS_PER_SECTION, Math.round(rowCount)));
   const seatsN = Math.max(1, Math.min(MAX_SEATS_PER_ROW, Math.round(perRow)));
   const b = boundsOf(section.points);

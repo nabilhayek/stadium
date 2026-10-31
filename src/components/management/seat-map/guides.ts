@@ -164,10 +164,7 @@ export function snapBox(
   return {
     x: x.value,
     y: y.value,
-    guides: [
-      ...aligned("x", yLo, yHi, [xLo, (xLo + xHi) / 2, xHi], anchors.xs),
-      ...aligned("y", xLo, xHi, [yLo, (yLo + yHi) / 2, yHi], anchors.ys),
-    ],
+    guides: [...aligned("x", yLo, yHi, [xLo, (xLo + xHi) / 2, xHi], anchors.xs), ...aligned("y", xLo, xHi, [yLo, (yLo + yHi) / 2, yHi], anchors.ys)],
   };
 }
 
@@ -184,7 +181,14 @@ function snapMoving(origin: number, moving: number, anchors: Anchor[], threshold
 }
 
 /** Snap a dragged selection by its left, centre or right, and the same on the vertical. */
-export function snapMove(bounds: Bounds, dx: number, dy: number, anchors: Anchors, threshold: number, grid: number): { dx: number; dy: number; guides: Guide[] } {
+export function snapMove(
+  bounds: Bounds,
+  dx: number,
+  dy: number,
+  anchors: Anchors,
+  threshold: number,
+  grid: number,
+): { dx: number; dy: number; guides: Guide[] } {
   const x = snapShift(bounds.minX, bounds.maxX, dx, anchors.xs, threshold, grid);
   const y = snapShift(bounds.minY, bounds.maxY, dy, anchors.ys, threshold, grid);
   const minX = bounds.minX + x.delta;

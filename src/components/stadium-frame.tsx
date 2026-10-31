@@ -1,25 +1,21 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname } from "@/i18n/navigation";
 import { ShopNav } from "@/components/shop/shop-nav";
+import { LiveOrders } from "@/components/orders/live-orders";
 import { OrderSync } from "@/components/orders/order-sync";
 
-type Props = { stadiumSlug: string; children: ReactNode };
+type Props = { stadiumSlug: string };
 
 /** Shop chrome stays off the kitchen desk. */
-export function StadiumFrame({ stadiumSlug, children }: Props) {
+export function StadiumFrame({ stadiumSlug }: Props) {
   const pathname = usePathname();
-  const desk = pathname.includes("/management");
+  if (pathname.includes("/management")) return null;
   return (
     <>
-      {children}
-      {desk ? null : (
-        <>
-          <ShopNav stadiumSlug={stadiumSlug} />
-          <OrderSync />
-        </>
-      )}
+      <ShopNav stadiumSlug={stadiumSlug} />
+      <OrderSync />
+      <LiveOrders stadiumSlug={stadiumSlug} />
     </>
   );
 }

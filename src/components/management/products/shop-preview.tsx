@@ -22,15 +22,7 @@ export function ShopPreview({ stadiumSlug, currency, product }: Props) {
         <figure className="shrink-0">
           <figcaption className="mb-2 text-[12px] font-medium text-muted">Last ordered</figcaption>
           <ul>
-            <ProductCard
-              stadiumSlug={stadiumSlug}
-              currency={currency}
-              product={product}
-              inList={false}
-              compact
-              badge="Last time"
-              className="w-[168px]"
-            />
+            <ProductCard stadiumSlug={stadiumSlug} currency={currency} product={product} inList={false} compact badge="Last time" className="w-[168px]" />
           </ul>
         </figure>
       </div>

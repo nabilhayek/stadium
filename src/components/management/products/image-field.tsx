@@ -136,15 +136,7 @@ export function ImageField({ stadiumSlug, value, onChange, onUploaded, onBusy }:
 
   return (
     <div>
-      <input
-        ref={input}
-        type="file"
-        accept={TYPES.join(",")}
-        className="sr-only"
-        tabIndex={-1}
-        aria-hidden
-        onChange={(e) => pick(e.target.files)}
-      />
+      <input ref={input} type="file" accept={TYPES.join(",")} className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => pick(e.target.files)} />
       {value ? (
         <div className="flex items-center gap-4">
           <div className="relative aspect-[3/2] w-40 shrink-0 overflow-hidden rounded-xl border border-neutral-200 bg-photo">

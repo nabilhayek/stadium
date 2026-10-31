@@ -20,11 +20,12 @@ type Props = {
   imageUrl: string | null;
   className: string;
   sizes: string;
-  priority?: boolean;
+  /** Above the fold on a phone: fetch now, at high priority. */
+  eager?: boolean;
 };
 
 /** Photo, or a stable pastel tile with the product's initial. */
-export function ProductMark({ name, categoryId, imageUrl, className, sizes, priority = false }: Props) {
+export function ProductMark({ name, categoryId, imageUrl, className, sizes, eager = false }: Props) {
   if (imageUrl) {
     return (
       <Image
@@ -33,7 +34,8 @@ export function ProductMark({ name, categoryId, imageUrl, className, sizes, prio
         width={800}
         height={600}
         sizes={sizes}
-        priority={priority}
+        loading={eager ? "eager" : "lazy"}
+        fetchPriority={eager ? "high" : undefined}
         className={["bg-photo object-contain", className].join(" ")}
       />
     );

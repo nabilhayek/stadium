@@ -22,7 +22,10 @@ function MessageScroller({ className, ...props }: React.ComponentProps<typeof Me
 function MessageScrollerViewport({ className, ...props }: React.ComponentProps<typeof MessageScrollerPrimitive.Viewport>) {
   return (
     <MessageScrollerPrimitive.Viewport
-      className={cn("size-full min-h-0 min-w-0 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [scrollbar-width:thin] contain-content data-pending-scroll:invisible", className)}
+      className={cn(
+        "size-full min-h-0 min-w-0 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [scrollbar-width:thin] contain-content data-pending-scroll:invisible",
+        className,
+      )}
       data-slot="message-scroller-viewport"
       {...props}
     />
@@ -34,7 +37,9 @@ function MessageScrollerContent({ className, ...props }: React.ComponentProps<ty
 }
 
 function MessageScrollerItem({ className, scrollAnchor = false, ...props }: React.ComponentProps<typeof MessageScrollerPrimitive.Item>) {
-  return <MessageScrollerPrimitive.Item className={cn("min-w-0 shrink-0", className)} data-slot="message-scroller-item" scrollAnchor={scrollAnchor} {...props} />;
+  return (
+    <MessageScrollerPrimitive.Item className={cn("min-w-0 shrink-0", className)} data-slot="message-scroller-item" scrollAnchor={scrollAnchor} {...props} />
+  );
 }
 
 function MessageScrollerButton({ direction = "end", className, children, ...props }: React.ComponentProps<typeof MessageScrollerPrimitive.Button>) {

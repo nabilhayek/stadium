@@ -15,23 +15,8 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
  * the shop's hot path (20+ "Add" buttons + category chips) to keep react-aria out of the
  * initial bundle; the full `<Button>` component is still used inside the lazy cart drawer.
  */
-export function PillButton({
-  variant = "primary",
-  size = "md",
-  isIconOnly = false,
-  fullWidth = false,
-  className,
-  type = "button",
-  ...rest
-}: Props) {
-  const cls = [
-    "button",
-    `button--${variant}`,
-    `button--${size}`,
-    isIconOnly && "button--icon-only",
-    fullWidth && "button--full-width",
-    className,
-  ]
+export function PillButton({ variant = "primary", size = "md", isIconOnly = false, fullWidth = false, className, type = "button", ...rest }: Props) {
+  const cls = ["button", `button--${variant}`, `button--${size}`, isIconOnly && "button--icon-only", fullWidth && "button--full-width", className]
     .filter(Boolean)
     .join(" ");
 

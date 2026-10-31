@@ -11,7 +11,6 @@ import {
   Grip,
   GripHorizontal,
   Hand,
-  LandPlot,
   LogOut,
   MousePointer2,
   Pentagon,
@@ -64,7 +63,6 @@ export const TOOL_GROUPS: Group[] = [
     divide: true,
     tools: [
       { id: "shape:venue", label: "Venue shape", icon: <SquareRoundCorner className={icon} /> },
-      { id: "shape:field", label: "Pitch", icon: <LandPlot className={icon} /> },
       { id: "shape:stage", label: "Stage", icon: <Presentation className={icon} /> },
     ],
   },
@@ -91,33 +89,21 @@ export const TOOL_GROUPS: Group[] = [
   },
 ];
 
-export const TOOL_HINT: Partial<Record<ToolId, string>> = {
-  select: "Drag whatever is selected to move it together · Click a row, then a chair to pick it · Drag across chairs to box-select · Double-click a seat for its section",
-  hand: "Drag to pan · Wheel to zoom",
-  section: "Click to place corners · Click the first corner or press Enter to finish · Esc cancels",
-  "rect-section": "Drag to draw a rectangular section",
-  row: "Click to start the row, move, then click again to place it",
-  "curved-row": "Click to start the row, click again for the other end, then move to bend it and click",
-  "row-block": "Click once, then move. The box is the block: a row or seat appears only when its circle fits inside. Click again to place it",
-  "shape:venue": "Drag the arena floor or pitch outline. Sections can then follow it from the section panel",
-  "shape:wall": "Drag a plain rectangle, such as a wall. It has no label",
-  "shape:column": "Drag a plain circle, such as a pillar. It has no label",
-  "poi:stairs": "Drag a bar between blocks. A stair icon sits in the middle",
-  "poi:entrance": "Drag a rectangle. A door icon sits in the middle",
-  "poi:exit": "Drag the direction the arrow points. A click leaves it pointing up the map",
-  loge: "Drag a box. It is one labelled area, such as a loge, rather than rows of seats",
-  "table-round": "Drag the size of a round table. Chairs sit around it",
-  "table-rect": "Drag the size of a rectangular table. Chairs sit on the two long sides",
-  "shape:rect": "Drag a labelled area, then name it. Golden circle, VIP, a concourse",
-  "shape:ellipse": "Drag a labelled ellipse, then name it",
-  text: "Click to place plain text, then edit it in the panel",
-};
-
 const buttonBase =
   "relative grid size-9 place-items-center rounded-lg text-neutral-600 transition-colors duration-150 hover:bg-neutral-200/70! hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-blue-500";
 const active = "bg-neutral-900! text-white! hover:bg-neutral-800!";
 
-export function ToolRail({ tool, onTool, lastInGroup, onPickInGroup }: { tool: ToolId; onTool: (t: ToolId) => void; lastInGroup: Record<string, ToolId>; onPickInGroup: (group: string, t: ToolId) => void }) {
+export function ToolRail({
+  tool,
+  onTool,
+  lastInGroup,
+  onPickInGroup,
+}: {
+  tool: ToolId;
+  onTool: (t: ToolId) => void;
+  lastInGroup: Record<string, ToolId>;
+  onPickInGroup: (group: string, t: ToolId) => void;
+}) {
   return (
     <nav aria-label="Tools" className="flex w-12 shrink-0 flex-col items-center gap-1 overflow-y-auto border-r border-neutral-200 bg-white py-2">
       {TOOL_GROUPS.map((group) => {

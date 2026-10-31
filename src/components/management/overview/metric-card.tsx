@@ -64,9 +64,7 @@ export function MetricCard({ title, label, href, metric, format, currency, lower
           <ChevronRight className="size-4 text-neutral-400 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden />
         </Link>
         <div className="mt-3 flex items-baseline justify-between gap-3">
-          <p className="text-[13px] text-neutral-500">
-            {hover != null && bucketStart != null ? bucketLabel(bucketStart, bucketMs) : label}
-          </p>
+          <p className="text-[13px] text-neutral-500">{hover != null && bucketStart != null ? bucketLabel(bucketStart, bucketMs) : label}</p>
           {hover == null ? <Delta metric={metric} lowerIsBetter={lowerIsBetter} /> : null}
         </div>
         <p className="mt-0.5 text-[24px] font-semibold leading-tight tracking-[-0.02em] tabular-nums">
@@ -121,21 +119,11 @@ export function MetricCard({ title, label, href, metric, format, currency, lower
             </>
           )}
           {hover != null ? (
-            <line
-              x1={x(hover)}
-              x2={x(hover)}
-              y1={0}
-              y2={H}
-              className="stroke-neutral-300"
-              strokeWidth={1}
-              vectorEffect="non-scaling-stroke"
-            />
+            <line x1={x(hover)} x2={x(hover)} y1={0} y2={H} className="stroke-neutral-300" strokeWidth={1} vectorEffect="non-scaling-stroke" />
           ) : null}
         </svg>
         {empty ? null : (
-          <span className="pointer-events-none absolute -top-2 right-4 bg-white pl-1.5 text-[11px] tabular-nums text-neutral-400">
-            {fmt(max)}
-          </span>
+          <span className="pointer-events-none absolute -top-2 right-4 bg-white pl-1.5 text-[11px] tabular-nums text-neutral-400">{fmt(max)}</span>
         )}
         {sparse && !empty
           ? points.map(([px, py]) => (
@@ -154,11 +142,7 @@ export function MetricCard({ title, label, href, metric, format, currency, lower
             aria-hidden
           />
         ) : null}
-        {empty ? (
-          <p className="pointer-events-none absolute inset-0 grid place-items-center text-[13px] text-neutral-400">
-            No orders in this range
-          </p>
-        ) : null}
+        {empty ? <p className="pointer-events-none absolute inset-0 grid place-items-center text-[13px] text-neutral-400">No orders in this range</p> : null}
       </div>
 
       <div className="flex justify-between px-4 pt-2 pb-3.5 text-[12px] text-neutral-400">

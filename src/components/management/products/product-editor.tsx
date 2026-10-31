@@ -53,9 +53,7 @@ const UNIT_LABELS: Record<NutritionUnit, string> = { g: "grams", ml: "millilitre
 
 export function ProductEditor({ target, stadiumSlug, currency, categories, onSaved, onDelete, onRequestClose }: Props) {
   const editing = target.kind === "edit" ? target.product : null;
-  const [initial] = useState(() =>
-    draftFrom(target.kind === "new" ? null : target.product, categories[0]?.id ?? "", target.kind === "copy"),
-  );
+  const [initial] = useState(() => draftFrom(target.kind === "new" ? null : target.product, categories[0]?.id ?? "", target.kind === "copy"));
   const [draft, setDraft] = useState<ProductDraft>(initial);
   const [triedSave, setTriedSave] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -265,10 +263,7 @@ export function ProductEditor({ target, stadiumSlug, currency, categories, onSav
           </div>
         </Section>
 
-        <Section
-          title="Options"
-          description="Groups of choices on this product. Each option can add to the price, lower it, or leave it."
-        >
+        <Section title="Options" description="Groups of choices on this product. Each option can add to the price, lower it, or leave it.">
           <OptionGroups groups={draft.groups} currency={currency} errors={errors} onChange={(groups) => set("groups", groups)} />
         </Section>
 
@@ -355,9 +350,7 @@ export function ProductEditor({ target, stadiumSlug, currency, categories, onSav
                     onClick={() => set("allergens", on ? draft.allergens.filter((x) => x !== a) : [...draft.allergens, a])}
                     className={cn(
                       "h-8 rounded-full border px-3 text-[13px] font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-blue-500",
-                      on
-                        ? "border-neutral-900 bg-neutral-900! text-white"
-                        : "border-neutral-200 bg-white! text-neutral-700 hover:bg-neutral-50!",
+                      on ? "border-neutral-900 bg-neutral-900! text-white" : "border-neutral-200 bg-white! text-neutral-700 hover:bg-neutral-50!",
                     )}
                   >
                     {a}
@@ -482,19 +475,7 @@ function Section({ title, description, children }: { title: string; description?
   );
 }
 
-function Field({
-  label,
-  htmlFor,
-  error,
-  aside,
-  children,
-}: {
-  label: string;
-  htmlFor?: string;
-  error?: string;
-  aside?: ReactNode;
-  children: ReactNode;
-}) {
+function Field({ label, htmlFor, error, aside, children }: { label: string; htmlFor?: string; error?: string; aside?: ReactNode; children: ReactNode }) {
   return (
     <div>
       <div className="mb-1.5 flex items-baseline justify-between gap-2 text-[13px]">
@@ -509,17 +490,7 @@ function Field({
   );
 }
 
-function Toggle({
-  label,
-  description,
-  checked,
-  onChange,
-}: {
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
+function Toggle({ label, description, checked, onChange }: { label: string; description: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <label className="flex cursor-pointer items-center gap-4 px-3 py-3">
       <span className="min-w-0 flex-1">

@@ -1,5 +1,5 @@
 import "server-only";
-import { revalidatePath } from "next/cache";
+import { revalidateStadiumShop } from "@/lib/revalidate";
 import { withDb } from "@/lib/db";
 import { emptySeatMap, parseSeatMap, type SeatMapDoc } from "@/lib/seatmap/schema";
 import { validateSeatMap } from "@/lib/seatmap/validate";
@@ -85,50 +85,53 @@ export async function publishSeatMap(slug: string, revision: number, doc: SeatMa
     const stadium = await db.stadium.findUnique({ where: { slug }, select: { id: true } });
     if (!stadium) return { ok: false as const, error: "Stadium not found." };
 
-    return db.$transaction(async (tx) => {
-      const now = new Date();
-      const live = { ...doc, sections: doc.sections.filter((s) => !s.loose) };
-      if (revision === 0) {
-        const existing = await tx.seatMap.findUnique({ where: { stadiumId: stadium.id }, select: { id: true } });
-        if (existing) return { ok: false as const, error: STALE };
-        await tx.seatMap.create({ data: { stadiumId: stadium.id, draft: doc, published: live, publishedAt: now, revision: 1 } });
-      } else {
-        const { count } = await tx.seatMap.updateMany({
-          where: { stadiumId: stadium.id, revision },
-          data: { draft: doc, published: live, publishedAt: now, revision: { increment: 1 } },
+    return db.$transaction(
+      async (tx) => {
+        const now = new Date();
+        const live = { ...doc, sections: doc.sections.filter((s) => !s.loose) };
+        if (revision === 0) {
+          const existing = await tx.seatMap.findUnique({ where: { stadiumId: stadium.id }, select: { id: true } });
+          if (existing) return { ok: false as const, error: STALE };
+          await tx.seatMap.create({ data: { stadiumId: stadium.id, draft: doc, published: live, publishedAt: now, revision: 1 } });
+        } else {
+          const { count } = await tx.seatMap.updateMany({
+            where: { stadiumId: stadium.id, revision },
+            data: { draft: doc, published: live, publishedAt: now, revision: { increment: 1 } },
+          });
+          if (!count) return { ok: false as const, error: STALE };
+        }
+
+        const onMap = new Set(live.sections.map((s) => s.code));
+        for (const [i, s] of live.sections.entries()) {
+          await tx.section.upsert({
+            where: { stadiumId_code: { stadiumId: stadium.id, code: s.code } },
+            create: { stadiumId: stadium.id, code: s.code, name: s.name, sortOrder: i },
+            update: { name: s.name, sortOrder: i },
+          });
+        }
+
+        const leaving = await tx.section.findMany({
+          where: { stadiumId: stadium.id, code: { notIn: [...onMap] } },
+          select: { id: true, code: true, _count: { select: { orders: true } } },
         });
-        if (!count) return { ok: false as const, error: STALE };
-      }
+        const removable = leaving.filter((s) => s._count.orders === 0).map((s) => s.id);
+        if (removable.length) await tx.section.deleteMany({ where: { id: { in: removable } } });
+        const kept = leaving.filter((s) => s._count.orders > 0).map((s) => s.code);
+        if (kept.length) {
+          await tx.section.updateMany({ where: { stadiumId: stadium.id, code: { in: kept } }, data: { sortOrder: live.sections.length } });
+        }
 
-      const onMap = new Set(live.sections.map((s) => s.code));
-      for (const [i, s] of live.sections.entries()) {
-        await tx.section.upsert({
-          where: { stadiumId_code: { stadiumId: stadium.id, code: s.code } },
-          create: { stadiumId: stadium.id, code: s.code, name: s.name, sortOrder: i },
-          update: { name: s.name, sortOrder: i },
+        const sections = await tx.section.findMany({
+          where: { stadiumId: stadium.id },
+          orderBy: { sortOrder: "asc" },
+          select: { code: true, name: true },
         });
-      }
-
-      const leaving = await tx.section.findMany({
-        where: { stadiumId: stadium.id, code: { notIn: [...onMap] } },
-        select: { id: true, code: true, _count: { select: { orders: true } } },
-      });
-      const removable = leaving.filter((s) => s._count.orders === 0).map((s) => s.id);
-      if (removable.length) await tx.section.deleteMany({ where: { id: { in: removable } } });
-      const kept = leaving.filter((s) => s._count.orders > 0).map((s) => s.code);
-      if (kept.length) {
-        await tx.section.updateMany({ where: { stadiumId: stadium.id, code: { in: kept } }, data: { sortOrder: live.sections.length } });
-      }
-
-      const sections = await tx.section.findMany({
-        where: { stadiumId: stadium.id },
-        orderBy: { sortOrder: "asc" },
-        select: { code: true, name: true },
-      });
-      return { ok: true as const, revision: revision + 1, publishedAt: now.getTime(), sections, kept };
-    }, { timeout: 30_000, maxWait: 10_000 });
+        return { ok: true as const, revision: revision + 1, publishedAt: now.getTime(), sections, kept };
+      },
+      { timeout: 30_000, maxWait: 10_000 },
+    );
   });
 
-  if (result.ok) revalidatePath(`/${slug}`, "layout");
+  if (result.ok) revalidateStadiumShop(slug);
   return result;
 }

@@ -188,9 +188,7 @@ export function transformSelection(doc: SeatMapDoc, sel: Selection, t: Rigid): S
   // keeps its place beside that section, including the turn a corner adds,
   // instead of sliding off in a straight line.
   const leaders =
-    Math.abs(t.angle) > 1e-6
-      ? []
-      : doc.sections.filter((s) => parts.sections.has(s.id) && s.follow !== "off" && s.display === "seats" && s.rows.length > 0);
+    Math.abs(t.angle) > 1e-6 ? [] : doc.sections.filter((s) => parts.sections.has(s.id) && s.follow !== "off" && s.display === "seats" && s.rows.length > 0);
   const along = new Map<string, SeatMapSection>();
   const rides = new Map<string, Rigid>();
   for (const section of leaders) {
@@ -256,7 +254,8 @@ export function transformSelection(doc: SeatMapDoc, sel: Selection, t: Rigid): S
 
 /** A following section slides on the venue path. Anything else moves in a straight line. */
 function moveDraggedSection(section: SeatMapSection, venues: readonly SeatMapDecoration[], t: Rigid): SeatMapSection {
-  if (section.follow === "off" || Math.abs(t.angle) > 1e-6 || section.display !== "seats" || !section.rows.length || !venues.length) return moveSection(section, t);
+  if (section.follow === "off" || Math.abs(t.angle) > 1e-6 || section.display !== "seats" || !section.rows.length || !venues.length)
+    return moveSection(section, t);
   return moveAlongVenue(section, venues, t.dx, t.dy);
 }
 
@@ -559,9 +558,7 @@ export function selectionBounds(scene: Scene, sel: Selection): Bounds | null {
       if (p) {
         b = unionBounds(
           b,
-          p.w > 0 && p.h > 0
-            ? boundsOf(boxCorners(p.x, p.y, p.w, p.h, p.rotation))
-            : { minX: p.x - 6, minY: p.y - 6, maxX: p.x + 6, maxY: p.y + 6 },
+          p.w > 0 && p.h > 0 ? boundsOf(boxCorners(p.x, p.y, p.w, p.h, p.rotation)) : { minX: p.x - 6, minY: p.y - 6, maxX: p.x + 6, maxY: p.y + 6 },
         );
       }
     }

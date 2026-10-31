@@ -21,14 +21,7 @@ type Props<T extends string> = {
 };
 
 /** iOS-style segmented control. The thumb slides between segments. */
-export function Segmented<T extends string>({
-  value,
-  onChange,
-  options,
-  layoutId,
-  size = "md",
-  ...rest
-}: Props<T>) {
+export function Segmented<T extends string>({ value, onChange, options, layoutId, size = "md", ...rest }: Props<T>) {
   return (
     <div
       role="tablist"
@@ -45,11 +38,7 @@ export function Segmented<T extends string>({
             role="tab"
             aria-selected={selected}
             onClick={() => onChange(o.id)}
-            className={[
-              "relative rounded-[14px] px-3 text-left",
-              size === "lg" ? "py-3" : "py-2",
-              o.hint ? "" : "text-center",
-            ].join(" ")}
+            className={["relative rounded-[14px] px-3 text-left", size === "lg" ? "py-3" : "py-2", o.hint ? "" : "text-center"].join(" ")}
           >
             {selected ? (
               <m.span
@@ -59,20 +48,12 @@ export function Segmented<T extends string>({
               />
             ) : null}
             <span
-              className={[
-                "relative z-10 block text-[15px] font-medium leading-tight transition-colors",
-                selected ? "text-foreground" : "text-muted",
-              ].join(" ")}
+              className={["relative z-10 block text-[15px] font-medium leading-tight transition-colors", selected ? "text-foreground" : "text-muted"].join(" ")}
             >
               {o.label}
             </span>
             {o.hint ? (
-              <span
-                className={[
-                  "relative z-10 mt-0.5 block text-[13px] leading-tight transition-colors",
-                  selected ? "text-muted" : "text-muted/70",
-                ].join(" ")}
-              >
+              <span className={["relative z-10 mt-0.5 block text-[13px] leading-tight transition-colors", selected ? "text-muted" : "text-muted/70"].join(" ")}>
                 {o.hint}
               </span>
             ) : null}

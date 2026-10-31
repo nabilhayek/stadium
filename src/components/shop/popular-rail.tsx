@@ -78,12 +78,8 @@ export function PopularRail({ stadiumSlug, currency, items, lastIds, animateIn }
     if (e.pointerType === "touch" || e.button !== 0) return;
     const el = scrollerRef.current;
     if (!el) return;
+    // Capture only after the pointer moves — capturing on down swallows clicks on child Add buttons.
     drag.current = { id: e.pointerId, x: e.clientX, scroll: el.scrollLeft, moved: false };
-    try {
-      el.setPointerCapture(e.pointerId);
-    } catch {
-      /* synthetic pointers */
-    }
     setDragging(true);
   }
 
@@ -93,8 +89,15 @@ export function PopularRail({ stadiumSlug, currency, items, lastIds, animateIn }
     if (!d || !el || e.pointerId !== d.id) return;
     const dx = e.clientX - d.x;
     if (!d.moved && Math.abs(dx) < 4) return;
-    d.moved = true;
-    suppressClick.current = true;
+    if (!d.moved) {
+      d.moved = true;
+      suppressClick.current = true;
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {
+        /* synthetic pointers */
+      }
+    }
     el.scrollLeft = Math.max(0, Math.min(maxScroll(el), d.scroll - dx));
     sync(el);
   }
@@ -152,16 +155,13 @@ export function PopularRail({ stadiumSlug, currency, items, lastIds, animateIn }
             badge={lastIds.has(p.id) ? "Last time" : undefined}
             className={`w-[168px] shrink-0 ${i === last ? "snap-end" : "snap-start"}`}
             compact
+            eager={i < 2}
           />
         ))}
       </m.ul>
 
       {pages > 1 ? (
-        <div
-          role="tablist"
-          aria-label="Popular items"
-          className="mt-1 flex items-center justify-center gap-1.5"
-        >
+        <div role="tablist" aria-label="Popular items" className="mt-1 flex items-center justify-center">
           {items.slice(0, -1).map((p, i) => {
             const active = i === dotIndex;
             return (
@@ -172,7 +172,7 @@ export function PopularRail({ stadiumSlug, currency, items, lastIds, animateIn }
                 aria-selected={active}
                 aria-label={p.name}
                 onClick={() => snapTo(i === pages - 1 ? last : i)}
-                className="grid h-5 w-4 place-items-center"
+                className="grid size-6 place-items-center"
               >
                 <m.span
                   aria-hidden

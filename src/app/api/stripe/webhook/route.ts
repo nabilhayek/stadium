@@ -2,8 +2,6 @@ import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { finalizeFromStripe, markPaymentFailed, markPaymentProcessing, markRefunded } from "@/lib/payments/service";
 
-export const runtime = "nodejs";
-
 /**
  * Backup for a phone that pays and then loses signal.
  * The order is created here even if the browser never calls us back.

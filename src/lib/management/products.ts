@@ -1,5 +1,5 @@
 import "server-only";
-import { revalidatePath } from "next/cache";
+import { revalidateStadiumList, revalidateStadiumShop } from "@/lib/revalidate";
 import { del, list } from "@vercel/blob";
 import { generateClientTokenFromReadWriteToken } from "@vercel/blob/client";
 import { Prisma } from "@/generated/prisma/client";
@@ -70,7 +70,7 @@ async function stadiumId(slug: string) {
 
 /** The shop pages are cached for a minute; edits should show up on the next request. */
 function refreshShop(slug: string) {
-  revalidatePath(`/${slug}`, "layout");
+  revalidateStadiumShop(slug);
 }
 
 function removeImage(url: string | null | undefined) {
@@ -148,18 +148,21 @@ export async function saveCategories(list: CategoryData): Promise<Result<{ categ
       return slug;
     };
 
-    await db.$transaction(async (tx) => {
-      if (removed.length > 0) await tx.category.deleteMany({ where: { id: { in: removed.map((c) => c.id) } } });
-      for (const [i, c] of list.entries()) {
-        if (c.id && kept.has(c.id)) await tx.category.update({ where: { id: c.id }, data: { name: c.name, sortOrder: i } });
-        else await tx.category.create({ data: { name: c.name, slug: freeSlug(c.name), sortOrder: i } });
-      }
-    }, { timeout: 20_000 });
+    await db.$transaction(
+      async (tx) => {
+        if (removed.length > 0) await tx.category.deleteMany({ where: { id: { in: removed.map((c) => c.id) } } });
+        for (const [i, c] of list.entries()) {
+          if (c.id && kept.has(c.id)) await tx.category.update({ where: { id: c.id }, data: { name: c.name, sortOrder: i } });
+          else await tx.category.create({ data: { name: c.name, slug: freeSlug(c.name), sortOrder: i } });
+        }
+      },
+      { timeout: 20_000 },
+    );
     return { categories: await readCategories(db) };
   });
 
   if ("error" in outcome) return { ok: false, error: outcome.error ?? "Couldn’t save the categories." };
-  revalidatePath("/", "layout");
+  revalidateStadiumList();
   return { ok: true, categories: outcome.categories };
 }
 
@@ -259,32 +262,35 @@ export async function updateProduct(slug: string, productId: string, data: Produ
     const owned = new Map(current.optionGroups.map((g) => [g.id, new Set(g.options.map((o) => o.id))]));
     const keptGroups = data.optionGroups.filter((g) => g.id && owned.has(g.id)).map((g) => g.id!);
 
-    const row = await db.$transaction(async (tx) => {
-      await tx.optionGroup.deleteMany({ where: { productId, id: { notIn: keptGroups } } });
-      for (const [gi, g] of data.optionGroups.entries()) {
-        const groupData = {
-          name: g.name,
-          selection: g.selection,
-          required: g.required,
-          maxSelect: g.selection === "MULTIPLE" ? g.maxSelect : null,
-          sortOrder: gi,
-        };
-        const ownedOptions = g.id ? owned.get(g.id) : undefined;
-        if (!g.id || !ownedOptions) {
-          await tx.optionGroup.create({ data: { ...groupsCreate([g])[0], sortOrder: gi, productId } });
-          continue;
+    const row = await db.$transaction(
+      async (tx) => {
+        await tx.optionGroup.deleteMany({ where: { productId, id: { notIn: keptGroups } } });
+        for (const [gi, g] of data.optionGroups.entries()) {
+          const groupData = {
+            name: g.name,
+            selection: g.selection,
+            required: g.required,
+            maxSelect: g.selection === "MULTIPLE" ? g.maxSelect : null,
+            sortOrder: gi,
+          };
+          const ownedOptions = g.id ? owned.get(g.id) : undefined;
+          if (!g.id || !ownedOptions) {
+            await tx.optionGroup.create({ data: { ...groupsCreate([g])[0], sortOrder: gi, productId } });
+            continue;
+          }
+          const keptOptions = g.options.filter((o) => o.id && ownedOptions.has(o.id)).map((o) => o.id!);
+          await tx.option.deleteMany({ where: { groupId: g.id, id: { notIn: keptOptions } } });
+          await tx.optionGroup.update({ where: { id: g.id }, data: groupData });
+          for (const [oi, o] of g.options.entries()) {
+            const optionData = { name: o.name, priceCents: o.priceCents, isDefault: o.isDefault, isSoldOut: o.isSoldOut, sortOrder: oi };
+            if (o.id && ownedOptions.has(o.id)) await tx.option.update({ where: { id: o.id }, data: optionData });
+            else await tx.option.create({ data: { ...optionData, groupId: g.id } });
+          }
         }
-        const keptOptions = g.options.filter((o) => o.id && ownedOptions.has(o.id)).map((o) => o.id!);
-        await tx.option.deleteMany({ where: { groupId: g.id, id: { notIn: keptOptions } } });
-        await tx.optionGroup.update({ where: { id: g.id }, data: groupData });
-        for (const [oi, o] of g.options.entries()) {
-          const optionData = { name: o.name, priceCents: o.priceCents, isDefault: o.isDefault, isSoldOut: o.isSoldOut, sortOrder: oi };
-          if (o.id && ownedOptions.has(o.id)) await tx.option.update({ where: { id: o.id }, data: optionData });
-          else await tx.option.create({ data: { ...optionData, groupId: g.id } });
-        }
-      }
-      return tx.product.update({ where: { id: productId }, data: scalars(data), select: PRODUCT_SELECT });
-    }, { timeout: 20_000 });
+        return tx.product.update({ where: { id: productId }, data: scalars(data), select: PRODUCT_SELECT });
+      },
+      { timeout: 20_000 },
+    );
     return { row, oldImage: current.imageUrl };
   });
 
@@ -378,7 +384,13 @@ export async function imageUploadToken(slug: string, filename: string, contentTy
   if (!IMAGE_TYPES.includes(contentType)) return { ok: false, error: "Use a JPG, PNG, WebP or AVIF image." };
   sweepOrphanImages(slug).catch((error) => console.warn("Could not sweep unused product images.", error));
   const ext = contentType.split("/")[1].replace("jpeg", "jpg");
-  const base = filename.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "product";
+  const base =
+    filename
+      .replace(/\.[^.]+$/, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 40) || "product";
   const pathname = `${imagePrefix(slug)}${base}.${ext}`;
   const token = await generateClientTokenFromReadWriteToken({
     pathname,

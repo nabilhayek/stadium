@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 
 const ITEM = 40;
 const VISIBLE = 5;
@@ -19,6 +19,7 @@ function Wheel({ items, index, onIndex, label, className }: WheelProps) {
   const ref = useRef<HTMLUListElement>(null);
   const settle = useRef<number | undefined>(undefined);
   const dragging = useRef(false);
+  const id = useId();
 
   useEffect(() => {
     const el = ref.current;
@@ -39,20 +40,33 @@ function Wheel({ items, index, onIndex, label, className }: WheelProps) {
     }, 80);
   }
 
+  function onKeyDown(e: React.KeyboardEvent<HTMLUListElement>) {
+    const last = items.length - 1;
+    const next = { ArrowUp: index - 1, ArrowDown: index + 1, Home: 0, End: last }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    onIndex(Math.max(0, Math.min(last, next)));
+  }
+
   return (
     <ul
       ref={ref}
       role="listbox"
       aria-label={label}
+      aria-activedescendant={`${id}-${index}`}
+      tabIndex={0}
+      onKeyDown={onKeyDown}
       onScroll={onScroll}
-      className={["wheel relative", className].filter(Boolean).join(" ")}
+      className={["wheel relative rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-blue-500/30", className].filter(Boolean).join(" ")}
       style={{ height: ITEM * VISIBLE, paddingBlock: PAD }}
     >
       {items.map((it, i) => {
         const d = Math.min(3, Math.abs(i - index));
         return (
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events -- the listbox handles the arrow keys for its options
           <li
             key={i}
+            id={`${id}-${i}`}
             role="option"
             aria-selected={i === index}
             onClick={() => onIndex(i)}
@@ -100,33 +114,14 @@ export function TimeWheel({ value, onChange }: Props) {
 
   return (
     <div className="relative rounded-[20px] border border-border bg-surface px-3">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-3 top-1/2 h-10 -translate-y-1/2 rounded-xl bg-surface-secondary"
-      />
+      <div aria-hidden className="pointer-events-none absolute inset-x-3 top-1/2 h-10 -translate-y-1/2 rounded-xl bg-surface-secondary" />
       <div className="relative grid grid-cols-[1fr_auto_1fr_1fr] items-center">
-        <Wheel
-          label="Hour"
-          items={HOURS}
-          index={h12 - 1}
-          onIndex={(i) => commit(i + 1, minute, period)}
-        />
+        <Wheel label="Hour" items={HOURS} index={h12 - 1} onIndex={(i) => commit(i + 1, minute, period)} />
         <span className="pb-1 text-[22px] font-semibold text-muted" aria-hidden>
           :
         </span>
-        <Wheel
-          label="Minute"
-          items={MINUTES}
-          index={minute}
-          onIndex={(i) => commit(h12, i, period)}
-        />
-        <Wheel
-          label="AM or PM"
-          items={PERIODS}
-          index={period}
-          onIndex={(i) => commit(h12, minute, i)}
-          className="text-[18px]"
-        />
+        <Wheel label="Minute" items={MINUTES} index={minute} onIndex={(i) => commit(h12, i, period)} />
+        <Wheel label="AM or PM" items={PERIODS} index={period} onIndex={(i) => commit(h12, minute, i)} className="text-[18px]" />
       </div>
     </div>
   );

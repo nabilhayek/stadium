@@ -13,7 +13,7 @@ type Props = {
 export function DeclineDialog({ orderNumber, onCancel, onConfirm }: Props) {
   const [picked, setPicked] = useState<(typeof DECLINE_REASONS)[number]["id"]>("missing-items");
   const [other, setOther] = useState("");
-  const reason = picked === "other" ? other.trim() : DECLINE_REASONS.find((r) => r.id === picked)?.text ?? "";
+  const reason = picked === "other" ? other.trim() : (DECLINE_REASONS.find((r) => r.id === picked)?.text ?? "");
   const canConfirm = reason.length > 0 && reason.length <= MAX_DECLINE_REASON;
 
   useEffect(() => {
@@ -55,10 +55,7 @@ export function DeclineDialog({ orderNumber, onCancel, onConfirm }: Props) {
                 ].join(" ")}
               >
                 {r.label}
-                <span
-                  aria-hidden
-                  className={["size-2.5 rounded-full", on ? "bg-background" : "border border-border bg-transparent"].join(" ")}
-                />
+                <span aria-hidden className={["size-2.5 rounded-full", on ? "bg-background" : "border border-border bg-transparent"].join(" ")} />
               </button>
             );
           })}
@@ -68,6 +65,7 @@ export function DeclineDialog({ orderNumber, onCancel, onConfirm }: Props) {
           <label className="mt-3 block">
             <span className="sr-only">Reason for the customer</span>
             <textarea
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- appears only after choosing "Other", so typing the reason is the next step
               autoFocus
               rows={2}
               maxLength={MAX_DECLINE_REASON}

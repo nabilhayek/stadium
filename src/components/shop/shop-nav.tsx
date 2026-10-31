@@ -2,8 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { usePathname } from "@/i18n/navigation";
 import { Menu, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 const NavDrawer = dynamic(() => import("./nav-drawer").then((mod) => mod.NavDrawer), {
   ssr: false,
@@ -13,6 +15,7 @@ type Props = { stadiumSlug: string };
 
 /** Top-right hamburger. The drawer (HeroUI) loads the first time the menu opens. */
 export function ShopNav({ stadiumSlug }: Props) {
+  const t = useTranslations("shop");
   const pathname = usePathname();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -45,23 +48,17 @@ export function ShopNav({ stadiumSlug }: Props) {
             onClick={open}
             onPointerEnter={warm}
             onFocus={warm}
-            aria-label="Open menu"
+            aria-label={t("openMenu")}
             aria-expanded={isOpen}
             aria-haspopup="dialog"
             className="pointer-events-auto grid size-10 place-items-center rounded-full bg-white text-black [box-shadow:0px_0px_20px_0px_rgba(0,0,0,0.5)]"
           >
-            {isOpen ? (
-              <X className="size-4" strokeWidth={2} aria-hidden />
-            ) : (
-              <Menu className="size-4" strokeWidth={2} aria-hidden />
-            )}
+            {isOpen ? <X className="size-4" strokeWidth={2} aria-hidden /> : <Menu className="size-4" strokeWidth={2} aria-hidden />}
           </button>
         </div>
       </div>
 
-      {hasOpened ? (
-        <NavDrawer stadiumSlug={stadiumSlug} isOpen={isOpen} onOpenChange={setIsOpen} />
-      ) : null}
+      {hasOpened ? <NavDrawer stadiumSlug={stadiumSlug} isOpen={isOpen} onOpenChange={setIsOpen} /> : null}
     </>
   );
 }

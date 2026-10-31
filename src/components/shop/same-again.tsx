@@ -20,9 +20,7 @@ export function SameAgain({ order, catalog, className }: Props) {
   const { lines, skipped } = cartLinesFromReceipt(order, catalog);
 
   if (lines.length === 0) {
-    return (
-      <p className={`text-[13px] text-muted ${className ?? ""}`}>No longer on the menu.</p>
-    );
+    return <p className={`text-[13px] text-muted ${className ?? ""}`}>No longer on the menu.</p>;
   }
 
   function refill() {

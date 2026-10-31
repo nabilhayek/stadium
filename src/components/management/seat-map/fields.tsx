@@ -4,12 +4,27 @@ import { useState, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+export const titleClass = "text-[12px] font-semibold tracking-wide text-neutral-900 uppercase";
+
+/** Fixed title bar at the top of a side drawer, with optional icon actions on the right. */
+export function DrawerHeader({ title, children }: { title: string; children?: ReactNode }) {
+  return (
+    <div className="flex h-11 shrink-0 items-center gap-2 border-b border-neutral-200 pr-1.5 pl-4">
+      <h2 className={titleClass}>{title}</h2>
+      {children ? <div className="ml-auto flex items-center">{children}</div> : null}
+    </div>
+  );
+}
+
+export const iconButton =
+  "grid size-8 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100! hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:opacity-35";
+
 export function Panel({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
     <section className="border-b border-neutral-200 px-4 py-4 last:border-b-0">
       {title ? (
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h3 className="text-[12px] font-semibold tracking-wide text-neutral-900 uppercase">{title}</h3>
+          <h3 className={titleClass}>{title}</h3>
           {action}
         </div>
       ) : null}

@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, ArrowUpRight, LayoutGrid, LogOut, Map as MapIcon, Package, ReceiptText, Search } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
+import { LanguageField } from "@/components/i18n/language-field";
+import { AlertTriangle, ArrowUpRight, LayoutGrid, LogOut, Map as MapIcon, Package, ReceiptText, Search, Settings2 } from "lucide-react";
 import { signOut } from "@/lib/auth-client";
 import type { BoardStatus } from "@/lib/management/board";
 import { cn } from "@/lib/utils";
@@ -17,22 +20,25 @@ type Props = {
   children: ReactNode;
 };
 
-const BOARD_ROWS: { id: BoardStatus; label: string; dot: string }[] = [
-  { id: "new", label: "New", dot: "bg-blue-500" },
-  { id: "accepted", label: "In progress", dot: "bg-amber-500" },
-  { id: "ready", label: "Ready", dot: "bg-green-500" },
+const BOARD_ROWS: { id: BoardStatus; label: "new" | "inProgress" | "ready"; dot: string }[] = [
+  { id: "new", label: "new", dot: "bg-blue-500" },
+  { id: "accepted", label: "inProgress", dot: "bg-amber-500" },
+  { id: "ready", label: "ready", dot: "bg-green-500" },
 ];
 
 export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, children }: Props) {
+  const t = useTranslations("desk");
   const pathname = usePathname();
   const base = `/${stadiumSlug}/management`;
   const orders = `${base}/orders`;
   const products = `${base}/products`;
   const seatMap = `${base}/seat-map`;
+  const admin = `${base}/admin`;
   const onOrders = pathname.startsWith(orders);
   const onProducts = pathname.startsWith(products);
   const onSeatMap = pathname.startsWith(seatMap);
-  const page = onOrders ? "Orders" : onProducts ? "Products" : onSeatMap ? "Seat map" : "Overview";
+  const onAdmin = pathname.startsWith(admin);
+  const page = onOrders ? "orders" : onProducts ? "products" : onSeatMap ? "seatMap" : onAdmin ? "admin" : "overview";
 
   return (
     <div className="flex min-h-dvh bg-white text-neutral-900">
@@ -43,33 +49,40 @@ export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, chi
           </span>
           <span className="flex min-w-0 flex-col">
             <span className="truncate text-[14px] font-semibold leading-tight">{stadiumName}</span>
-            <span className="text-[12px] leading-tight text-neutral-500">Kitchen</span>
+            <span className="text-[12px] leading-tight text-neutral-500">{t("kitchen")}</span>
           </span>
         </div>
 
-        {onSeatMap ? null : (
+        {onSeatMap || onAdmin ? null : (
           <div className="px-3 pt-3">
-            <FindOrder key={onProducts ? "products" : "orders"} label={onProducts ? "Find product…" : "Find order…"} />
+            <FindOrder
+              key={onProducts ? "products" : "orders"}
+              label={onProducts ? t("findProduct") : t("findOrder")}
+              name={onProducts ? t("findProductLabel") : t("findOrderLabel")}
+            />
           </div>
         )}
 
-        <nav className="flex-1 overflow-y-auto px-3 pt-4" aria-label="Kitchen">
+        <nav className="flex-1 overflow-y-auto px-3 pt-4" aria-label={t("kitchen")}>
           <ul className="flex flex-col gap-0.5">
             <NavLink href={base} icon={<LayoutGrid className="size-4" />} exact>
-              Overview
+              {t("overview")}
             </NavLink>
             <NavLink href={orders} icon={<ReceiptText className="size-4" />}>
-              Orders
+              {t("orders")}
             </NavLink>
             <NavLink href={products} icon={<Package className="size-4" />}>
-              Products
+              {t("products")}
             </NavLink>
             <NavLink href={seatMap} icon={<MapIcon className="size-4" />}>
-              Seat map
+              {t("seatMap")}
+            </NavLink>
+            <NavLink href={admin} icon={<Settings2 className="size-4" />}>
+              {t("admin")}
             </NavLink>
           </ul>
 
-          <h2 className="mt-6 mb-1 px-2 text-[12px] font-medium text-neutral-500">Board</h2>
+          <h2 className="mt-6 mb-1 px-2 text-[12px] font-medium text-neutral-500">{t("board")}</h2>
           <ul className="flex flex-col gap-0.5">
             {BOARD_ROWS.map((row) => (
               <li key={row.id}>
@@ -78,7 +91,7 @@ export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, chi
                   className="flex h-8 items-center gap-2.5 rounded-lg px-2 text-[14px] text-neutral-600 transition-colors duration-150 hover:bg-neutral-200/60 hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-blue-500"
                 >
                   <span className={cn("ml-1 size-2 rounded-full", row.dot)} aria-hidden />
-                  {row.label}
+                  {t(row.label)}
                   <span className="ml-auto text-[13px] tabular-nums text-neutral-500">{board[row.id]}</span>
                 </Link>
               </li>
@@ -88,7 +101,10 @@ export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, chi
 
         <div className="flex flex-col gap-3 p-3">
           <Attention waiting={waiting} href={orders} />
-          <Account email={email} loginHref={`${base}/login`} />
+          <div className="flex flex-col gap-2 border-t border-neutral-200 pt-3">
+            <LanguageField tone="desk" />
+            <Account email={email} loginHref={`${base}/login`} />
+          </div>
         </div>
       </aside>
 
@@ -97,30 +113,36 @@ export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, chi
           <nav aria-label="Breadcrumb" className="hidden min-w-0 sm:block">
             <ol className="flex items-center gap-1.5 text-[14px] whitespace-nowrap">
               <li className="truncate text-neutral-500 lg:hidden">{stadiumName}</li>
-              <li className="hidden text-neutral-500 lg:block">Kitchen</li>
+              <li className="hidden text-neutral-500 lg:block">{t("kitchen")}</li>
               <li aria-hidden className="text-neutral-300">
                 /
               </li>
               <li aria-current="page" className="font-medium">
-                {page}
+                {t(page)}
               </li>
             </ol>
           </nav>
           <div className="ml-auto flex min-w-0 items-center gap-2">
-            <nav aria-label="Kitchen" className="-mx-1 flex min-w-0 items-center gap-1 overflow-x-auto px-1 [scrollbar-width:none] lg:hidden">
-              <MobileTab href={base} active={page === "Overview"}>
-                Overview
+            <nav aria-label={t("kitchen")} className="-mx-1 flex min-w-0 items-center gap-1 overflow-x-auto px-1 [scrollbar-width:none] lg:hidden">
+              <MobileTab href={base} active={page === "overview"}>
+                {t("overview")}
               </MobileTab>
               <MobileTab href={orders} active={onOrders}>
-                Orders
+                {t("orders")}
               </MobileTab>
               <MobileTab href={products} active={onProducts}>
-                Products
+                {t("products")}
               </MobileTab>
               <MobileTab href={seatMap} active={onSeatMap}>
-                Seat map
+                {t("seatMap")}
+              </MobileTab>
+              <MobileTab href={admin} active={onAdmin}>
+                {t("admin")}
               </MobileTab>
             </nav>
+            <div className="lg:hidden">
+              <LanguageField tone="desk" layout="select" />
+            </div>
             {onProducts ? (
               <a
                 href={`/${stadiumSlug}`}
@@ -128,22 +150,22 @@ export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, chi
                 rel="noreferrer"
                 className="hidden h-8 items-center gap-1.5 rounded-full border border-neutral-200 px-3 text-[13px] font-medium text-neutral-700 transition-colors duration-150 hover:bg-neutral-50 sm:inline-flex"
               >
-                View shop
+                {t("viewShop")}
                 <ArrowUpRight className="size-3.5" aria-hidden />
               </a>
-            ) : onSeatMap ? null : onOrders ? (
+            ) : onSeatMap || onAdmin ? null : onOrders ? (
               <span className="hidden items-center gap-2 rounded-full border border-neutral-200 px-3 py-1 text-[13px] font-medium text-neutral-700 sm:inline-flex">
                 <span className="relative size-2 rounded-full bg-green-500">
                   <span className="absolute inset-0 rounded-full bg-green-500 opacity-60 [animation:ping_1.8s_ease-out_infinite] motion-reduce:hidden" />
                 </span>
-                Live
+                {t("live")}
               </span>
             ) : (
               <Link
                 href={orders}
                 className="inline-flex h-8 items-center gap-1.5 rounded-full bg-neutral-900! px-3.5 text-[13px] font-medium text-white! transition-colors duration-150 hover:bg-neutral-700! focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
               >
-                Open board
+                {t("openBoard")}
                 <ArrowUpRight className="size-3.5" aria-hidden />
               </Link>
             )}
@@ -195,7 +217,7 @@ function NavLink({ href, icon, exact, children }: { href: string; icon: ReactNod
 }
 
 /** Filters the current list through `?q=` without a server round-trip. */
-function FindOrder({ label }: { label: string }) {
+function FindOrder({ label, name }: { label: string; name: string }) {
   const params = useSearchParams();
   const input = useRef<HTMLInputElement>(null);
 
@@ -228,7 +250,7 @@ function FindOrder({ label }: { label: string }) {
         defaultValue={params.get("q") ?? ""}
         onChange={(e) => update(e.target.value.trim())}
         placeholder={label}
-        aria-label={label.replace("…", "")}
+        aria-label={name}
         className="min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-neutral-400"
       />
       <kbd className="rounded-md border border-neutral-200 bg-neutral-50 px-1.5 text-[11px] leading-5 text-neutral-500">F</kbd>
@@ -237,37 +259,27 @@ function FindOrder({ label }: { label: string }) {
 }
 
 function Attention({ waiting, href }: { waiting: number; href: string }) {
-  if (waiting === 0) {
-    return (
-      <div className="rounded-xl border border-neutral-200 bg-white p-3">
-        <p className="flex items-center gap-2 text-[13px] font-medium">
-          <span className="size-2 rounded-full bg-green-500" aria-hidden />
-          Board is on time
-        </p>
-        <p className="mt-1 text-[13px] leading-snug text-neutral-500">No new order is past its accept window.</p>
-      </div>
-    );
-  }
+  const t = useTranslations("desk");
+  if (waiting === 0) return null;
   return (
     <div className="rounded-xl border border-orange-200 bg-orange-50 p-3">
       <p className="flex items-center gap-2 text-[13px] font-medium text-orange-900">
         <AlertTriangle className="size-4 text-orange-500" aria-hidden />
-        Action required
+        {t("actionRequired")}
       </p>
-      <p className="mt-1 text-[13px] leading-snug text-orange-800">
-        {waiting === 1 ? "1 new order is" : `${waiting} new orders are`} waiting to be accepted.
-      </p>
+      <p className="mt-1 text-[13px] leading-snug text-orange-800">{t("waiting", { count: waiting })}</p>
       <Link
         href={href}
         className="mt-2.5 flex h-8 items-center justify-center rounded-full bg-orange-500! text-[13px] font-medium text-white! transition-colors duration-150 hover:bg-orange-600! focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
       >
-        Review orders
+        {t("reviewOrders")}
       </Link>
     </div>
   );
 }
 
 function Account({ email, loginHref }: { email: string; loginHref: string }) {
+  const t = useTranslations("desk");
   const router = useRouter();
 
   async function out() {
@@ -277,7 +289,7 @@ function Account({ email, loginHref }: { email: string; loginHref: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2.5 border-t border-neutral-200 pt-3">
+    <div className="flex items-center gap-2.5">
       <span className="grid size-7 shrink-0 place-items-center rounded-full bg-neutral-200 text-[12px] font-semibold uppercase text-neutral-700">
         {email.charAt(0)}
       </span>
@@ -285,8 +297,8 @@ function Account({ email, loginHref }: { email: string; loginHref: string }) {
       <button
         type="button"
         onClick={out}
-        aria-label="Sign out"
-        title="Sign out"
+        aria-label={t("signOut")}
+        title={t("signOut")}
         className="grid size-8 place-items-center rounded-lg text-neutral-500 transition-colors duration-150 hover:bg-neutral-200/60! hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-blue-500"
       >
         <LogOut className="size-4" />
