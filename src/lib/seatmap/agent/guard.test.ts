@@ -33,7 +33,11 @@ describe("promptMessages", () => {
 
   it("drops tool-only messages without text", () => {
     const messages: UIMessage[] = [
-      { id: "1", role: "assistant", parts: [{ type: "tool-invocation", toolInvocation: { toolName: "x", state: "result", toolCallId: "1", result: "" } } as never] },
+      {
+        id: "1",
+        role: "assistant",
+        parts: [{ type: "tool-invocation", toolInvocation: { toolName: "x", state: "result", toolCallId: "1", result: "" } } as never],
+      },
       { id: "2", role: "user", parts: [{ type: "text", text: "hello" }] },
     ];
     expect(promptMessages(messages)).toHaveLength(1);

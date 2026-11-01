@@ -54,9 +54,7 @@ const drinks = [{ productId: "cola", name: "Cola", unitCents: 300, categoryId: "
 describe("SecondRound", () => {
   it("hides when the second-round window has closed", () => {
     const r = receipt();
-    const { container } = render(
-      <SecondRound receipt={r} drinks={drinks} now={r.paidAt + SECOND_ROUND_MS + 1} onUpdate={vi.fn()} />,
-    );
+    const { container } = render(<SecondRound receipt={r} drinks={drinks} now={r.paidAt + SECOND_ROUND_MS + 1} onUpdate={vi.fn()} />);
     expect(container).toBeEmptyDOMElement();
     expect(screen.queryByText("Add a drink to this round")).not.toBeInTheDocument();
   });

@@ -105,9 +105,9 @@ describe("products list/create/update", () => {
     await expect(caller.products.create({ stadium: "arena", product: await productInput({ priceCents: -1 }) })).rejects.toMatchObject({
       code: "BAD_REQUEST",
     });
-    await expect(
-      caller.products.create({ stadium: "arena", product: await productInput({ imageUrl: "https://example.com/pic.png" }) }),
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(caller.products.create({ stadium: "arena", product: await productInput({ imageUrl: "https://example.com/pic.png" }) })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
   });
 
   it("updates scalars and edits option groups in place, keeping the ids that stay", async () => {

@@ -111,7 +111,11 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
     const customer: Customer = {
       id: nextId("cus"),
       object: "customer",
-      metadata: Object.fromEntries(Object.entries(form).filter(([k]) => k.startsWith("metadata[")).map(([k, v]) => [k.slice(9, -1), v])),
+      metadata: Object.fromEntries(
+        Object.entries(form)
+          .filter(([k]) => k.startsWith("metadata["))
+          .map(([k, v]) => [k.slice(9, -1), v]),
+      ),
     };
     customers.set(customer.id, customer);
     if (typeof idem === "string") idempotency.set(idem, customer);
@@ -129,7 +133,11 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
       customer: form.customer ?? null,
       client_secret: `${id}_secret_test`,
       status: statusForCreate(),
-      metadata: Object.fromEntries(Object.entries(form).filter(([k]) => k.startsWith("metadata[")).map(([k, v]) => [k.slice(9, -1), v])),
+      metadata: Object.fromEntries(
+        Object.entries(form)
+          .filter(([k]) => k.startsWith("metadata["))
+          .map(([k, v]) => [k.slice(9, -1), v]),
+      ),
       last_payment_error: scenario === "decline" ? { message: "Your card was declined.", decline_code: "generic_decline" } : null,
     };
     intents.set(id, intent);

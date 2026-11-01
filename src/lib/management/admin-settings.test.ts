@@ -11,7 +11,9 @@ describe("normalizeAdminSettings", () => {
   it("keeps a valid document and lowercases emails", () => {
     const result = normalizeAdminSettings(
       draft({
-        members: [{ id: "m1", name: "Ada", email: "Ada@Example.com", role: "kitchen", permissions: null, kitchens: [], status: "invited", lastSeen: "Yesterday" }],
+        members: [
+          { id: "m1", name: "Ada", email: "Ada@Example.com", role: "kitchen", permissions: null, kitchens: [], status: "invited", lastSeen: "Yesterday" },
+        ],
       }),
       "EUR",
     );
@@ -37,7 +39,18 @@ describe("normalizeAdminSettings", () => {
   it("clears kitchens on an admin even when the id is unknown", () => {
     const result = normalizeAdminSettings(
       draft({
-        members: [{ id: "m1", name: "Ada", email: "ada@example.com", role: "admin", permissions: ["orders.view"], kitchens: ["nope"], status: "active", lastSeen: null }],
+        members: [
+          {
+            id: "m1",
+            name: "Ada",
+            email: "ada@example.com",
+            role: "admin",
+            permissions: ["orders.view"],
+            kitchens: ["nope"],
+            status: "active",
+            lastSeen: null,
+          },
+        ],
       }),
       "EUR",
     );

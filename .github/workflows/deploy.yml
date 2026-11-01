@@ -1,8 +1,10 @@
 name: Deploy
 
-# Builds and deploys with the Vercel CLI once CI has passed on the same commit.
-# Off until the repository variable VERCEL_CLI_DEPLOY is "true"; turn off Vercel's Git auto-deploys at the same time
-# (Project Settings -> Git, or `"git": { "deploymentEnabled": false }` in vercel.json) so every commit deploys once.
+# Optional second path: build with the Vercel CLI only after the CI workflow succeeds.
+# Off until the repository variable VERCEL_CLI_DEPLOY is "true".
+# Git deploys stay on, and scripts/vercel-ignore.mjs cancels them unless this same CI run passed.
+# Turn on this workflow and set git.deploymentEnabled to false only if you also store VERCEL_TOKEN,
+# VERCEL_ORG_ID, and VERCEL_PROJECT_ID, so a failed CI never opens a Vercel build at all.
 
 on:
   workflow_run:

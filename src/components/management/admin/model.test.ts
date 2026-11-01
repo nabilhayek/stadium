@@ -73,8 +73,36 @@ describe("mapBounds", () => {
 
 describe("nearestRoutes", () => {
   const kitchens: Kitchen[] = [
-    { id: "k1", name: "North", x: 50, y: 0, open: true, pickup: true, delivery: true, capacity: 10, prepMinutes: 8, overflow: false, overflowTo: null, overflowAt: 85, autoPause: false },
-    { id: "k2", name: "South", x: 250, y: 100, open: true, pickup: true, delivery: true, capacity: 10, prepMinutes: 8, overflow: false, overflowTo: null, overflowAt: 85, autoPause: false },
+    {
+      id: "k1",
+      name: "North",
+      x: 50,
+      y: 0,
+      open: true,
+      pickup: true,
+      delivery: true,
+      capacity: 10,
+      prepMinutes: 8,
+      overflow: false,
+      overflowTo: null,
+      overflowAt: 85,
+      autoPause: false,
+    },
+    {
+      id: "k2",
+      name: "South",
+      x: 250,
+      y: 100,
+      open: true,
+      pickup: true,
+      delivery: true,
+      capacity: 10,
+      prepMinutes: 8,
+      overflow: false,
+      overflowTo: null,
+      overflowAt: 85,
+      autoPause: false,
+    },
   ];
 
   it("assigns each section to closest kitchen", () => {

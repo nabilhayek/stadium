@@ -74,7 +74,11 @@ export const venueSettingsSchema = z.object({
     applePay: z.boolean(),
     googlePay: z.boolean(),
     swish: z.boolean(),
-    autoRefundMinutes: z.number().int().min(0).max(24 * 60),
+    autoRefundMinutes: z
+      .number()
+      .int()
+      .min(0)
+      .max(24 * 60),
   }),
   notifications: z.object({
     sound: z.boolean(),
@@ -96,7 +100,10 @@ export type VenueSettings = z.output<typeof venueSettingsSchema>;
  * every permission, every person points at a real role and kitchen, and there
  * are no two people with the same email.
  */
-export function normalizeAdminSettings(input: z.output<typeof adminSaveSchema>, allowedCurrency: string): { ok: true; settings: AdminSettings } | { ok: false; error: string } {
+export function normalizeAdminSettings(
+  input: z.output<typeof adminSaveSchema>,
+  allowedCurrency: string,
+): { ok: true; settings: AdminSettings } | { ok: false; error: string } {
   const currency = input.currency.toUpperCase();
   const known = new Set<string>([...CURRENCIES, allowedCurrency.toUpperCase()]);
   if (!known.has(currency)) return { ok: false, error: "Pick a supported currency." };

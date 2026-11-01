@@ -20,10 +20,7 @@ describe("quoteLines", () => {
   it("maps lines to server quote shape", () => {
     const lines = [
       toCartLine({ productId: "a", name: "A", unitCents: 100, note: "no ice" }, 1),
-      toCartLine(
-        { productId: "b", name: "B", unitCents: 200, options: [{ id: "o1", group: "G", name: "O", cents: 0 }] },
-        3,
-      ),
+      toCartLine({ productId: "b", name: "B", unitCents: 200, options: [{ id: "o1", group: "G", name: "O", cents: 0 }] }, 3),
     ];
     expect(quoteLines(lines)).toEqual([
       { productId: "a", qty: 1, note: "no ice" },

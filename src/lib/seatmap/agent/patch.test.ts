@@ -6,11 +6,15 @@ import { applyPatch, diffDoc } from "./patch";
 describe("diffDoc and applyPatch", () => {
   it("round-trips section order and partial puts", () => {
     const base = emptySeatMap();
-    const s1 = makeSection(base, [
-      [0, 0],
-      [10, 0],
-      [10, 10],
-    ], "lower");
+    const s1 = makeSection(
+      base,
+      [
+        [0, 0],
+        [10, 0],
+        [10, 10],
+      ],
+      "lower",
+    );
     s1.rows = [makeRow({ x: 5, y: 5, seats: 3 })];
     const next = { ...base, sections: [s1], pois: [{ id: "p1", kind: "kitchen" as const, x: 0, y: 0, label: "K", w: 0, h: 0, rotation: 0 }] };
     const patch = diffDoc(base, next);

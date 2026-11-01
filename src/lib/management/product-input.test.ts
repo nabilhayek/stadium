@@ -65,10 +65,7 @@ describe("categoriesInput", () => {
   });
 
   it("rejects duplicate names case-insensitively", () => {
-    const r = categoriesInput.safeParse([
-      { name: "Drinks" },
-      { name: "drinks" },
-    ]);
+    const r = categoriesInput.safeParse([{ name: "Drinks" }, { name: "drinks" }]);
     expect(r.success).toBe(false);
   });
 

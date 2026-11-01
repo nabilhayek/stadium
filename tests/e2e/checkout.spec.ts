@@ -6,8 +6,7 @@ import { test, expect } from "../support/e2e/fixtures";
  * pointed at it through STRIPE_API_BASE, so PaymentIntents the app creates really exist there. Only the browser SDK
  * is faked (page.route), and its confirmCardPayment confirms the intent on that API just like Stripe.js would.
  */
-const STRIPE_API =
-  process.env.STRIPE_API_BASE || `http://127.0.0.1:${process.env.PLAYWRIGHT_STRIPE_PORT ?? 3198}`;
+const STRIPE_API = process.env.STRIPE_API_BASE || `http://127.0.0.1:${process.env.PLAYWRIGHT_STRIPE_PORT ?? 3198}`;
 
 /** Fake Stripe.js whose card fields report "complete" and whose confirm hits the fake API via a Node-side bridge. */
 const FAKE_STRIPE_JS_WITH_CARD = `
@@ -71,7 +70,10 @@ async function addColaAndOpenCheckout(page: Page) {
   await page.getByRole("button", { name: /View cart/ }).click();
   const drawer = page.getByRole("dialog", { name: "Your cart" });
   await expect(drawer).toBeVisible();
-  await drawer.getByRole("link", { name: "Checkout" }).or(drawer.getByRole("button", { name: "Checkout" })).click();
+  await drawer
+    .getByRole("link", { name: "Checkout" })
+    .or(drawer.getByRole("button", { name: "Checkout" }))
+    .click();
   await expect(page).toHaveURL(/\/arena\/checkout$/);
 }
 

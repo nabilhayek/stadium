@@ -39,7 +39,10 @@ test.describe("products desk (signed in)", () => {
     await page.goto("/arena/management/products");
 
     // Create
-    await page.getByRole("button", { name: /New product/ }).first().click();
+    await page
+      .getByRole("button", { name: /New product/ })
+      .first()
+      .click();
     const editor = page.getByRole("dialog");
     await editor.locator("#product-name").fill(NAME);
     await editor.locator("#product-price").fill("4.50");

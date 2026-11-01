@@ -39,7 +39,17 @@ describe("GET /api/live/kitchen/[stadium]", () => {
     const good = await kitchenStreamToken("arena", "user-1");
 
     expect((await GET(request("arena", "bad"), params("arena"))).status).toBe(401);
-    expect((await GET(request("arena", good.replace(/.$/, (c) => (c === "A" ? "B" : "A"))), params("arena"))).status).toBe(401);
+    expect(
+      (
+        await GET(
+          request(
+            "arena",
+            good.replace(/.$/, (c) => (c === "A" ? "B" : "A")),
+          ),
+          params("arena"),
+        )
+      ).status,
+    ).toBe(401);
     // A token for one stadium does not open another stadium's stream.
     expect((await GET(request("other", good), params("other"))).status).toBe(401);
     // Minted for 1970: its window ended long ago.
@@ -71,7 +81,12 @@ describe("GET /api/live/kitchen/[stadium]", () => {
     expect(res.status).toBe(200);
 
     // The LISTEN connection is established asynchronously, so keep notifying until one lands.
-    const text = await readUntil(res.body!, (t) => t.includes("event: order") && t.includes("A-LIVE"), 15_000, () => notifyOrder("arena", "A-LIVE"));
+    const text = await readUntil(
+      res.body!,
+      (t) => t.includes("event: order") && t.includes("A-LIVE"),
+      15_000,
+      () => notifyOrder("arena", "A-LIVE"),
+    );
     abort.abort();
 
     expect(text).toContain("event: order");

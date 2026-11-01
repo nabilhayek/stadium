@@ -65,7 +65,10 @@ test.describe("seat map designer (signed in)", () => {
     await page.getByRole("button", { name: "Manage", exact: true }).click();
     await expect(tiers).toBeVisible();
     await tiers.getByRole("button", { name: "Add category" }).click();
-    await tiers.getByPlaceholder(/^Category \d+$/).last().fill("E2E tier");
+    await tiers
+      .getByPlaceholder(/^Category \d+$/)
+      .last()
+      .fill("E2E tier");
     await tiers.getByRole("button", { name: "Save", exact: true }).click();
     await expect(tiers).toBeHidden();
 

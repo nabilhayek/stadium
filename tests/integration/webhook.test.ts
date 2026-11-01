@@ -50,7 +50,14 @@ async function preparedCheckout() {
 }
 
 function event(type: string, object: Record<string, unknown>) {
-  return JSON.stringify({ id: `evt_${Math.random().toString(36).slice(2)}`, object: "event", api_version: "2025-01-01", created: Math.floor(Date.now() / 1000), type, data: { object } });
+  return JSON.stringify({
+    id: `evt_${Math.random().toString(36).slice(2)}`,
+    object: "event",
+    api_version: "2025-01-01",
+    created: Math.floor(Date.now() / 1000),
+    type,
+    data: { object },
+  });
 }
 
 function post(body: string, signature: string | null) {

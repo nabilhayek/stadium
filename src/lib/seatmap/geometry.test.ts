@@ -1,16 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  applyRigid,
-  makeRow,
-  normalizeAngle,
-  placeRow,
-  pointInPolygon,
-  rotation,
-  seatNumber,
-  seatsOfRow,
-  snap,
-  translation,
-} from "./geometry";
+import { applyRigid, makeRow, normalizeAngle, placeRow, pointInPolygon, rotation, seatNumber, seatsOfRow, snap, translation } from "./geometry";
 
 describe("placeRow and seatNumber", () => {
   it("places seats along a straight row", () => {

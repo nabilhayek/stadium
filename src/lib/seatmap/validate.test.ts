@@ -7,7 +7,10 @@ function baseDoc() {
   return emptySeatMap();
 }
 
-function sectionWithRow(doc: ReturnType<typeof emptySeatMap>, opts?: { loose?: boolean; categoryId?: string | null; code?: string; rowLabel?: string; rowPos?: { x: number; y: number } }) {
+function sectionWithRow(
+  doc: ReturnType<typeof emptySeatMap>,
+  opts?: { loose?: boolean; categoryId?: string | null; code?: string; rowLabel?: string; rowPos?: { x: number; y: number } },
+) {
   const points: [number, number][] = [
     [-40, -15],
     [40, -15],
@@ -65,11 +68,15 @@ describe("validateSeatMap", () => {
 
   it("warns when a non-block section has no rows", () => {
     let doc = baseDoc();
-    const section = makeSection(doc, [
-      [0, 0],
-      [10, 0],
-      [10, 10],
-    ], "lower");
+    const section = makeSection(
+      doc,
+      [
+        [0, 0],
+        [10, 0],
+        [10, 10],
+      ],
+      "lower",
+    );
     doc = { ...doc, sections: [section] };
     expect(validateSeatMap(doc).some((i) => i.level === "warning" && i.message.includes("no seats"))).toBe(true);
   });

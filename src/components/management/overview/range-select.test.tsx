@@ -15,15 +15,7 @@ vi.mock("@/i18n/navigation", () => ({
 }));
 
 vi.mock("@/components/ui/select", () => ({
-  Select: ({
-    value,
-    onValueChange,
-    children,
-  }: {
-    value: string;
-    onValueChange: (value: string) => void;
-    children?: React.ReactNode;
-  }) => (
+  Select: ({ value, onValueChange, children }: { value: string; onValueChange: (value: string) => void; children?: React.ReactNode }) => (
     <select aria-label="Time range" value={value} onChange={(e) => onValueChange(e.target.value)}>
       {children}
     </select>

@@ -1,18 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptySeatMap } from "./schema";
-import {
-  addBlock,
-  addShape,
-  checkMap,
-  clearMap,
-  describeMap,
-  ringOf,
-  ringSections,
-  sectionTargets,
-  selectSections,
-  setField,
-  shareOut,
-} from "./build";
+import { addBlock, addShape, checkMap, clearMap, describeMap, ringOf, ringSections, sectionTargets, selectSections, setField, shareOut } from "./build";
 
 describe("shareOut", () => {
   it("splits integers summing exactly to total", () => {

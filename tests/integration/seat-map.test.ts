@@ -142,7 +142,11 @@ describe("seatMap.publish", () => {
     const caller = await desk();
     const before = Date.now();
 
-    const result = await caller.seatMap.publish({ stadium: "arena", revision: 0, doc: docWith(section("N", "North Renamed"), section("A", "New Stand A", 200)) });
+    const result = await caller.seatMap.publish({
+      stadium: "arena",
+      revision: 0,
+      doc: docWith(section("N", "North Renamed"), section("A", "New Stand A", 200)),
+    });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -177,9 +181,7 @@ describe("seatMap.publish", () => {
   it("keeps a section that older orders still point at", async () => {
     const stadium = await withDb((db) => db.stadium.findUniqueOrThrow({ where: { slug: "arena" } }));
     const south = await withDb((db) => db.section.findFirstOrThrow({ where: { stadiumId: stadium.id, code: "S" } }));
-    await withDb((db) =>
-      db.order.create({ data: { code: "LEGACY2", stadiumId: stadium.id, sectionId: south.id, totalCents: 500, currency: "EUR" } }),
-    );
+    await withDb((db) => db.order.create({ data: { code: "LEGACY2", stadiumId: stadium.id, sectionId: south.id, totalCents: 500, currency: "EUR" } }));
     const caller = await desk();
 
     const result = await caller.seatMap.publish({ stadium: "arena", revision: 0, doc: docWith(section("A")) });

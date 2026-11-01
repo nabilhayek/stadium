@@ -36,7 +36,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default function StadiumShopPage({ params }: Props) {
   return (
-    <Suspense fallback={<main data-has-cart-bar className="mx-auto w-full max-w-md px-4 pt-8 text-[15px] text-muted">Loading the menu…</main>}>
+    <Suspense
+      fallback={
+        <main data-has-cart-bar className="mx-auto w-full max-w-md px-4 pt-8 text-[15px] text-muted">
+          Loading the menu…
+        </main>
+      }
+    >
       <ShopBody params={params} />
     </Suspense>
   );

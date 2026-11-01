@@ -26,9 +26,7 @@ describe("deviceId", () => {
 describe("seat", () => {
   it("accepts seat object or null", () => {
     expect(seat.safeParse(null).success).toBe(true);
-    expect(
-      seat.safeParse({ sectionCode: "G", sectionName: "Lower", row: "", number: "12" }).success,
-    ).toBe(true);
+    expect(seat.safeParse({ sectionCode: "G", sectionName: "Lower", row: "", number: "12" }).success).toBe(true);
   });
 
   it("rejects partial seat", () => {

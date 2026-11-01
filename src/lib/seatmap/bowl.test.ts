@@ -1,16 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { setField } from "./build";
-import {
-  EDGE,
-  evenRows,
-  frontAfter,
-  frontageFor,
-  inBearings,
-  mainVenue,
-  planTier,
-  seatsInFrontage,
-  venueAround,
-} from "./bowl";
+import { EDGE, evenRows, frontAfter, frontageFor, inBearings, mainVenue, planTier, seatsInFrontage, venueAround } from "./bowl";
 import { venuePath } from "./geometry";
 import { emptySeatMap } from "./schema";
 

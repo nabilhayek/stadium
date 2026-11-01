@@ -1,15 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { makeRow, makeSection, translation } from "@/lib/seatmap/geometry";
 import { emptySeatMap } from "@/lib/seatmap/schema";
-import {
-  deleteSelection,
-  duplicateSelection,
-  keyOf,
-  seatKey,
-  seatPick,
-  splitSelection,
-  transformSelection,
-} from "./ops";
+import { deleteSelection, duplicateSelection, keyOf, seatKey, seatPick, splitSelection, transformSelection } from "./ops";
 
 function docWithSection() {
   const doc = emptySeatMap();
@@ -52,7 +44,10 @@ describe("transformSelection", () => {
 describe("deleteSelection", () => {
   it("removes a section and decorations", () => {
     const { doc, section } = docWithSection();
-    const withDeco = { ...doc, decorations: [{ id: "d1", kind: "wall" as const, x: 0, y: 0, w: 10, h: 10, rotation: 0, label: "", color: "#ccc", radius: 0, field: "none" as const }] };
+    const withDeco = {
+      ...doc,
+      decorations: [{ id: "d1", kind: "wall" as const, x: 0, y: 0, w: 10, h: 10, rotation: 0, label: "", color: "#ccc", radius: 0, field: "none" as const }],
+    };
     const next = deleteSelection(withDeco, new Set([keyOf("s", section.id), keyOf("d", "d1")]));
     expect(next.sections).toHaveLength(0);
     expect(next.decorations).toHaveLength(0);

@@ -13,5 +13,7 @@ const source = `(function(){try{var saved=localStorage.getItem(${JSON.stringify(
 
 /** Runs while the HTML parses. On the client React would warn about rendering a script, so it renders inert text instead. */
 export function LocaleBoot() {
-  return <script type={typeof window === "undefined" ? "text/javascript" : "text/plain"} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: source }} />;
+  return (
+    <script type={typeof window === "undefined" ? "text/javascript" : "text/plain"} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: source }} />
+  );
 }

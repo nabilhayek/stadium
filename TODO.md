@@ -2,15 +2,6 @@
 
 Later work, roughly in the order it pays off.
 
-## Email with Resend
-
-- [x] Create a Resend account and verify the sending domain (SPF, DKIM, DMARC records). `seatize.com` is verified.
-- [x] Add `RESEND_API_KEY` to `.env.example`, `.env.local`, and Vercel.
-- [x] Hook Better Auth’s password reset and email verification to Resend.
-- [x] Send a receipt email when the fan left an email at checkout.
-- [x] Send invites from **Admin → Team**, once the team list is saved to the database.
-- [x] Write the emails in Swedish, Danish, and English, using the same language files as the app.
-
 ## Rate limiting
 
 - [ ] Limit sign-in and account creation per IP and per email (Better Auth has a built-in rate limiter; store it in Postgres, not memory, so it works across server instances).
@@ -26,14 +17,6 @@ Later work, roughly in the order it pays off.
 - [ ] Add “Trust this device for 30 days” so a shared kitchen tablet is not asked every shift.
 - [ ] Recovery: an admin can reset another person’s two-factor from **Admin → Team**.
 
-## Testing libraries
-
-- [x] **Vitest** for pure logic: money, receipt merging, board status changes, seat-map geometry, `matchAcceptLanguage`, plus component and integration layers (embedded Postgres locally; CI Postgres service).
-- [x] **Playwright** for the flows in `MANUAL-TEST.md`: shop, checkout (fake Stripe), kitchen desk smoke, products, seat map, assistant (stubbed stream), admin, auth, i18n/SEO, axe a11y. See `MANUAL-TEST.md` for what stays manual.
-- [x] A separate test database (embedded Postgres on localhost locally; throwaway service DB in CI) so tests never touch live Neon.
-- [x] Run unit, integration, and e2e in GitHub Actions next to format, lint, and typecheck. Coverage is report-only for now; thresholds of 80% lines on `src/lib/**` and `src/server/**` come after the suite settles.
-- [ ] Out of scope for this suite: k6 load tests, a real Stripe test-mode run against Stripe’s API, server-side admin roles persisted to the database, full kitchen live two-context pay→accept→ready with two browsers (partially covered by integration + desk smoke).
-
 ## Load testing with k6
 
 - [ ] Script a match-day spike: thousands of fans opening the shop, a few hundred paying in the same minute, and every order stream open.
@@ -41,6 +24,7 @@ Later work, roughly in the order it pays off.
 - [ ] Run against a Vercel preview with a Neon branch, never production.
 - [ ] Watch: response times, Postgres connections, function duration, and how many live connections one server instance holds.
 - [ ] Write down the numbers that pass, and rerun before each new venue.
+- [ ] Separate from these scripts: a real Stripe test-mode run against Stripe’s API. Pay → accept → ready across two browsers stays a manual check.
 
 ## Backups
 
@@ -56,12 +40,6 @@ Later work, roughly in the order it pays off.
 - [ ] Never health-check the database on a schedule. A check every minute keeps Neon awake and defeats the sleep work.
 - [ ] A public status page that fans and venue staff can open when the shop seems down.
 
-## Feature flags and kill switches
-
-- [ ] “Pause ordering at this stadium”: the shop stays open but checkout says ordering is paused.
-- [ ] “Hide product” and “sold out everywhere” switches that work without a deploy.
-- [ ] Decide between Vercel Flags and a flag table in Postgres. A database flag must be cached, or every shop view wakes Neon.
-
 ## Privacy and legal
 
 - [ ] A privacy policy and terms page, in Swedish, Danish, and English, linked from the shop menu and checkout.
@@ -76,27 +54,33 @@ Later work, roughly in the order it pays off.
 
 ## Analytics
 
-- [ ] Turn on Vercel Web Analytics (no cookies) next to Speed Insights.
+- [ ] Turn on Vercel Web Analytics (no cookies). Speed Insights is already in `src/app/[locale]/layout.tsx`.
 - [ ] Track the funnel: shop opened, item added, checkout started, paid.
 
 ## Stripe operations
 
-- [ ] Idempotency keys on every payment intent and refund call.
-- [ ] Check webhook retries: replaying the same event must not create a second order or a second status change.
-- [ ] A refunds flow in the desk, tied to the audit log.
+- [ ] Test that `paymentIntents.create` and `refunds.create` are called with an idempotency key. The calls in `src/lib/payments/service.ts` already pass one. Webhook replay is already covered (`tests/integration/webhook.test.ts`).
+- [ ] Refund a finished order from the desk, and record who did it on the audit log. Declining an order already refunds (`tests/integration/kitchen.test.ts`). `autoRefundMinutes` is saved in Admin and never applied.
 - [ ] Payouts per venue with Stripe Connect, if venues are paid directly.
 
 ## Accessibility
 
 - [ ] A screen reader pass on the shop and checkout (VoiceOver on iPhone, TalkBack on Android).
 - [ ] A contrast check of the shop’s muted text and the desk’s status colours.
-- [ ] Translate the rest of the shop’s English labels (“Add”, “Sold out”, product-card screen reader text), not just the shop chrome.
+- [ ] Translate the remaining English. “Add” and “Sold out” are still hardcoded in `src/components/shop/product-card.tsx`, `add-to-cart-button.tsx`, and `product-order.tsx` (visible label and screen-reader text). Checkout, the order tracker, order history, and support are still English too.
+
+## Shop menu
+
+- [ ] The currency row in the menu drawer is still “coming soon” (`ComingSoonRow` in `src/components/shop/nav-drawer.tsx`). Admin currency already drives prices.
 
 ## Performance
 
-- [ ] The shop loads about 370 KB of JavaScript (gzipped) before it is interactive. Lighthouse mobile scores it 78, with LCP at 4.5 s on a simulated slow phone.
-- [ ] The biggest pieces are React DOM with the Sentry client (about 120 KB) and `framer-motion` (about 75 KB across chunks). Try `LazyMotion` with the `domAnimation` feature set, and load Sentry’s client after the page is interactive.
+- [ ] Re-measure the shop’s JavaScript and a mobile Lighthouse run. The old notes (~370 KB gzipped, score 78, LCP 4.5 s) are not current until measured again.
+- [ ] `LazyMotion` already loads `domMax` in `src/components/motion/motion.tsx`. After the new numbers, decide whether that feature set should stay.
+- [ ] Sentry’s browser client still starts in `instrumentation-client.ts`. Load it after the page is interactive if the new trace puts it on the critical path.
 
 ## Support
 
-- [ ] A support contact and a short FAQ per venue (where is my order, refunds, allergens).
+- [ ] The page exists (`src/app/[locale]/[stadium]/support/page.tsx`) with four hardcoded English topics (where is my order, wrong seat, payment, allergies).
+- [ ] The button is `mailto:support@seatservice.app`. Outgoing mail is sent from `seatize.com`. Point the button at a seatize.com address, or write down why this one stays.
+- [ ] Translate the page (Swedish, Danish, English). Per-venue copy only if the answers should differ by stadium.

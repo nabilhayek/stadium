@@ -1,14 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  checkSelection,
-  defaultSelection,
-  groupRule,
-  hasRequiredChoice,
-  lineKey,
-  unitPrice,
-  type MenuOption,
-  type MenuOptionGroup,
-} from "./options";
+import { checkSelection, defaultSelection, groupRule, hasRequiredChoice, lineKey, unitPrice, type MenuOption, type MenuOptionGroup } from "./options";
 
 function option(id: string, overrides: Partial<MenuOption> = {}): MenuOption {
   return { id, name: id, priceCents: 0, isDefault: false, isSoldOut: false, ...overrides };

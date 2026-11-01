@@ -78,10 +78,14 @@ export async function getVenueAdmin(slug: string): Promise<AdminSettings | null>
   });
 }
 
-/** True unless an admin has turned ordering off. Read straight from the database so a pause is not stuck behind the menu cache. */
+/**
+ * True unless this stadium exists and an admin has turned ordering off.
+ * A missing slug is not a pause. Checkout reports that as a bad basket.
+ * Read straight from the database so a pause is not stuck behind the menu cache.
+ */
 export async function venueAcceptsOrders(slug: string): Promise<boolean> {
   const row = await withDb((db) => db.stadium.findUnique({ where: { slug }, select: { venueAdmin: { select: { settings: true } } } }));
-  if (!row) return false;
+  if (!row) return true;
   return readsAcceptOrders(row.venueAdmin?.settings);
 }
 
