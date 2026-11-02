@@ -7,6 +7,8 @@ import type { Prisma } from "@/generated/prisma/client";
 import { withDb } from "@/lib/db";
 import { notifyOrder } from "@/lib/live/hub";
 import { sendReceiptEmail, requestLocale } from "@/lib/email/receipt";
+import { later } from "@/lib/push/later";
+import { sendDeskPush } from "@/lib/push/order";
 import type { Receipt } from "./receipt";
 import { publicReceipt, toReceipt, type PublicReceipt } from "./shape";
 
@@ -128,5 +130,6 @@ export async function putReceipt(receipt: Receipt, opts?: { authoritative?: bool
       if (!sent.ok) console.error("Receipt email failed.");
     }
   }
+  if (result === "created") await later(() => sendDeskPush(receipt));
   return result;
 }

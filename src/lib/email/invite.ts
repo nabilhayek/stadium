@@ -39,7 +39,7 @@ export async function ensureStaffUser(email: string, name: string): Promise<stri
 }
 
 /** Link the reset page understands. Better Auth stores the token as `reset-password:<token>`. */
-export async function passwordSetupLink(userId: string, callbackPath: string, hours: number): Promise<string> {
+export async function passwordSetupLink(userId: string, callbackPath: string, hours: number, purpose: "invite" | "reset" = "reset"): Promise<string> {
   const token = randomBytes(24).toString("base64url");
   await withDb((db) =>
     db.verification.create({
@@ -51,12 +51,13 @@ export async function passwordSetupLink(userId: string, callbackPath: string, ho
       },
     }),
   );
-  return `${appOrigin()}/reset-password/${token}?callbackURL=${encodeURIComponent(callbackPath)}`;
+  const intent = purpose === "invite" ? "&intent=invite" : "";
+  return `${appOrigin()}/reset-password/${token}?callbackURL=${encodeURIComponent(callbackPath)}${intent}`;
 }
 
 export async function sendInviteEmail(opts: { to: string; name: string; stadiumName: string; stadiumSlug: string; role: string; locale: Locale }) {
   const userId = await ensureStaffUser(opts.to, opts.name);
-  const url = await passwordSetupLink(userId, `/${opts.stadiumSlug}/management/login`, 24);
+  const url = await passwordSetupLink(userId, `/${opts.stadiumSlug}/management/login`, 24, "invite");
   const copy = emailCopy(opts.locale);
   const vars = { name: opts.name, stadium: opts.stadiumName, role: opts.role, email: opts.to };
   const sent = await sendMail({

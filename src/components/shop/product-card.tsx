@@ -6,6 +6,7 @@ import { formatCents } from "@/lib/money";
 import { useProductQty } from "@/lib/cart/use-cart";
 import type { MenuProduct } from "@/lib/queries/stadium";
 import { fadeUp } from "@/components/motion/variants";
+import { useTranslations } from "next-intl";
 import { AddToCartButton } from "./add-to-cart-button";
 import { ProductMark } from "./product-mark";
 
@@ -24,10 +25,11 @@ type Props = {
 };
 
 export function ProductCard({ stadiumSlug, currency, product, badge, className, inList = true, compact = false, eager = false }: Props) {
+  const t = useTranslations("shop");
   const href = `/${stadiumSlug}/product/${encodeURIComponent(product.id)}`;
   const add = product.isSoldOut ? (
     <span className={compact ? "flex shrink-0 justify-end" : "flex w-[6.75rem] shrink-0 justify-end"}>
-      <span className="button button--secondary button--sm pointer-events-none shrink-0 opacity-60">Sold out</span>
+      <span className="button button--secondary button--sm pointer-events-none shrink-0 opacity-60">{t("soldOut")}</span>
     </span>
   ) : product.optionGroups.length > 0 ? (
     <ChooseLink stadiumSlug={stadiumSlug} productId={product.id} name={product.name} href={href} dense={compact} />
@@ -109,17 +111,18 @@ export function ProductCard({ stadiumSlug, currency, product, badge, className, 
 
 /** Products with options are configured on their own page. Shows how many are already in the cart. */
 function ChooseLink({ stadiumSlug, productId, name, href, dense }: { stadiumSlug: string; productId: string; name: string; href: string; dense: boolean }) {
+  const t = useTranslations("shop");
   const inCart = useProductQty(stadiumSlug, productId);
   return (
     <span className={dense ? "flex shrink-0 justify-end" : "flex w-[6.75rem] shrink-0 justify-end"}>
       <Link
         href={href}
         prefetch
-        aria-label={inCart ? `Add another ${name}, ${inCart} in cart` : `Add ${name}`}
+        aria-label={inCart ? t("addAnother", { name, count: inCart }) : t("addNamed", { name })}
         className="button button--primary button--sm shrink-0 gap-1.5 active:scale-[0.92]"
       >
         {inCart ? <span className="grid size-5 place-items-center rounded-full bg-white/20 text-[12px] font-semibold tabular-nums">{inCart}</span> : null}
-        Add
+        {t("add")}
       </Link>
     </span>
   );

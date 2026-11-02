@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { renderWithIntl } from "../../../tests/support/render";
 import type { MenuProduct } from "@/lib/queries/stadium";
 import { ProductCard } from "./product-card";
 
@@ -29,14 +30,23 @@ function product(overrides: Partial<MenuProduct> = {}): MenuProduct {
   };
 }
 
+const messages = {
+  shop: {
+    soldOut: "Sold out",
+    add: "Add",
+    addNamed: "Add {name}",
+    addAnother: "Add another {name}, {count} in cart",
+  },
+};
+
 describe("ProductCard", () => {
   it("shows sold out instead of add", () => {
-    render(<ProductCard stadiumSlug="arena" currency="EUR" product={product({ isSoldOut: true })} />);
+    renderWithIntl(<ProductCard stadiumSlug="arena" currency="EUR" product={product({ isSoldOut: true })} />, messages);
     expect(screen.getByText("Sold out")).toBeInTheDocument();
   });
 
   it("links to configure options with an Add label", () => {
-    render(
+    renderWithIntl(
       <ProductCard
         stadiumSlug="arena"
         currency="EUR"
@@ -53,6 +63,7 @@ describe("ProductCard", () => {
           ],
         })}
       />,
+      messages,
     );
     expect(screen.getByRole("link", { name: /^Add / })).toBeInTheDocument();
   });

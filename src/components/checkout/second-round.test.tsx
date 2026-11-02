@@ -13,6 +13,14 @@ vi.mock("framer-motion", () => ({
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
+}));
+
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
+}));
+
 vi.mock("@/lib/trpc/react", () => ({
   useTRPC: () => ({
     payments: {
@@ -56,6 +64,6 @@ describe("SecondRound", () => {
     const r = receipt();
     const { container } = render(<SecondRound receipt={r} drinks={drinks} now={r.paidAt + SECOND_ROUND_MS + 1} onUpdate={vi.fn()} />);
     expect(container).toBeEmptyDOMElement();
-    expect(screen.queryByText("Add a drink to this round")).not.toBeInTheDocument();
+    expect(screen.queryByText("addDrink")).not.toBeInTheDocument();
   });
 });

@@ -2,6 +2,9 @@
   "plugins": {
     "magic-patterns": {
       "enabled": true
+    },
+    "stripe": {
+      "enabled": true
     }
   }
 }

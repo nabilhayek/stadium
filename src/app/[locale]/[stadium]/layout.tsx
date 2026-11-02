@@ -1,5 +1,6 @@
 import { Suspense, type ReactNode } from "react";
 import { StadiumFrame } from "@/components/stadium-frame";
+import { api } from "@/server/trpc/server";
 
 type Props = {
   children: ReactNode;
@@ -19,5 +20,6 @@ export default function StadiumLayout({ children, params }: Props) {
 
 async function StadiumChrome({ params }: { params: Promise<{ stadium: string }> }) {
   const { stadium } = await params;
-  return <StadiumFrame stadiumSlug={stadium} />;
+  const menu = await api.stadium.menu({ slug: stadium });
+  return <StadiumFrame stadiumSlug={stadium} currency={menu?.currency ?? null} />;
 }

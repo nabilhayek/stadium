@@ -14,6 +14,7 @@ import { ChevronDown, CupSoda, Minus, Plus } from "lucide-react";
 import { useToast } from "@/components/toast/toast-provider";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/react";
+import { useTranslations } from "next-intl";
 
 type Props = {
   receipt: Receipt;
@@ -31,6 +32,7 @@ const SHORTLIST = 4;
  * with drinks already in the order first.
  */
 export function SecondRound({ receipt, drinks, now, onUpdate }: Props) {
+  const t = useTranslations("tracker");
   const left = secondRoundLeft(receipt, now);
   const panelId = useId();
   const [open, setOpen] = useState(false);
@@ -139,7 +141,7 @@ export function SecondRound({ receipt, drinks, now, onUpdate }: Props) {
           <CupSoda className="size-5" strokeWidth={1.7} aria-hidden />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-medium">Add a drink to this round</span>
+          <span className="block text-[15px] font-medium">{t("addDrink")}</span>
           <span className="relative mt-0.5 block h-[1.125rem] overflow-hidden text-[13px] leading-snug text-muted">
             <AnimatePresence mode="popLayout" initial={false}>
               <m.span
@@ -199,7 +201,7 @@ export function SecondRound({ receipt, drinks, now, onUpdate }: Props) {
 
               {ordered.length > SHORTLIST && !showAll ? (
                 <button type="button" onClick={() => setShowAll(true)} className="mt-1 text-[13px] font-medium text-link">
-                  Show all {ordered.length} drinks
+                  {t("showDrinks", { count: ordered.length })}
                 </button>
               ) : null}
 
@@ -214,7 +216,7 @@ export function SecondRound({ receipt, drinks, now, onUpdate }: Props) {
                     className="overflow-hidden"
                   >
                     <PillButton size="lg" variant="primary" className="mt-3 w-full justify-between" disabled={paying} onClick={pay}>
-                      <span>{paying ? "Adding…" : "Add to this round"}</span>
+                      <span>{paying ? t("adding") : t("addRound")}</span>
                       <span className="tabular-nums">{formatCents(cents, currency)}</span>
                     </PillButton>
                   </m.div>

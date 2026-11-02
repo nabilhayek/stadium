@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// orders.ts reaches server-only modules through auto-refund. The range maths under test needs none of them.
+vi.mock("server-only", () => ({}));
 import { RANGES, toRange } from "./orders";
 
 describe("toRange", () => {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useNow } from "@/lib/hooks/use-now";
+import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { kitchenStreamUrl, useLiveStream } from "@/lib/hooks/use-live-stream";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/react";
@@ -89,6 +90,8 @@ export function Kanban({ stadiumSlug, orders, streamToken }: Props) {
   }, [visible]);
 
   useNewOrderChime(byColumn.new.length);
+  // A tablet on the pass shouldn't go dark between orders.
+  useWakeLock(true);
 
   const query = (useSearchParams().get("q") ?? "").toLowerCase();
   const matches = (o: DeskOrder) =>
@@ -119,6 +122,16 @@ export function Kanban({ stadiumSlug, orders, streamToken }: Props) {
     }, REFRESH_MS);
     return () => window.clearInterval(id);
   }, [busy, live, router]);
+
+  // While new orders are waiting, look again once a minute so auto-refund can fire without a cron that wakes the database all night.
+  const hasNew = byColumn.new.length > 0;
+  useEffect(() => {
+    if (!hasNew || busy || !live) return;
+    const id = window.setInterval(() => {
+      if (inflight.current === 0 && document.visibilityState === "visible") router.refresh();
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, [hasNew, busy, live, router]);
 
   const apply = useCallback(
     (order: DeskOrder, change: KitchenChange) => {

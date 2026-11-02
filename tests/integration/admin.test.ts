@@ -1,6 +1,7 @@
 import "../support/server-mocks";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { takeSentEmails } from "@/lib/email/send";
+import { writeAudit } from "@/lib/management/audit";
 import { withDb } from "@/lib/db";
 import { makeConfirmCode, makeOrderNumber, makeReceiptToken } from "@/lib/orders/receipt";
 import { clearKitchenSession, kitchenCaller, makeSession, publicCaller } from "../support/caller";
@@ -127,6 +128,38 @@ describe("admin get and save", () => {
       },
     });
     expect(duplicate).toEqual({ ok: false, error: "Two people have the same email." });
+  });
+
+  it("sends the invite email as soon as someone is invited", async () => {
+    const caller = await desk();
+    takeSentEmails();
+    const invited = await caller.admin.invite({ stadium: "arena", name: "Nabil", email: "Nabil@Example.com", role: "kitchen", kitchens: [] });
+    expect(invited.ok).toBe(true);
+    if (!invited.ok) return;
+    expect(invited.member).toEqual(expect.objectContaining({ email: "nabil@example.com", status: "invited", role: "kitchen" }));
+
+    const emails = takeSentEmails();
+    expect(emails).toHaveLength(1);
+    expect(emails[0]).toEqual(expect.objectContaining({ to: "nabil@example.com" }));
+    expect(emails[0].html).toContain("intent=invite");
+
+    const again = await caller.admin.invite({ stadium: "arena", name: "Nabil", email: "nabil@example.com", role: "kitchen", kitchens: [] });
+    expect(again).toEqual({ ok: false, error: "That email is already on the team." });
+    expect(takeSentEmails()).toEqual([]);
+
+    const current = await caller.admin.get({ stadium: "arena" });
+    const saved = await caller.admin.save({ stadium: "arena", settings: current! });
+    expect(saved.ok).toBe(true);
+    expect(takeSentEmails()).toEqual([]);
+  });
+
+  it("lists an audit row after it is written", async () => {
+    const caller = await desk();
+    await writeAudit({ stadiumSlug: "arena", action: "order.accepted", orderNumber: "A-AUDIT", actor: { email: "desk@example.com" } });
+    const listed = await caller.admin.audit({ stadium: "arena" });
+    expect(listed).not.toBeNull();
+    expect(listed!.rows).toEqual([expect.objectContaining({ action: "order.accepted", orderNumber: "A-AUDIT", actorEmail: "desk@example.com" })]);
+    expect(listed!.actors).toContain("desk@example.com");
   });
 
   it("refuses to remove the Admin role", async () => {

@@ -14,7 +14,7 @@ Do not press **Publish** or **Replace draft** on the seat map against the live d
 
 Swedish, Danish, and English. The first visit follows the phone or browser language. A choice you make is remembered on that device, for the shop and the kitchen.
 
-Product names and category names stay as they were written in the menu. Checkout, order history, support, and the pages inside the desk (orders, products, seat map, admin) are still English. The menu, search, cart, kitchen navigation, and sign-in screen follow the language.
+Product names and category names stay as they were written in the menu. Checkout, the order tracker, order history, and support follow the language. The pages inside the desk (orders, products, seat map, admin) stay English. The menu, search, cart, kitchen navigation, and sign-in screen follow the language.
 
 ### Device language
 
@@ -79,6 +79,15 @@ You need two windows side by side: the kitchen board (`/arena/management/orders`
 *(Automated: tabs load after sign-in, and a save round-trips through the test database. The live desk still needs a human pass. Do this on the dev database, then put the switches back.)*
 
 Open `/arena/management/admin` while signed in to the kitchen. **Save changes** writes to the database. A refresh keeps what you saved.
+
+### Stripe refunds and webhooks
+
+*(Automated: decline refund, finished-order refund, idempotency keys, auto-refund of stale NEW orders, webhook replay. Real Stripe test cards and the production webhook still need a human pass.)*
+
+- [ ] On a Vercel preview or `https://seatize.com`, confirm Stripe Dashboard → Developers → Webhooks lists `https://seatize.com/api/stripe/webhook` (test mode while keys are `pk_test` / `sk_test`; live mode when you switch to live keys). Events: `payment_intent.succeeded`, `payment_intent.processing`, `payment_intent.payment_failed`, `payment_intent.canceled`, `charge.refunded`.
+- [ ] Place an order with a Stripe test card. In Stripe → Webhooks → the seatize endpoint, the delivery for `payment_intent.succeeded` is 200.
+- [ ] On Overview, mark an order through to **Completed**, then press **Refund**. The row shows **Refunded**, and Stripe shows the refund.
+- [ ] In Admin → Service & payments, set **Auto refund** to 5 minutes and save. Leave a new paid order untouched for 5+ minutes (or wait for the next `/api/cron/auto-refund` run). It declines and refunds with reason “No kitchen accepted this order in time.”
 
 - [ ] **Team.** The default roles are Admin, Manager, Kitchen, and Runner. Admin cannot be removed. Pickup is part of Kitchen, not its own role.
 - [ ] Create a role, give it a few permissions, and confirm it appears as a filter. Remove it. If people are on that role, you are asked where to move them.
@@ -173,3 +182,57 @@ Needs `RESEND_API_KEY` on the machine or deployment you are using, and a real in
 - [ ] On `/arena/management/login`, choose a language, then **Forgot password?** and submit the kitchen email. The toast says the link is on its way. The mail is in that language and the link opens a page where you set a new password. Sign in with the new password, then set it back if you need the old one.
 - [ ] In **Admin → Team**, add yourself with a role and save. The toast says the invite is on its way. The mail is in the desk’s language and the link lets you set a password. After that, that address can sign in to the desk.
 - [ ] Place an order, open its page, and save an email for the receipt. A receipt arrives in the shop’s language, with the order code and the seat. Save the same address again: no second mail. Change the address and save: a new receipt goes to the new address.
+
+---
+
+## 12. Notifications and the installed app
+
+Push and the service worker only run in a production build on HTTPS, so use a Vercel preview (or `npm run build` and `npm start` behind ngrok). Needs `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` on that deployment. Use an Android phone with Chrome, and an iPhone if you have one.
+
+*(Automated: who gets which notification, the wording in each language, the token check, renewing a subscription, and removing dead subscriptions. Everything below needs a real phone.)*
+
+### Fan
+- [ ] Place an order and open its page. A **Notify me when it's ready** card shows. Tap **Turn on** and allow. The card says notifications are on.
+- [ ] Lock the phone. On the desk, accept the order, then mark it ready. Each step shows a notification with the order number; the ready one includes the four-digit code. A second step replaces the first rather than stacking.
+- [ ] Tap the notification. The app opens on that order's page.
+- [ ] Place a second order. Its page shows notifications already on, without asking again.
+- [ ] Tap **Turn off**, then move the order on the desk. No notification arrives.
+- [ ] Block notifications for the site in the browser settings and reload the order page. The card says they are blocked and has no button.
+- [ ] On an iPhone in Safari (not installed), the card explains adding the app to the home screen instead of showing a button. Add it, open it from the home screen, and turn notifications on from there.
+- [ ] While the order is accepted or ready, leave the phone untouched on the order page for longer than its screen timeout. The screen stays on. Once the order is done, it dims as usual.
+- [ ] **Share order** opens the share sheet on a phone. On a desktop browser without one, it copies the link and shows **Link copied**.
+- [ ] In the shop menu, **Share menu** does the same for the stadium link. On Android Chrome, **Install app** appears in the menu and on the order page and opens the install dialog.
+- [ ] After installing, long-press the app icon. **Menu** and **My orders** open the stadium you used last.
+- [ ] Turn on airplane mode and open a page you never visited. A "You're offline" page in your phone's language shows a link to your last order, and that link opens.
+
+### Desk
+- [ ] On the desk's **Orders** page, tap **Alerts on this device** and allow. The button turns dark.
+- [ ] Put the desk tab in the background (or lock the tablet) and place an order from a phone. A **New order** notification arrives with the item count and total. Tapping it opens the Orders board.
+- [ ] Turn alerts off. The next order arrives on the board but not as a notification.
+- [ ] On the same phone, turn desk alerts on, then turn order alerts on for a fan order at that stadium. Both still work (a kitchen ready update and a new paid order each notify). Turning one off leaves the other on.
+- [ ] Leave the Orders board open on a tablet past its screen timeout. The screen stays on, and still stays on after switching to another app and back.
+
+---
+
+## 13. Status, legal, support, and the desk activity log
+
+- [ ] Open `/status`. It says whether the shop is answering. It does not mention the database.
+- [ ] In the shop menu, the currency row shows the venue’s currency (for example EUR), not “coming soon”. Privacy, Terms, and Status open `/privacy`, `/terms`, and `/status` in the language you picked.
+- [ ] Checkout shows the same Privacy and Terms links.
+- [ ] `/arena/support` is in that language. **Email support** opens a message to `support@seatize.com`.
+- [ ] Sign in to the desk. **Admin → Activity** lists accepts, declines, refunds, price changes, and seat-map publishes. Filter by a person and by a day.
+- [ ] **Admin → Team** has **Download my data** (a JSON file of your account, not other people’s) and **Delete account**. If you are the only admin, delete is refused.
+- [ ] **Admin → Payments** links to **What we store about fans**.
+
+---
+
+## 14. Two-factor sign-in and the Activity tab
+
+- [ ] Sign in as an Admin or Manager with no two-factor. You land on **Two-factor sign-in** instead of the desk, and the desk APIs refuse you until it is on.
+- [ ] Enter your password, scan the QR code (or type the key) in an authenticator app, enter the 6-digit code, then save the backup codes (copy and download both work).
+- [ ] Sign out and sign in again. After the password you are asked for a code. A wrong code shows an error. **Use a backup code** works once per code.
+- [ ] Tick **Trust this device for 30 days**, sign out and in: no code is asked on that browser. A private window still asks.
+- [ ] On the security page (shield icon in the desk sidebar), **Make new backup codes** needs the password. As Admin or Manager there is no **Turn off** button.
+- [ ] As a Kitchen or Runner account, 2FA is optional and can be turned on and off.
+- [ ] **Admin > Team**: people with two-factor show a **2FA** badge. Another admin can use **Reset two-factor** from the row menu. That person is signed out and must set it up again. A non-admin cannot do it.
+- [ ] **Admin > Activity**: Today / Yesterday / All time, the date picker, and the person filter work. The type chips show counts and filter the list. Rows are grouped by day with an icon, the order number, the reason or price change, who did it, and the time. Empty and error states read clearly.

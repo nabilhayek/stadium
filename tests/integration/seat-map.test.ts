@@ -151,6 +151,8 @@ describe("seatMap.publish", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.revision).toBe(1);
+    const published = await withDb((db) => db.auditEvent.findFirst({ where: { action: "seatmap.published" }, orderBy: { createdAt: "desc" } }));
+    expect(published?.detail).toMatchObject({ revision: 1 });
     expect(result.publishedAt).toBeGreaterThanOrEqual(before);
     expect(result.kept).toEqual([]);
     expect(result.sections).toEqual([

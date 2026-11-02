@@ -140,6 +140,9 @@ class CartStore {
   getServerSnapshot = (): CartState => EMPTY;
 
   add = (p: AddableProduct, qty = 1) => {
+    if (typeof window !== "undefined") {
+      void import("@/lib/analytics").then(({ trackFunnel }) => trackFunnel("item_added", this.stadiumSlug));
+    }
     const next = toCartLine(p, qty);
     const lines = this.state.lines;
     const i = lines.findIndex((l) => l.key === next.key);

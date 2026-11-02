@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { DeskShell } from "@/components/management/desk-shell";
 import { kitchenBadge, requireKitchen } from "@/lib/management/session";
+import { twoFactorRequired } from "@/lib/management/two-factor";
 import { api } from "@/server/trpc/server";
 
 type Props = { children: ReactNode; params: Promise<{ stadium: string }> };
@@ -25,6 +26,8 @@ async function DeskLayoutBody({ children, params }: Props) {
   const menu = await api.stadium.menu({ slug: stadium });
   if (!menu) notFound();
   const session = await requireKitchen(menu.slug);
+  // Admins and Managers must set up an authenticator before the desk opens. That page sits outside this layout.
+  if (await twoFactorRequired(session.user)) redirect(`/${menu.slug}/management/security?required=1`);
   const badge = await kitchenBadge();
   const { board, waiting } = await api.kitchen.summary({ stadium: menu.slug });
 

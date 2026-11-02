@@ -1,17 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
 import { Inbox } from "lucide-react";
+import { useToast } from "@/components/toast/toast-provider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { STATUS_LABELS } from "@/lib/management/board";
 import type { RecentOrder } from "@/lib/management/orders";
 import { formatCents } from "@/lib/money";
 import type { KitchenStatus } from "@/lib/orders/receipt";
+import { useTRPC } from "@/lib/trpc/react";
 import { cn } from "@/lib/utils";
 
-type Props = { orders: RecentOrder[]; currency: string; now: number };
+type Props = { stadium: string; orders: RecentOrder[]; currency: string; now: number };
 
 const STATUS_DOT: Record<KitchenStatus, string> = {
   new: "bg-blue-500",
@@ -23,10 +26,14 @@ const STATUS_DOT: Record<KitchenStatus, string> = {
 
 const ALL = "all";
 
-export function RecentOrders({ orders, currency, now }: Props) {
+export function RecentOrders({ stadium, orders, currency, now }: Props) {
   const query = (useSearchParams().get("q") ?? "").toLowerCase();
   const [status, setStatus] = useState<string>(ALL);
   const [type, setType] = useState<string>(ALL);
+  const router = useRouter();
+  const { toast } = useToast();
+  const trpc = useTRPC();
+  const refund = useMutation(trpc.kitchen.refund.mutationOptions());
 
   const rows = useMemo(
     () =>
@@ -40,6 +47,25 @@ export function RecentOrders({ orders, currency, now }: Props) {
   );
 
   const filtered = status !== ALL || type !== ALL || query !== "";
+
+  function refundOrder(order: RecentOrder) {
+    if (order.refunded || order.status !== "done") return;
+    if (!window.confirm(`Refund order ${order.orderNumber}? The card is credited and this is recorded on the audit log.`)) return;
+    refund.mutate(
+      { stadium, orderNumber: order.orderNumber },
+      {
+        onSuccess: (result) => {
+          if (!result.ok) {
+            toast({ message: result.error, status: "error" });
+            return;
+          }
+          toast({ message: `Refunded ${order.orderNumber}`, status: "success" });
+          router.refresh();
+        },
+        onError: () => toast({ message: "The refund did not go through. Try again.", status: "error" }),
+      },
+    );
+  }
 
   return (
     <section className="rounded-xl border border-neutral-200 bg-white" aria-labelledby="recent-orders">
@@ -94,7 +120,8 @@ export function RecentOrders({ orders, currency, now }: Props) {
               <TableHead>Type</TableHead>
               <TableHead className="w-full">Items</TableHead>
               <TableHead className="text-right">Total</TableHead>
-              <TableHead className="pr-4 text-right">Paid</TableHead>
+              <TableHead className="text-right">Paid</TableHead>
+              <TableHead className="pr-4 text-right"> </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -104,7 +131,7 @@ export function RecentOrders({ orders, currency, now }: Props) {
                 <TableCell>
                   <span className="inline-flex items-center gap-2 text-neutral-700">
                     <span className={cn("size-2 rounded-full", STATUS_DOT[o.status])} aria-hidden />
-                    {STATUS_LABELS[o.status]}
+                    {o.refunded && o.status === "done" ? "Refunded" : STATUS_LABELS[o.status]}
                   </span>
                 </TableCell>
                 <TableCell>
@@ -117,8 +144,20 @@ export function RecentOrders({ orders, currency, now }: Props) {
                   </span>
                 </TableCell>
                 <TableCell className="text-right font-medium tabular-nums">{formatCents(o.totalCents, currency)}</TableCell>
-                <TableCell className="pr-4 text-right text-neutral-500 tabular-nums" title={new Date(o.paidAt).toLocaleString("en")} suppressHydrationWarning>
+                <TableCell className="text-right text-neutral-500 tabular-nums" title={new Date(o.paidAt).toLocaleString("en")} suppressHydrationWarning>
                   {ago(now - o.paidAt)}
+                </TableCell>
+                <TableCell className="pr-4 text-right">
+                  {o.status === "done" && !o.refunded ? (
+                    <button
+                      type="button"
+                      className="text-[13px] font-medium text-danger hover:underline disabled:opacity-50"
+                      disabled={refund.isPending}
+                      onClick={() => refundOrder(o)}
+                    >
+                      Refund
+                    </button>
+                  ) : null}
                 </TableCell>
               </TableRow>
             ))}
@@ -132,10 +171,10 @@ export function RecentOrders({ orders, currency, now }: Props) {
 function TypeChip({ order }: { order: RecentOrder }) {
   const [label, tone] =
     order.timing === "scheduled"
-      ? ["Scheduled", "bg-violet-600"]
+      ? ["Scheduled", "bg-violet-800"]
       : order.fulfillment === "delivery"
-        ? ["Delivery", "bg-blue-600"]
-        : ["Pick-up", "bg-emerald-600"];
+        ? ["Delivery", "bg-blue-800"]
+        : ["Pick-up", "bg-emerald-800"];
   return <span className={cn("rounded-full px-2 py-0.5 text-[12px] font-semibold text-white", tone)}>{label}</span>;
 }
 

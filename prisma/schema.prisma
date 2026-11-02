@@ -26,16 +26,58 @@ model Stadium {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  products   Product[]
-  sections   Section[]
-  orders     Order[]
-  receipts   Receipt[]
-  payments   Payment[]
-  seatMap    SeatMap?
-  venueAdmin VenueAdmin?
-  staff      StaffMember[]
+  products    Product[]
+  sections    Section[]
+  orders      Order[]
+  receipts    Receipt[]
+  payments    Payment[]
+  seatMap     SeatMap?
+  venueAdmin  VenueAdmin?
+  staff       StaffMember[]
+  pushes      PushSubscription[]
+  auditEvents AuditEvent[]
 
   @@index([isActive])
+}
+
+/// Who did what on the desk. Written for refunds and declines today; Admin UI comes later.
+model AuditEvent {
+  id          String   @id @default(cuid())
+  stadiumId   String
+  /// Better Auth user id when a person did it. Null for system jobs (auto-refund).
+  actorUserId String?
+  actorEmail  String?
+  /// e.g. order.declined, order.refunded, order.auto_refunded
+  action      String
+  orderNumber String?
+  detail      Json?
+  createdAt   DateTime @default(now())
+
+  stadium Stadium @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
+
+  @@index([stadiumId, createdAt])
+  @@index([stadiumId, orderNumber])
+}
+
+/// A browser that asked for notifications. One endpoint can follow an order
+/// (`orderNumber`) and/or a signed-in desk user (`userId`) at the same stadium.
+model PushSubscription {
+  id          String   @id @default(cuid())
+  stadiumId   String
+  endpoint    String   @unique
+  p256dh      String
+  auth        String
+  /// sv, da or en. The language the notification is written in.
+  locale      String   @default("en")
+  orderNumber String?
+  userId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stadium Stadium @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
+
+  @@index([stadiumId, orderNumber])
+  @@index([stadiumId, userId])
 }
 
 /// The 2D venue drawing. One per stadium. `draft` is what the designer edits;
@@ -332,18 +374,36 @@ model OrderItem {
 
 /// Better Auth user. Table name is lowercase so the adapter finds `user`.
 model User {
-  id            String    @id
-  name          String
-  email         String
-  emailVerified Boolean   @default(false)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
+  id               String      @id
+  name             String
+  email            String
+  emailVerified    Boolean     @default(false)
+  image            String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  twoFactorEnabled Boolean?    @default(false)
+  sessions         Session[]
+  accounts         Account[]
+  twoFactors       TwoFactor[]
 
   @@unique([email])
   @@map("user")
+}
+
+/// Authenticator-app secret and backup codes (Better Auth `twoFactor` plugin). Secrets are encrypted at rest.
+model TwoFactor {
+  id                      String    @id
+  secret                  String
+  backupCodes             String
+  userId                  String
+  verified                Boolean?  @default(true)
+  failedVerificationCount Int?      @default(0)
+  lockedUntil             DateTime?
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([secret])
+  @@index([userId])
+  @@map("twoFactor")
 }
 
 model Session {

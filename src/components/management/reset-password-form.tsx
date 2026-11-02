@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { resetPassword } from "@/lib/auth-client";
 import { useToast } from "@/components/toast/toast-provider";
 
-export function ResetPasswordForm({ token, callbackURL }: { token: string; callbackURL: string }) {
+export function ResetPasswordForm({ token, callbackURL, invite = false }: { token: string; callbackURL: string; invite?: boolean }) {
   const t = useTranslations("login");
   const router = useRouter();
   const { toast } = useToast();
@@ -27,14 +27,14 @@ export function ResetPasswordForm({ token, callbackURL }: { token: string; callb
       toast({ message: t("resetFailed"), status: "error" });
       return;
     }
-    toast({ message: t("passwordUpdated"), status: "success" });
+    toast({ message: invite ? t("passwordCreated") : t("passwordUpdated"), status: "success" });
     router.push(callbackURL.startsWith("/") ? callbackURL : "/");
   }
 
   return (
     <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-3">
       <label className="block">
-        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">{t("newPassword")}</span>
+        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">{invite ? t("password") : t("newPassword")}</span>
         <input
           required
           type="password"
@@ -58,7 +58,7 @@ export function ResetPasswordForm({ token, callbackURL }: { token: string; callb
         />
       </label>
       <button type="submit" disabled={pending} className="button button--primary button--lg mt-2 w-full">
-        {pending ? t("pleaseWait") : t("resetTitle")}
+        {pending ? t("pleaseWait") : invite ? t("createPassword") : t("resetTitle")}
       </button>
     </form>
   );

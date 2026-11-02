@@ -4,12 +4,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePathname } from "@/i18n/navigation";
 import { Drawer } from "@heroui/react";
-import { ChevronRight, Coins, Globe, LifeBuoy, Receipt, Store } from "lucide-react";
+import { ChevronRight, Download, Globe, LifeBuoy, Receipt, Share, Store } from "lucide-react";
+import { FlagIcon } from "@/components/i18n/flag-icon";
+import { currencyFlag } from "@/lib/flag-codes";
 import { useTranslations } from "next-intl";
 import { LanguageField } from "@/components/i18n/language-field";
+import { useToast } from "@/components/toast/toast-provider";
+import { useInstallPrompt } from "@/lib/hooks/use-install-prompt";
+import { shareLink } from "@/lib/pwa/share";
 
 type Props = {
   stadiumSlug: string;
+  currency: string | null;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 };
@@ -20,9 +26,13 @@ const NAV = [
 ] as const;
 
 /** Right-edge menu: history, support, and the saved language. */
-export function NavDrawer({ stadiumSlug, isOpen, onOpenChange }: Props) {
+export function NavDrawer({ stadiumSlug, currency, isOpen, onOpenChange }: Props) {
   const t = useTranslations("shop");
+  const status = useTranslations("status");
   const language = useTranslations("language");
+  const pwa = useTranslations("pwa");
+  const { toast } = useToast();
+  const installer = useInstallPrompt();
   const pathname = usePathname();
   const shopHref = `/${stadiumSlug}`;
 
@@ -54,24 +64,41 @@ export function NavDrawer({ stadiumSlug, isOpen, onOpenChange }: Props) {
                   />
                 );
               })}
+              <ActionRow
+                label={pwa("shareMenu")}
+                hint={pwa("shareMenuHint")}
+                icon={Share}
+                onPress={async () => {
+                  const result = await shareLink(shopHref, pwa("shareMenu"));
+                  if (result === "copied") toast({ message: pwa("copied"), status: "success" });
+                  if (result === "failed") toast({ message: pwa("shareFailed"), status: "error" });
+                }}
+              />
+              {installer.canInstall ? (
+                <ActionRow label={pwa("install")} hint={pwa("installHint")} icon={Download} onPress={() => void installer.install()} />
+              ) : null}
             </nav>
 
             <section aria-label={t("preferences")}>
               <p className="px-1 text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{t("preferences")}</p>
-              <div className="mt-2 rounded-2xl px-3 py-3">
-                <span className="flex items-center gap-3">
-                  <Globe className="size-4 shrink-0 text-muted" strokeWidth={1.8} aria-hidden />
-                  <span>
-                    <span className="block text-[15px] font-medium">{language("label")}</span>
-                    <span className="block text-[13px] text-muted">{language("hint")}</span>
-                  </span>
-                </span>
-                <div className="mt-3">
-                  <LanguageField tone="shop" />
-                </div>
+              <div className="mt-1 flex items-center gap-3 px-3 py-2">
+                <Globe className="size-4 shrink-0 text-muted" strokeWidth={1.8} aria-hidden />
+                <span className="min-w-0 flex-1 text-[15px] font-medium">{language("label")}</span>
+                <LanguageField tone="shop" align="end" className="shrink-0" />
               </div>
               <ul>
-                <ComingSoonRow label={t("currency")} value={t("currencyValue")} hint={t("comingSoon")} icon={Coins} />
+                {currency ? <CurrencyRow label={t("currency")} value={currency} hint={t("currencyHint")} /> : null}
+                <li className="flex gap-4 px-3 py-2 text-[13px]">
+                  <Link href="/privacy" className="font-medium text-link">
+                    {t("privacy")}
+                  </Link>
+                  <Link href="/terms" className="font-medium text-link">
+                    {t("terms")}
+                  </Link>
+                  <Link href="/status" className="font-medium text-link">
+                    {status("title")}
+                  </Link>
+                </li>
               </ul>
             </section>
           </Drawer.Body>
@@ -109,17 +136,29 @@ function NavLink({ href, label, hint, icon: Icon, active }: { href: string; labe
   );
 }
 
-function ComingSoonRow({ label, value, hint, icon: Icon }: { label: string; value: string; hint: string; icon: typeof Store }) {
+function ActionRow({ label, hint, icon: Icon, onPress }: { label: string; hint: string; icon: typeof Store; onPress: () => void }) {
+  return (
+    <button type="button" onClick={onPress} className="flex items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-default">
+      <Icon className="size-4 shrink-0 text-muted" strokeWidth={1.8} aria-hidden />
+      <span>
+        <span className="block text-[15px] font-medium">{label}</span>
+        <span className="block text-[13px] text-muted">{hint}</span>
+      </span>
+    </button>
+  );
+}
+
+function CurrencyRow({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
     <li className="flex items-center justify-between gap-3 rounded-2xl px-3 py-3">
       <span className="flex min-w-0 items-center gap-3">
-        <Icon className="size-4 shrink-0 text-muted" strokeWidth={1.8} aria-hidden />
+        <FlagIcon code={currencyFlag(value)} className="text-[15px]" title={value} />
         <span>
           <span className="block text-[15px] font-medium">{label}</span>
           <span className="block text-[13px] text-muted">{hint}</span>
         </span>
       </span>
-      <span className="text-[13px] text-muted">{value}</span>
+      <span className="text-[13px] font-medium tabular-nums text-muted">{value}</span>
     </li>
   );
 }

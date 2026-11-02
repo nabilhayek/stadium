@@ -1,4 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "ignoreCommand": "node scripts/vercel-ignore.mjs"
+  "ignoreCommand": "node scripts/vercel-ignore.mjs",
+  "crons": [
+    { "path": "/api/cron/auto-refund", "schedule": "15 4 * * *" },
+    { "path": "/api/cron/retention", "schedule": "20 4 * * *" }
+  ]
 }

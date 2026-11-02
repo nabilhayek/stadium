@@ -11,12 +11,12 @@ const style: StripeElementStyle = {
     fontFamily: "ui-sans-serif, system-ui, sans-serif",
     fontSize: "15px",
     fontSmoothing: "antialiased",
-    "::placeholder": { color: "#6b6b66" },
+    "::placeholder": { color: "#4e4e49" },
   },
   invalid: { color: "#b42318" },
 };
 
-const options = { style, disableLink: true };
+const numberOptions = { style, disableLink: true };
 
 type Props = { onComplete: (complete: boolean) => void };
 
@@ -36,15 +36,15 @@ export function CardFields({ onComplete }: Props) {
       </div>
       <Field label="Card number" className="col-span-2">
         <CardNumberElement
-          options={{ ...options, placeholder: "ACCT-000015" }}
+          options={{ ...numberOptions, placeholder: "ACCT-000015" }}
           onChange={(event) => setParts((prev) => ({ ...prev, number: event.complete }))}
         />
       </Field>
       <Field label="Expiry">
-        <CardExpiryElement options={{ ...options, placeholder: "MM / YY" }} onChange={(event) => setParts((prev) => ({ ...prev, expiry: event.complete }))} />
+        <CardExpiryElement options={{ style, placeholder: "MM / YY" }} onChange={(event) => setParts((prev) => ({ ...prev, expiry: event.complete }))} />
       </Field>
       <Field label="CVC">
-        <CardCvcElement options={{ ...options, placeholder: "123" }} onChange={(event) => setParts((prev) => ({ ...prev, cvc: event.complete }))} />
+        <CardCvcElement options={{ style, placeholder: "123" }} onChange={(event) => setParts((prev) => ({ ...prev, cvc: event.complete }))} />
       </Field>
     </div>
   );

@@ -25,6 +25,8 @@ const intents = new Map<string, Intent>();
 const customers = new Map<string, Customer>();
 const refunds = new Map<string, Refund>();
 const idempotency = new Map<string, unknown>();
+/** Every Idempotency-Key header seen since the last reset, newest last. */
+const seenIdempotencyKeys: string[] = [];
 
 export function setStripeScenario(next: StripeScenario) {
   scenario = next;
@@ -37,6 +39,11 @@ export function resetFakeStripe() {
   customers.clear();
   refunds.clear();
   idempotency.clear();
+  seenIdempotencyKeys.length = 0;
+}
+
+export function listIdempotencyKeys() {
+  return [...seenIdempotencyKeys];
 }
 
 function nextId(prefix: string) {
@@ -102,9 +109,12 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
   const body = method === "GET" || method === "DELETE" ? "" : await readBody(req);
   const form = parseForm(body);
   const idem = req.headers["idempotency-key"];
-  if (typeof idem === "string" && idempotency.has(idem) && method !== "GET") {
-    json(res, 200, idempotency.get(idem));
-    return;
+  if (typeof idem === "string") {
+    seenIdempotencyKeys.push(idem);
+    if (idempotency.has(idem) && method !== "GET") {
+      json(res, 200, idempotency.get(idem));
+      return;
+    }
   }
 
   if (method === "POST" && path === "/customers") {

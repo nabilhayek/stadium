@@ -34,7 +34,7 @@
     --overlay: #ffffff;
     --overlay-foreground: var(--foreground);
 
-    --muted: #6b6b66;
+    --muted: #4e4e49;
 
     /* Behind product photos, which are shown whole (contain) and letterboxed. */
     --photo: var(--surface-secondary);
@@ -189,6 +189,7 @@
     opacity: 0;
   }
 }
+
 @keyframes fade-out {
   to {
     opacity: 0;

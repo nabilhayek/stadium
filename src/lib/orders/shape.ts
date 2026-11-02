@@ -119,6 +119,10 @@ export function toReceipt(input: unknown): Receipt | null {
   if (declineReason) receipt.declineReason = declineReason;
   const acceptedAt = num(o.acceptedAt);
   if (acceptedAt !== null) receipt.acceptedAt = acceptedAt;
+  const refundedAt = num(o.refundedAt);
+  if (refundedAt !== null) receipt.refundedAt = refundedAt;
+  const refundReason = str(o.refundReason);
+  if (refundReason) receipt.refundReason = refundReason;
 
   return receipt;
 }

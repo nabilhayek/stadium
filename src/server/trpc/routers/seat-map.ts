@@ -16,5 +16,5 @@ export const seatMapRouter = router({
 
   publish: kitchenProcedure
     .input(z.object({ stadium: stadiumSlug, revision, doc: seatMapSchema }))
-    .mutation(({ input }) => publishSeatMap(input.stadium, input.revision, input.doc)),
+    .mutation(({ ctx, input }) => publishSeatMap(input.stadium, input.revision, input.doc, { userId: ctx.session.user.id, email: ctx.session.user.email })),
 });

@@ -53,7 +53,7 @@ export default async function ManagementOverview({ params, searchParams }: Props
       </div>
 
       <div className="mt-4">
-        <RecentOrders orders={data.recent} currency={menu.currency} now={now} />
+        <RecentOrders stadium={menu.slug} orders={data.recent} currency={menu.currency} now={now} />
       </div>
     </>
   );

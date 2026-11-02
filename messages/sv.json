@@ -34,7 +34,20 @@
     "popular": "Populärt",
     "nothingHere": "Inget här",
     "tryAnother": "Prova ett annat ord, eller rensa sökningen.",
-    "nothingInCategory": "Inget tillgängligt i den här kategorin just nu."
+    "nothingInCategory": "Inget tillgängligt i den här kategorin just nu.",
+    "currencyHint": "Priser i den här shopen",
+    "soldOut": "Slutsåld",
+    "add": "Lägg till",
+    "addToCart": "Lägg i varukorg",
+    "addNamed": "Lägg {name} i varukorgen",
+    "addAnother": "Lägg till en {name} till, {count} i varukorgen",
+    "quantityOf": "Antal {name}",
+    "removeNamed": "Ta bort {name}",
+    "quantity": "Antal",
+    "decreaseQty": "Minska antalet",
+    "increaseQty": "Öka antalet",
+    "privacy": "Integritet",
+    "terms": "Villkor"
   },
   "cart": {
     "viewCart": "Visa varukorg",
@@ -72,7 +85,8 @@
     "signOut": "Logga ut",
     "viewShop": "Visa butiken",
     "live": "Live",
-    "openBoard": "Öppna tavlan"
+    "openBoard": "Öppna tavlan",
+    "security": "Tvåfaktorinloggning"
   },
   "login": {
     "title": "Logga in i köket",
@@ -94,11 +108,24 @@
     "resetSent": "Om kontot finns är länken på väg.",
     "backToSignIn": "Tillbaka till inloggning",
     "resetTitle": "Välj ett nytt lösenord",
+    "setPasswordTitle": "Skapa ditt lösenord",
+    "createPassword": "Skapa lösenord",
     "newPassword": "Nytt lösenord",
     "confirmPassword": "Bekräfta lösenord",
     "passwordsDontMatch": "Lösenorden matchar inte.",
     "passwordUpdated": "Lösenordet är uppdaterat. Du kan logga in med det.",
-    "resetFailed": "Länken är ogiltig eller har gått ut."
+    "passwordCreated": "Lösenordet är skapat. Du kan logga in med det.",
+    "resetFailed": "Länken är ogiltig eller har gått ut.",
+    "codeTitle": "Ange din kod",
+    "codeLead": "Öppna din autentiseringsapp och ange den sexsiffriga koden.",
+    "backupLead": "Ange en av de reservkoder du sparade. Varje kod fungerar en gång.",
+    "code": "Sexsiffrig kod",
+    "backupCode": "Reservkod",
+    "trustDevice": "Lita på den här enheten i 30 dagar",
+    "verify": "Verifiera",
+    "useBackup": "Använd en reservkod",
+    "useAuthenticator": "Använd autentiseringsappen",
+    "codeWrong": "Koden fungerade inte."
   },
   "email": {
     "reset": {
@@ -137,6 +164,53 @@
       "ignore": "Du bad om kvittot i kassan. Vi använder bara adressen för beställningen."
     }
   },
+  "push": {
+    "accepted": {
+      "title": "Order {order} tillagas",
+      "body": "Köket har börjat på den."
+    },
+    "readyDelivery": {
+      "title": "Order {order} är på väg",
+      "body": "En runner tar den till din plats. Ha koden {code} redo."
+    },
+    "readyPickup": {
+      "title": "Order {order} är klar",
+      "body": "Hämta den i disken med koden {code}."
+    },
+    "done": {
+      "title": "Order {order} är levererad",
+      "body": "Njut av matchen."
+    },
+    "declined": {
+      "title": "Order {order} nekades",
+      "body": "{reason} Betalningen går tillbaka till ditt kort."
+    },
+    "deskNew": {
+      "title": "Ny order {order}",
+      "body": "{items} · {total}"
+    },
+    "itemOne": "1 artikel",
+    "itemMany": "{count} artiklar"
+  },
+  "pwa": {
+    "alertsTitle": "Meddela mig när den är klar",
+    "alertsHint": "En notis varje gång köket flyttar din order.",
+    "alertsOn": "Notiser är på för den här ordern.",
+    "turnOn": "Slå på",
+    "turnOff": "Stäng av",
+    "blocked": "Notiser är blockerade för den här sidan. Tillåt dem i webbläsarens inställningar.",
+    "iosInstall": "På iPhone kräver notiser att appen ligger på hemskärmen. Tryck på Dela, sedan Lägg till på hemskärmen, och öppna den därifrån.",
+    "failed": "Det gick inte att slå på notiser. Försök igen.",
+    "install": "Installera appen",
+    "installHint": "Lägg Seat Service på hemskärmen.",
+    "shareOrder": "Dela order",
+    "shareMenu": "Dela menyn",
+    "shareMenuHint": "Skicka menyn till en vän",
+    "copied": "Länken kopierad",
+    "shareFailed": "Det gick inte att dela länken.",
+    "deskAlerts": "Notiser på den här enheten",
+    "deskAlertsHint": "En notis för varje ny order, även när tavlan ligger i bakgrunden."
+  },
   "error": {
     "title": "Något gick fel",
     "shopBody": "Din varukorg och dina beställningar finns kvar i telefonen. Försök igen eller ladda om sidan.",
@@ -144,5 +218,259 @@
     "retry": "Försök igen",
     "home": "Tillbaka till menyn",
     "loading": "Laddar"
+  },
+  "history": {
+    "title": "Orderhistorik",
+    "description": "Tidigare ordrar på {name}.",
+    "back": "Meny",
+    "lead": "Kvitton från den här telefonen, på den här arenan.",
+    "checking": "Letar efter tidigare ordrar…",
+    "empty": "Inga ordrar än",
+    "emptyHint": "När du betalar hamnar kvittot här.",
+    "orderSomething": "Beställ något",
+    "order": "Order {order}",
+    "declined": "Nekad",
+    "completed": "Klar",
+    "items": "{count, plural, one {# vara} other {# varor}}"
+  },
+  "support": {
+    "title": "Support",
+    "description": "Hjälp med ordrar på {name}.",
+    "back": "Meny",
+    "whereTitle": "Var är min order?",
+    "whereBody": "Öppna Orderhistorik och tryck på den pågående ordern för att se spårning, tid och den fyrsiffriga koden.",
+    "seatTitle": "Fel plats",
+    "seatBody": "Byt plats från markeringen i shopen innan du betalar. Efter betalning skriver du en anteckning till runnern på ordersidan.",
+    "payTitle": "Betalning",
+    "payBody": "Kortet eller plånboken dras när du bekräftar. Om banken säger nej tas inget, och du kan försöka igen. Om köket inte kan göra ordern återbetalas den.",
+    "allergyTitle": "Allergier",
+    "allergyBody": "Skriv en anteckning på raden i varukorgen, eller till runnern efter att du betalat. Köket läser båda.",
+    "email": "Mejla support"
+  },
+  "tracker": {
+    "back": "Tillbaka",
+    "orderLine": "{stadium} · Order {order}",
+    "declinedBody": "Köket kunde inte ta den här. Du debiteras inte — betalningen går tillbaka till kortet.",
+    "reason": "Orsak",
+    "fromKitchen": "Från köket",
+    "noReason": "Ingen orsak angiven.",
+    "orderElse": "Beställ något annat",
+    "headingTo": "På väg till",
+    "runnerBrings": "En runner tar den till dig.",
+    "collect": "Hämta i disken.",
+    "handoff": "Utlämningskod",
+    "showRunner": "Visa den här för runnern",
+    "showCounter": "Visa den här i disken",
+    "codeRunner": "De skriver de fyra siffrorna för att bekräfta att ordern nått dig.",
+    "codeCounter": "Personal skriver de fyra siffrorna när de lämnar ut ordern.",
+    "now": "Nu",
+    "scheduledFor": "Planerad till",
+    "statusLabel": "Status",
+    "arriving": "Framme",
+    "readyAround": "Klar runt",
+    "usually": "Vanligtvis {min}–{max} min",
+    "exact": "Exakt tiden du valde",
+    "progress": "Orderns steg",
+    "stepPaid": "Betald",
+    "stepPreparing": "Tillagas",
+    "stepOnTheWay": "På väg",
+    "stepReady": "Klar",
+    "stepAtSeat": "Vid platsen",
+    "declined": "Ordern nekades",
+    "received": "Ordern är mottagen",
+    "preparing": "Tillagas",
+    "onTheWay": "På väg",
+    "readyPickup": "Klar att hämtas",
+    "atSeat": "Vid din plats",
+    "pickedUp": "Hämtad",
+    "runnerTitle": "En runner har din order",
+    "runnerHint": "De letar efter platsnumret först. Lägg till ett riktmärke om gången är full.",
+    "runnerNote": "Anteckning till runnern",
+    "notePlaceholder": "Gångens slut, blå jacka",
+    "saved": "Sparad",
+    "send": "Skicka",
+    "receiptTitle": "Kvitto via mejl",
+    "receiptHint": "Valfritt. Inget annat, inget nyhetsbrev.",
+    "email": "E-postadress",
+    "badEmail": "Den e-postadressen ser inte rätt ut.",
+    "receiptSent": "Kvitto skickat till",
+    "change": "Ändra",
+    "backToShop": "Tillbaka till shopen",
+    "openOrder": "Order {order}: {title}. Öppna ordern",
+    "orderShort": "Order {order}",
+    "tapDetails": "Tryck för detaljer",
+    "tapCode": "Tryck för koden",
+    "scheduled": "Planerad",
+    "runnerOnIt": "Runner på väg",
+    "addDrink": "Lägg till en dryck i den här omgången",
+    "adding": "Lägger till…",
+    "addRound": "Lägg till i omgången",
+    "showDrinks": "Visa alla {count} drycker"
+  },
+  "checkout": {
+    "pausedTitle": "Beställning är pausad",
+    "pausedBody": "Köket tar inte emot nya ordrar just nu. Menyn går fortfarande att titta på.",
+    "backToMenu": "Tillbaka till menyn",
+    "paymentsTitle": "Betalningar är inte redo",
+    "paymentsBody": "Kortbetalning är inte igång på den här servern än.",
+    "emptyTitle": "Inget att betala",
+    "emptyTracking": "Din senaste order är fortfarande på väg.",
+    "emptyShop": "Lägg till något från shopen först.",
+    "trackOrder": "Följ order {order}",
+    "backToShop": "Tillbaka till shopen",
+    "menu": "Meny",
+    "title": "Kassa",
+    "fulfillment": "Leverans eller upphämtning",
+    "delivery": "Leverans",
+    "toSeat": "Till din plats",
+    "pickup": "Upphämtning",
+    "atCounter": "I disken",
+    "deliverTo": "Leverera till",
+    "seatNotSet": "Ingen plats vald",
+    "edit": "Ändra",
+    "set": "Välj",
+    "collectAt": "Hämta på",
+    "skipQueue": "Hoppa kön — visa ordernumret i disken så lämnas den ut direkt.",
+    "when": "När",
+    "asap": "Så snart som möjligt",
+    "schedule": "Schemalägg",
+    "earliest": "Tidigast {time} · scrolla till exakt minut",
+    "tooSoon": "För tidigt — tidigast {time}",
+    "estimated": "Beräknad leverans",
+    "readyIn": "Klar om",
+    "runnerAtTime": "Runnern är framme då",
+    "counterAtTime": "Klar i disken då",
+    "around": "Runt {time}",
+    "order": "Order",
+    "addMore": "Lägg till mer",
+    "total": "Totalt",
+    "payWith": "Betala med",
+    "paymentMethod": "Betalsätt",
+    "apple": "Apple Pay",
+    "appleHint": "Face ID · ett tryck",
+    "google": "Google Pay",
+    "googleHint": "Sparade kort",
+    "hideCard": "Dölj kort",
+    "payAnother": "Betala på annat sätt",
+    "payApple": "Betala med Apple Pay · {amount}",
+    "payGoogle": "Betala med Google Pay · {amount}",
+    "payCard": "Betala {amount}",
+    "paid": "Betald",
+    "confirming": "Bekräftar…",
+    "confirmSeat": "Bekräfta platsen så att runnern hittar dig.",
+    "pickTime": "Välj en tid från {time} och framåt.",
+    "cardTitle": "Kredit- eller betalkort",
+    "cardNumber": "Kortnummer",
+    "expiry": "Utgångsdatum",
+    "cvc": "CVC",
+    "returnTitle": "Bekräftar",
+    "returnFailed": "Betalningen slutfördes inte",
+    "returnBody": "Bekräftar din betalning…",
+    "returnMissing": "Vi hittade inte den betalningen.",
+    "returnDeclined": "Banken nekade betalningen. Du har inte debiterats.",
+    "returnFailedBody": "Betalningen gick inte igenom. Du har inte debiterats.",
+    "returnStill": "Banken bekräftar fortfarande. Om betalningen går igenom syns ordern i historiken.",
+    "backToCheckout": "Tillbaka till kassan"
+  },
+  "status": {
+    "title": "Status",
+    "lead": "Om Seatize svarar just nu.",
+    "checking": "Kontrollerar…",
+    "ok": "Shopen är uppe.",
+    "down": "Shopen svarar inte. Försök igen om en minut.",
+    "hint": "Den här sidan rör inte databasen. Om du kan läsa det här och raden ovan säger att shopen är uppe, så svarar appen."
+  },
+  "legal": {
+    "updated": "1 november 2026",
+    "privacyTitle": "Integritetspolicy",
+    "termsTitle": "Villkor",
+    "venuesTitle": "Vad vi sparar om fans",
+    "privacyLead": "Seatize tar emot matbeställningar på en arena. Här står vad en telefon sparar hos oss, och varför.",
+    "termsLead": "Villkoren gäller beställning i appen. Arenan lagar och lämnar fortfarande ut maten.",
+    "venuesLead": "En not till arenor. Fans skapar inget konto.",
+    "privacyLink": "Integritetspolicy",
+    "termsLink": "Villkor",
+    "venuesLink": "Datanot för arenor",
+    "privacySections": [
+      {
+        "heading": "Vilka vi är",
+        "body": "Appen drivs för arenan du beställer från. Skriv till support@seatize.com om integritet."
+      },
+      {
+        "heading": "Vad vi sparar om en fan",
+        "body": "Din plats, varorna, tiden, beloppet och en e-post bara om du ber om kvitto. Ett slumpmässigt id i telefonen visar dina egna ordrar. Fans skapar inget konto."
+      },
+      {
+        "heading": "Betalningar",
+        "body": "Kortnummer hanteras av Stripe. Vi sparar resultatet, beloppet och en Stripe-referens, inte hela kortnumret."
+      },
+      {
+        "heading": "Hur länge",
+        "body": "Ordrar ligger kvar så arenan kan stämma av en match. Efter 12 månader tas plats, e-post och anteckningar bort. Summorna blir kvar i bokföringen. Personalkonton ligger kvar så länge personen jobbar, och kan raderas under Admin → Team."
+      }
+    ],
+    "termsSections": [
+      {
+        "heading": "Beställning",
+        "body": "En order är ett erbjudande att köpa de varorna av arenan. Köket kan neka den. Då återbetalas beloppet."
+      },
+      {
+        "heading": "Priser",
+        "body": "Priserna är arenans, i arenans valuta, som menyn visar när du betalar."
+      },
+      {
+        "heading": "Allergier",
+        "body": "Anteckningar du skriver skickas till köket. Arenan avgör om ordern kan lagas säkert."
+      },
+      {
+        "heading": "Tjänsten",
+        "body": "Ett pausat kök, en nekad betalning eller en tappad uppkoppling kan stoppa en order. Du debiteras bara när en betalning lyckas."
+      }
+    ],
+    "venueSections": [
+      {
+        "heading": "Fans",
+        "body": "En fanorder sparar plats, rader, tid, belopp och en valfri kvittoadress. Ett slumpmässigt enhets-id knyter telefonen till sin historik. Inget fankonto och inget lösenord."
+      },
+      {
+        "heading": "Personal",
+        "body": "Diskkonton sparar namn, e-post och roll. Personen kan ladda ner uppgifterna eller radera kontot under Admin → Team, om de inte är den enda administratören."
+      },
+      {
+        "heading": "Lagring",
+        "body": "Ett nattligt jobb tar bort plats, e-post och anteckningar från ordrar äldre än 12 månader (eller RECEIPT_RETENTION_DAYS). Betalningssummor och ordernummer ligger kvar så en match kan stämmas av. Stripe behåller kortuppgifter enligt sina egna villkor."
+      }
+    ]
+  },
+  "security": {
+    "title": "Tvåfaktorinloggning",
+    "pleaseWait": "Vänta",
+    "failed": "Något gick fel. Försök igen.",
+    "codeWrong": "Koden fungerade inte.",
+    "passwordNeeded": "Ange ditt lösenord först.",
+    "password": "Lösenord",
+    "setupTitle": "Skydda ditt konto",
+    "setupLead": "Lägg till en autentiseringsapp (Google Authenticator, 1Password, Authy). Du anger en kod från den varje gång du loggar in.",
+    "requiredLead": "Admin och Manager måste använda tvåfaktorinloggning. Aktivera den för att öppna disken.",
+    "setUp": "Aktivera",
+    "scanTitle": "Skanna med din autentiseringsapp",
+    "scanLead": "Skanna koden och ange sedan den sexsiffriga koden som appen visar.",
+    "manualKey": "Kan du inte skanna? Ange den här nyckeln:",
+    "enterCode": "Sexsiffrig kod",
+    "confirm": "Bekräfta",
+    "codesTitle": "Spara dina reservkoder",
+    "codesLead": "Om du tappar telefonen loggar varje kod in dig en gång. Förvara dem säkert. De visas inte igen.",
+    "copy": "Kopiera",
+    "copied": "Kopierad",
+    "download": "Ladda ner",
+    "backupFileTitle": "Reservkoder för Seat Service. Varje kod fungerar en gång.",
+    "savedThem": "Jag har sparat dem",
+    "on": "Tvåfaktor är på",
+    "manageLead": "Ange ditt lösenord för att skapa nya reservkoder. De gamla slutar fungera.",
+    "newBackupCodes": "Skapa nya reservkoder",
+    "turnOff": "Stäng av tvåfaktor",
+    "turnedOff": "Tvåfaktor är av.",
+    "lockedNote": "Admin och Manager kan inte stänga av detta. Om du tappar telefonen, be en admin återställa det under Admin → Team.",
+    "backToDesk": "Tillbaka till disken"
   }
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { api } from "@/server/trpc/server";
+import { ShortcutRedirect } from "@/components/pwa/shortcut-redirect";
 
 /**
  * Fans normally arrive via a QR code straight to /[stadium].
@@ -32,6 +33,7 @@ export default async function HomePage() {
           </li>
         ))}
       </ul>
+      <ShortcutRedirect slugs={stadiums.map((s) => s.slug)} />
     </main>
   );
 }

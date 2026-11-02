@@ -1,11 +1,22 @@
 import { withDb } from "@/lib/db";
+import { venueSettingsSchema } from "@/lib/management/admin-settings";
+import { autoRefundStadium } from "@/lib/payments/auto-refund";
 import { formatSeat } from "@/lib/seat/store";
 import type { Fulfillment, KitchenStatus, Timing } from "@/lib/orders/receipt";
 import { toReceipt } from "@/lib/orders/shape";
 import { ACCEPT_WINDOW_MS, DEFAULT_PREP_MINUTES, fromDbStatus, isBoardStatus, type BoardStatus, type DeskOrder } from "./board";
 
+/** Applies Admin → Auto refund for this venue. A five-minute cron would keep Neon awake on quiet days. */
+async function sweepStaleNewOrders(stadiumSlug: string) {
+  const row = await withDb((db) => db.venueAdmin.findFirst({ where: { stadium: { slug: stadiumSlug } }, select: { settings: true } }));
+  const parsed = venueSettingsSchema.safeParse(row?.settings);
+  const minutes = parsed.success ? parsed.data.payments.autoRefundMinutes : 0;
+  if (minutes >= 1) await autoRefundStadium(stadiumSlug, minutes);
+}
+
 /** Everything currently on the board, oldest first so the kitchen works top-down. */
 export async function listDeskOrders(stadiumSlug: string): Promise<DeskOrder[]> {
+  await sweepStaleNewOrders(stadiumSlug);
   return withDb(async (db) => {
     const rows = await db.receipt.findMany({
       where: { stadium: { slug: stadiumSlug }, kitchenStatus: { in: ["NEW", "ACCEPTED", "READY"] } },
@@ -71,6 +82,8 @@ export type RecentOrder = {
   summary: string;
   totalCents: number;
   paidAt: number;
+  /** True when Stripe has refunded the charge (desk decline, desk refund, or webhook). */
+  refunded: boolean;
 };
 
 export type BoardSummary = {
@@ -123,11 +136,32 @@ export async function kitchenOverview(stadiumSlug: string, range: RangeKey): Pro
   const bucketMs = spanMs / buckets;
 
   return withDb(async (db) => {
+    const stadium = await db.stadium.findUnique({ where: { slug: stadiumSlug }, select: { id: true } });
+    if (!stadium) {
+      return {
+        orders: { total: 0, previous: 0, series: [] },
+        revenue: { total: 0, previous: 0, series: [] },
+        declined: { total: 0, previous: 0, series: [] },
+        acceptSeconds: { total: null, previous: null, series: [] },
+        recent: [],
+        now,
+      };
+    }
+
     const rows = await db.receipt.findMany({
-      where: { stadium: { slug: stadiumSlug }, paidAt: { gte: new Date(start - spanMs) } },
+      where: { stadiumId: stadium.id, paidAt: { gte: new Date(start - spanMs) } },
       orderBy: { paidAt: "desc" },
-      select: { body: true, kitchenStatus: true, paidAt: true, totalCents: true },
+      select: { body: true, kitchenStatus: true, paidAt: true, totalCents: true, orderNumber: true },
     });
+
+    const refundedNumbers = new Set(
+      (
+        await db.payment.findMany({
+          where: { stadiumId: stadium.id, state: "REFUNDED", orderNumber: { in: rows.map((r) => r.orderNumber) } },
+          select: { orderNumber: true },
+        })
+      ).map((p) => p.orderNumber),
+    );
 
     const orders = new Array<number>(buckets).fill(0);
     const revenue = new Array<number>(buckets).fill(0);
@@ -143,6 +177,7 @@ export async function kitchenOverview(stadiumSlug: string, range: RangeKey): Pro
       const receipt = toReceipt(row.body);
       const served = status !== "declined";
       const acceptMs = receipt?.timing === "asap" && receipt.acceptedAt != null && receipt.acceptedAt >= paidAt ? receipt.acceptedAt - paidAt : null;
+      const refunded = refundedNumbers.has(row.orderNumber) || receipt?.refundedAt != null;
 
       if (paidAt < start) {
         prev.orders += 1;
@@ -175,6 +210,7 @@ export async function kitchenOverview(stadiumSlug: string, range: RangeKey): Pro
           summary: receipt.lines.map((l) => (l.qty > 1 ? `${l.qty}× ${l.name}` : l.name)).join(", "),
           totalCents: row.totalCents,
           paidAt,
+          refunded,
         });
       }
     }

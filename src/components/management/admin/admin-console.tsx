@@ -7,18 +7,21 @@ import { useTRPC } from "@/lib/trpc/react";
 import type { SeatMapDoc } from "@/lib/seatmap/schema";
 import { FilterTabs, PageHeader, primaryButton, secondaryButton } from "../ui";
 import { KitchensTab } from "./kitchens-tab";
-import type { AdminSettings, Edit } from "./model";
+import type { AdminSettings, Edit, Member } from "./model";
 import { OrderingTab } from "./ordering-tab";
 import { ServiceTab } from "./service-tab";
+import { AccountPrivacy } from "./account-privacy";
+import { AuditTab } from "./audit-tab";
 import { TeamTab } from "./team-tab";
 
-type Tab = "team" | "kitchens" | "ordering" | "service";
+type Tab = "team" | "kitchens" | "ordering" | "service" | "activity";
 
 const TABS: readonly { id: Tab; label: string }[] = [
   { id: "team", label: "Team" },
   { id: "kitchens", label: "Kitchens & routing" },
   { id: "ordering", label: "Ordering" },
   { id: "service", label: "Service & payments" },
+  { id: "activity", label: "Activity" },
 ];
 
 type Props = { stadiumSlug: string; stadiumName: string; doc: SeatMapDoc; settings: AdminSettings };
@@ -32,6 +35,12 @@ export function AdminConsole({ stadiumSlug, stadiumName, doc, settings: loaded }
   const save = useMutation(trpc.admin.save.mutationOptions());
   const dirty = settings !== saved;
   const edit: Edit = (change) => setSettings((s) => change(s));
+  const addMember = (member: Member) => {
+    const append = (current: AdminSettings) =>
+      current.members.some((existing) => existing.id === member.id) ? current : { ...current, members: [...current.members, member] };
+    setSettings(append);
+    setSaved(append);
+  };
 
   return (
     <div className="pb-24">
@@ -41,10 +50,18 @@ export function AdminConsole({ stadiumSlug, stadiumName, doc, settings: loaded }
       </div>
 
       <div className="mt-4">
-        {tab === "team" ? <TeamTab stadiumSlug={stadiumSlug} settings={settings} edit={edit} /> : null}
+        {tab === "team" ? (
+          <>
+            <TeamTab stadiumSlug={stadiumSlug} settings={settings} edit={edit} onMemberAdded={addMember} />
+            <div className="mt-4">
+              <AccountPrivacy stadiumSlug={stadiumSlug} />
+            </div>
+          </>
+        ) : null}
         {tab === "kitchens" ? <KitchensTab doc={doc} settings={settings} edit={edit} /> : null}
         {tab === "ordering" ? <OrderingTab settings={settings} edit={edit} /> : null}
         {tab === "service" ? <ServiceTab settings={settings} edit={edit} /> : null}
+        {tab === "activity" ? <AuditTab stadiumSlug={stadiumSlug} /> : null}
       </div>
 
       {dirty ? (

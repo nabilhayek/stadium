@@ -142,6 +142,8 @@ describe("products list/create/update", () => {
     expect(updated.ok).toBe(true);
     if (!updated.ok) return;
     expect(updated.product).toMatchObject({ id: created.product.id, name: "Test Nachos XL", priceCents: 900 });
+    const priceAudit = await withDb((db) => db.auditEvent.findFirst({ where: { action: "product.price" }, orderBy: { createdAt: "desc" } }));
+    expect(priceAudit?.detail).toMatchObject({ productId: created.product.id, toCents: 900 });
     expect(updated.product.optionGroups).toHaveLength(1);
     expect(updated.product.optionGroups[0].id).toBe(group.id);
     expect(updated.product.optionGroups[0].options.map((o) => o.name)).toEqual(["Hot salsa", "Sour cream"]);

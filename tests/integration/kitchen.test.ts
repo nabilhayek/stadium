@@ -7,7 +7,10 @@ import { makeConfirmCode, makeOrderNumber, makeReceiptToken } from "@/lib/orders
 import { createKitchenUser, createProduct, makeReceiptFixture } from "../support/factories";
 import { clearKitchenSession, kitchenCaller, makeSession, publicCaller } from "../support/caller";
 import { applyTestEnv } from "../support/env";
-import { resetFakeStripe, startFakeStripe } from "../support/fake-stripe/server";
+import { listIdempotencyKeys, resetFakeStripe, startFakeStripe } from "../support/fake-stripe/server";
+import { autoRefundStadium } from "@/lib/payments/auto-refund";
+import { initialSettings } from "@/components/management/admin/model";
+import { emptySeatMap } from "@/lib/seatmap/schema";
 
 let fake: Awaited<ReturnType<typeof startFakeStripe>>;
 
@@ -121,6 +124,8 @@ describe("kitchen update", () => {
     const before = Date.now();
 
     await expect(desk.kitchen.update({ stadium: "arena", orderNumber, change: { to: "accepted", prepMinutes: 12 } })).resolves.toEqual({ ok: true });
+    const accepted = await withDb((db) => db.auditEvent.findFirst({ where: { orderNumber, action: "order.accepted" } }));
+    expect(accepted?.detail).toMatchObject({ prepMinutes: 12 });
     let stored = await readReceipt(orderNumber);
     expect(stored!.kitchenStatus).toBe("accepted");
     expect(stored!.acceptedAt).toBeGreaterThanOrEqual(before);
@@ -212,5 +217,91 @@ describe("kitchen update", () => {
     expect(payment.state).toBe("REFUNDED");
     expect(payment.refundId).toMatch(/^re_/);
     expect((await readReceipt(orderNumber))!.kitchenStatus).toBe("declined");
+    expect(listIdempotencyKeys().some((k) => k.startsWith("refund:"))).toBe(true);
+
+    const audit = await withDb((db) => db.auditEvent.findFirst({ where: { orderNumber, action: "order.declined" }, orderBy: { createdAt: "desc" } }));
+    expect(audit?.actorEmail).toMatch(/@/);
+  });
+
+  it("refunds a finished order from the desk and records who did it", async () => {
+    const product = await createProduct({ name: "Finished Burger", priceCents: 900 });
+    const orderNumber = makeOrderNumber();
+    const prepared = await publicCaller().payments.prepare({
+      stadiumSlug: "arena",
+      orderNumber,
+      deviceId: "device-test-001",
+      token: makeReceiptToken(),
+      confirmCode: makeConfirmCode(),
+      fulfillment: "pickup",
+      timing: "asap",
+      scheduledAt: null,
+      etaMin: 5,
+      etaMax: 9,
+      seat: null,
+      lines: [{ productId: product.id, qty: 1 }],
+    });
+    if (!prepared.ok) throw new Error(prepared.message);
+    await getStripe().paymentIntents.confirm(prepared.paymentIntentId);
+    const finalized = await publicCaller().payments.finalize({ paymentIntentId: prepared.paymentIntentId, clientSecret: prepared.clientSecret });
+    expect(finalized.ok).toBe(true);
+
+    const desk = await signedInDesk();
+    await expect(desk.kitchen.update({ stadium: "arena", orderNumber, change: { to: "accepted", prepMinutes: 5 } })).resolves.toEqual({ ok: true });
+    await expect(desk.kitchen.update({ stadium: "arena", orderNumber, change: { to: "ready" } })).resolves.toEqual({ ok: true });
+    await expect(desk.kitchen.update({ stadium: "arena", orderNumber, change: { to: "done" } })).resolves.toEqual({ ok: true });
+
+    const refunded = await desk.kitchen.refund({ stadium: "arena", orderNumber, reason: "Customer complained." });
+    expect(refunded).toEqual({ ok: true });
+
+    const payment = await withDb((db) => db.payment.findUniqueOrThrow({ where: { paymentIntentId: prepared.paymentIntentId } }));
+    expect(payment.state).toBe("REFUNDED");
+    expect((await readReceipt(orderNumber))!).toMatchObject({ kitchenStatus: "done", refundReason: "Customer complained." });
+
+    const audit = await withDb((db) => db.auditEvent.findFirst({ where: { orderNumber, action: "order.refunded" }, orderBy: { createdAt: "desc" } }));
+    expect(audit?.actorEmail).toMatch(/@/);
+    expect(audit?.detail).toMatchObject({ reason: "Customer complained." });
+  });
+
+  it("auto-refunds NEW orders past the admin wait", async () => {
+    const product = await createProduct({ name: "Stale Nachos", priceCents: 500 });
+    const orderNumber = makeOrderNumber();
+    const prepared = await publicCaller().payments.prepare({
+      stadiumSlug: "arena",
+      orderNumber,
+      deviceId: "device-test-001",
+      token: makeReceiptToken(),
+      confirmCode: makeConfirmCode(),
+      fulfillment: "pickup",
+      timing: "asap",
+      scheduledAt: null,
+      etaMin: 5,
+      etaMax: 9,
+      seat: null,
+      lines: [{ productId: product.id, qty: 1 }],
+    });
+    if (!prepared.ok) throw new Error(prepared.message);
+    await getStripe().paymentIntents.confirm(prepared.paymentIntentId);
+    expect((await publicCaller().payments.finalize({ paymentIntentId: prepared.paymentIntentId, clientSecret: prepared.clientSecret })).ok).toBe(true);
+
+    await withDb(async (db) => {
+      const stadium = await db.stadium.findUniqueOrThrow({ where: { slug: "arena" } });
+      await db.receipt.updateMany({
+        where: { stadiumId: stadium.id, orderNumber },
+        data: { paidAt: new Date(Date.now() - 30 * 60_000) },
+      });
+      const { members: _members, ...doc } = initialSettings(emptySeatMap(), stadium.currency);
+      doc.payments.autoRefundMinutes = 20;
+      await db.venueAdmin.upsert({
+        where: { stadiumId: stadium.id },
+        create: { stadiumId: stadium.id, settings: doc },
+        update: { settings: doc },
+      });
+    });
+
+    const result = await autoRefundStadium("arena", 20);
+    expect(result.refunded).toBe(1);
+    expect((await readReceipt(orderNumber))!.kitchenStatus).toBe("declined");
+    const audit = await withDb((db) => db.auditEvent.findFirst({ where: { orderNumber, action: "order.auto_refunded" } }));
+    expect(audit?.actorEmail).toBe("system:auto-refund");
   });
 });

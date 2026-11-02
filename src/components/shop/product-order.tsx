@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { Check, Minus, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useToast } from "@/components/toast/toast-provider";
 import { getCartStore } from "@/lib/cart/store";
 import { checkSelection, defaultSelection, groupRule, unitPrice, type MenuOptionGroup } from "@/lib/menu/options";
@@ -24,6 +25,7 @@ const MAX_QTY = 20;
 
 /** Option groups, quantity and the add button. Prices here are a preview; checkout re-prices on the server. */
 export function ProductOrder({ stadiumSlug, currency, product }: Props) {
+  const t = useTranslations("shop");
   const groups = product.optionGroups;
   const [selected, setSelected] = useState(() => defaultSelection(groups));
   const [qty, setQty] = useState(1);
@@ -122,7 +124,7 @@ export function ProductOrder({ stadiumSlug, currency, product }: Props) {
                       </span>
                       <span className="min-w-0 flex-1 text-[15px] leading-snug">{option.name}</span>
                       <span className="shrink-0 text-[14px] tabular-nums text-muted">
-                        {option.isSoldOut ? "Sold out" : priceDelta(option.priceCents, currency)}
+                        {option.isSoldOut ? t("soldOut") : priceDelta(option.priceCents, currency)}
                       </span>
                     </label>
                   </li>
@@ -134,12 +136,12 @@ export function ProductOrder({ stadiumSlug, currency, product }: Props) {
       })}
 
       <div className="flex items-center gap-3 rounded-[20px] border border-border bg-surface p-2 pl-3">
-        <div className="flex items-center gap-0.5 rounded-full bg-surface-secondary p-0.5" role="group" aria-label="Quantity">
+        <div className="flex items-center gap-0.5 rounded-full bg-surface-secondary p-0.5" role="group" aria-label={t("quantity")}>
           <button
             type="button"
             onClick={() => setQty((n) => Math.max(1, n - 1))}
             disabled={qty <= 1 || product.isSoldOut}
-            aria-label="Decrease quantity"
+            aria-label={t("decreaseQty")}
             className="grid size-9 place-items-center rounded-full disabled:opacity-35"
           >
             <Minus className="size-4" strokeWidth={2.2} />
@@ -151,7 +153,7 @@ export function ProductOrder({ stadiumSlug, currency, product }: Props) {
             type="button"
             onClick={() => setQty((n) => Math.min(MAX_QTY, n + 1))}
             disabled={qty >= MAX_QTY || product.isSoldOut}
-            aria-label="Increase quantity"
+            aria-label={t("increaseQty")}
             className="grid size-9 place-items-center rounded-full disabled:opacity-35"
           >
             <Plus className="size-4" strokeWidth={2.2} />
@@ -163,7 +165,7 @@ export function ProductOrder({ stadiumSlug, currency, product }: Props) {
           disabled={product.isSoldOut}
           className="button button--primary button--lg min-w-0 flex-1 justify-between active:scale-[0.98] disabled:opacity-50"
         >
-          <span>{product.isSoldOut ? "Sold out" : "Add to cart"}</span>
+          <span>{product.isSoldOut ? t("soldOut") : t("addToCart")}</span>
           {product.isSoldOut ? null : (
             <AnimatePresence mode="wait" initial={false}>
               <m.span

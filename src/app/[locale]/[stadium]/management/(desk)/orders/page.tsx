@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DeskAlerts } from "@/components/management/desk-alerts";
 import { Kanban } from "@/components/management/kanban";
 import { kitchenStreamToken } from "@/lib/live/token";
 import { requireKitchen } from "@/lib/management/session";
@@ -16,9 +17,12 @@ export default async function ManagementOrdersPage({ params }: Props) {
 
   return (
     <>
-      <div className="mb-5">
-        <h1 className="font-display text-[24px] font-semibold leading-tight tracking-[-0.02em]">Active orders</h1>
-        <p className="mt-1 text-[14px] text-neutral-500">Accept an order, mark it ready, then hand it off. Drag a card or use its buttons.</p>
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-[24px] font-semibold leading-tight tracking-[-0.02em]">Active orders</h1>
+          <p className="mt-1 text-[14px] text-neutral-500">Accept an order, mark it ready, then hand it off. Drag a card or use its buttons.</p>
+        </div>
+        <DeskAlerts stadiumSlug={stadium} />
       </div>
       <Kanban stadiumSlug={stadium} orders={orders} streamToken={await kitchenStreamToken(stadium, session.user.id)} />
     </>

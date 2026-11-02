@@ -1,0 +1,65 @@
+/* flag-icons base (subset). Full min.css pulls every country SVG into the Next build (~3.7 MB). */
+.fib,
+.fi {
+  background-size: contain;
+  background-position: 50%;
+  background-repeat: no-repeat;
+}
+
+.fi {
+  position: relative;
+  display: inline-block;
+  width: 1.333333em;
+  line-height: 1em;
+}
+
+.fi:before {
+  content: "\00a0";
+}
+
+.fi.fis {
+  width: 1em;
+}
+
+.fi-ch {
+  background-image: url("flag-icons/flags/4x3/ch.svg");
+}
+.fi-ch.fis {
+  background-image: url("flag-icons/flags/1x1/ch.svg");
+}
+.fi-dk {
+  background-image: url("flag-icons/flags/4x3/dk.svg");
+}
+.fi-dk.fis {
+  background-image: url("flag-icons/flags/1x1/dk.svg");
+}
+.fi-eu {
+  background-image: url("flag-icons/flags/4x3/eu.svg");
+}
+.fi-eu.fis {
+  background-image: url("flag-icons/flags/1x1/eu.svg");
+}
+.fi-gb {
+  background-image: url("flag-icons/flags/4x3/gb.svg");
+}
+.fi-gb.fis {
+  background-image: url("flag-icons/flags/1x1/gb.svg");
+}
+.fi-no {
+  background-image: url("flag-icons/flags/4x3/no.svg");
+}
+.fi-no.fis {
+  background-image: url("flag-icons/flags/1x1/no.svg");
+}
+.fi-se {
+  background-image: url("flag-icons/flags/4x3/se.svg");
+}
+.fi-se.fis {
+  background-image: url("flag-icons/flags/1x1/se.svg");
+}
+.fi-us {
+  background-image: url("flag-icons/flags/4x3/us.svg");
+}
+.fi-us.fis {
+  background-image: url("flag-icons/flags/1x1/us.svg");
+}

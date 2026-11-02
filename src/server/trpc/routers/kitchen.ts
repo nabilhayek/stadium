@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { boardSummary, kitchenOverview, listDeskOrders, RANGES, type RangeKey } from "@/lib/management/orders";
-import { updateKitchenOrder } from "@/lib/management/update";
+import { refundFinishedOrder, updateKitchenOrder } from "@/lib/management/update";
 import { kitchenProcedure, router } from "../init";
 import { kitchenChange, orderNumber, stadiumSlug } from "../schemas";
 
@@ -15,7 +15,17 @@ export const kitchenRouter = router({
 
   overview: kitchenProcedure.input(z.object({ stadium: stadiumSlug, range })).query(({ input }) => kitchenOverview(input.stadium, input.range)),
 
-  update: kitchenProcedure
-    .input(z.object({ stadium: stadiumSlug, orderNumber, change: kitchenChange }))
-    .mutation(({ input }) => updateKitchenOrder(input.stadium, input.orderNumber, input.change)),
+  update: kitchenProcedure.input(z.object({ stadium: stadiumSlug, orderNumber, change: kitchenChange })).mutation(({ input, ctx }) =>
+    updateKitchenOrder(input.stadium, input.orderNumber, input.change, {
+      userId: ctx.session.user.id,
+      email: ctx.session.user.email,
+    }),
+  ),
+
+  /** Refund a completed (done) order from Overview. Declines on the board already refund. */
+  refund: kitchenProcedure
+    .input(z.object({ stadium: stadiumSlug, orderNumber, reason: z.string().max(200).optional() }))
+    .mutation(({ input, ctx }) =>
+      refundFinishedOrder(input.stadium, input.orderNumber, { userId: ctx.session.user.id, email: ctx.session.user.email }, input.reason),
+    ),
 });

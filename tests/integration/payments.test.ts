@@ -6,7 +6,7 @@ import { makeConfirmCode, makeOrderNumber, makeReceiptToken } from "@/lib/orders
 import { createProduct } from "../support/factories";
 import { publicCaller } from "../support/caller";
 import { applyTestEnv } from "../support/env";
-import { markIntent, resetFakeStripe, setStripeScenario, startFakeStripe } from "../support/fake-stripe/server";
+import { listIdempotencyKeys, markIntent, resetFakeStripe, setStripeScenario, startFakeStripe } from "../support/fake-stripe/server";
 
 let fake: Awaited<ReturnType<typeof startFakeStripe>>;
 
@@ -50,6 +50,14 @@ function confirmLikeBrowser(paymentIntentId: string) {
 }
 
 describe("payments.prepare + payments.finalize", () => {
+  it("sends an Idempotency-Key on paymentIntents.create", async () => {
+    const input = await prepareInput();
+    const prepared = await publicCaller().payments.prepare(input);
+    expect(prepared.ok).toBe(true);
+    const keys = listIdempotencyKeys();
+    expect(keys.some((k) => k.startsWith("checkout:"))).toBe(true);
+  });
+
   it("prepares a PaymentIntent priced from the database, then finalizes into a receipt", async () => {
     const input = await prepareInput({ qty: 2 });
     // The client may claim any price; only productId and qty are read.

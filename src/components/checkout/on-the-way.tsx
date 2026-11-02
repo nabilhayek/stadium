@@ -10,19 +10,28 @@ import { SpotGradient } from "@/components/ui/spot-gradient";
 import { EASE, SPRING, fadeUp, stagger } from "@/components/motion/variants";
 import { useNow } from "@/lib/hooks/use-now";
 import { formatSeat } from "@/lib/seat/store";
-import { confirmDigits, formatClock, formatRemain, isValidEmail, statusTitle, type KitchenStatus, type Receipt } from "@/lib/orders/receipt";
+import { confirmDigits, formatClock, formatRemain, isValidEmail, statusKey, type KitchenStatus, type Receipt } from "@/lib/orders/receipt";
+import { useTranslations } from "next-intl";
 import { commitReceipt } from "@/lib/orders/sync";
 import type { CatalogItem } from "@/lib/menu/catalog";
 import { optionSummary } from "@/lib/menu/options";
 import { SecondRound } from "./second-round";
 import { useToast } from "@/components/toast/toast-provider";
+import { useWakeLock } from "@/lib/hooks/use-wake-lock";
+import { OrderAlerts } from "./order-alerts";
 
 type Props = {
   receipt: Receipt;
   drinks?: CatalogItem[];
 };
 
+const STEP_IDS = {
+  delivery: ["paid", "preparing", "onTheWay", "atSeat"] as const,
+  pickup: ["paid", "preparing", "ready"] as const,
+};
+
 export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
+  const t = useTranslations("tracker");
   const [receipt, setReceipt] = useState(initial);
   // Storage is the source of truth: kitchen updates pulled by the page arrive as a new prop.
   const [seen, setSeen] = useState(initial);
@@ -48,15 +57,21 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
   const kitchenIndex = kitchenStep(receipt.kitchenStatus, delivery);
   const arrived = receipt.kitchenStatus === "done" || (kitchenIndex === null && left === 0);
 
-  const steps = delivery ? ["Paid", "Preparing", "On the way", "At your seat"] : ["Paid", "Preparing", "Ready"];
+  const steps = delivery ? STEP_IDS.delivery : STEP_IDS.pickup;
+  const stepText: Record<string, string> = delivery
+    ? { paid: t("stepPaid"), preparing: t("stepPreparing"), onTheWay: t("stepOnTheWay"), atSeat: t("stepAtSeat") }
+    : { paid: t("stepPaid"), preparing: t("stepPreparing"), ready: t("stepReady") };
   // Position along the step row, in step units. Segment i fills from circle i to
   // i + 1, and circle i + 1 lights the moment that segment is full.
   const stepPos = kitchenIndex !== null ? kitchenIndex : arrived ? steps.length - 1 : progress * (steps.length - 1);
   const stepIndex = arrived ? steps.length - 1 : Math.min(steps.length - 2, Math.floor(stepPos));
   const segmentFill = (i: number) => Math.min(1, Math.max(0, stepPos - i));
 
-  const stepLabel = steps[stepIndex];
-  const canAddMore = !declined && (stepLabel === "Paid" || stepLabel === "Preparing");
+  // The hand-off code is about to be shown to a runner or the counter; don't let the screen dim.
+  useWakeLock(receipt.kitchenStatus === "accepted" || receipt.kitchenStatus === "ready");
+
+  const stepId = steps[stepIndex];
+  const canAddMore = !declined && (stepId === "paid" || stepId === "preparing");
 
   function update(patch: Partial<Receipt>) {
     const next = { ...receipt, ...patch };
@@ -74,7 +89,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
     e.preventDefault();
     if (!isValidEmail(email)) {
       setEmailInvalid(true);
-      toast({ message: "That email does not look right.", status: "error" });
+      toast({ message: t("badEmail"), status: "error" });
       return;
     }
     setEmailInvalid(false);
@@ -82,32 +97,32 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
     setEditingEmail(false);
   }
 
-  const title = statusTitle(receipt, now);
+  const title = t(statusKey(receipt, now));
 
   if (declined) {
     return (
       <m.div variants={stagger(0.08, 0.5)} initial="hidden" animate="show" className="flex flex-col gap-5 pb-10">
         <header className="flex flex-col items-start pr-12">
           <m.div variants={fadeUp}>
-            <BackLink href={`/${receipt.stadiumSlug}`}>Back</BackLink>
+            <BackLink href={`/${receipt.stadiumSlug}`}>{t("back")}</BackLink>
           </m.div>
           <m.div variants={fadeUp} className="mt-5">
             <DeclinedMark />
           </m.div>
           <m.p variants={fadeUp} className="mt-5 text-[11px] font-medium uppercase tracking-[0.16em] text-muted">
-            {receipt.stadiumName} · Order {receipt.orderNumber}
+            {t("orderLine", { stadium: receipt.stadiumName, order: receipt.orderNumber })}
           </m.p>
           <m.h1 variants={fadeUp} className="font-display mt-2 text-[32px] font-semibold leading-[0.95] tracking-[-0.045em]">
             {title}
           </m.h1>
           <m.p variants={fadeUp} className="mt-2 text-[15px] text-muted">
-            The kitchen couldn’t take this one. You won’t be charged — the payment goes back to your card.
+            {t("declinedBody")}
           </m.p>
         </header>
 
-        <m.section variants={fadeUp} className="rounded-[20px] border border-border bg-surface p-5" aria-label="Reason">
-          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">From the kitchen</p>
-          <p className="mt-2 text-[17px] font-medium leading-snug">{receipt.declineReason ?? "No reason given."}</p>
+        <m.section variants={fadeUp} className="rounded-[20px] border border-border bg-surface p-5" aria-label={t("reason")}>
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{t("fromKitchen")}</p>
+          <p className="mt-2 text-[17px] font-medium leading-snug">{receipt.declineReason ?? t("noReason")}</p>
         </m.section>
 
         <m.section variants={fadeUp} className="rounded-[20px] border border-border bg-surface px-4">
@@ -123,7 +138,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
 
         <m.div variants={fadeUp} className="pt-1">
           <Link href={`/${receipt.stadiumSlug}`} className="button button--primary button--lg w-full text-center">
-            Order something else
+            {t("orderElse")}
           </Link>
         </m.div>
       </m.div>
@@ -134,13 +149,13 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
     <m.div variants={stagger(0.08, 0.5)} initial="hidden" animate="show" className="flex flex-col gap-5 pb-10">
       <header className="flex flex-col items-start pr-12">
         <m.div variants={fadeUp}>
-          <BackLink href={`/${receipt.stadiumSlug}`}>Back</BackLink>
+          <BackLink href={`/${receipt.stadiumSlug}`}>{t("back")}</BackLink>
         </m.div>
         <m.div variants={fadeUp} className="mt-5">
           <SuccessMark />
         </m.div>
         <m.p variants={fadeUp} className="mt-5 text-[11px] font-medium uppercase tracking-[0.16em] text-muted">
-          {receipt.stadiumName} · Order {receipt.orderNumber}
+          {t("orderLine", { stadium: receipt.stadiumName, order: receipt.orderNumber })}
         </m.p>
         <m.h1 variants={fadeUp} className="font-display mt-2 text-[32px] font-semibold leading-[0.95] tracking-[-0.045em]">
           <AnimatePresence mode="wait" initial={false}>
@@ -153,25 +168,21 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
           {delivery ? (
             receipt.seat ? (
               <>
-                Heading to <span className="font-medium text-foreground">{formatSeat(receipt.seat, true)}</span>
+                {t("headingTo")} <span className="font-medium text-foreground">{formatSeat(receipt.seat, true)}</span>
               </>
             ) : (
-              "A runner brings it to you."
+              t("runnerBrings")
             )
           ) : (
-            "Collect at the counter."
+            t("collect")
           )}
         </m.p>
       </header>
 
-      <m.section variants={fadeUp} className="rounded-[20px] border border-border bg-surface px-5 py-6" aria-label="Hand-off code">
-        <p className="text-center text-[11px] font-medium uppercase tracking-[0.16em] text-muted">
-          {delivery ? "Show this to the runner" : "Show this at the counter"}
-        </p>
+      <m.section variants={fadeUp} className="rounded-[20px] border border-border bg-surface px-5 py-6" aria-label={t("handoff")}>
+        <p className="text-center text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{delivery ? t("showRunner") : t("showCounter")}</p>
         <HandOffCode code={receipt.confirmCode} fallback={receipt.orderNumber} />
-        <p className="mt-4 text-center text-[13px] leading-snug text-muted">
-          {delivery ? "They type these four digits to confirm the order reached you." : "Staff type these four digits to hand your order over."}
-        </p>
+        <p className="mt-4 text-center text-[13px] leading-snug text-muted">{delivery ? t("codeRunner") : t("codeCounter")}</p>
       </m.section>
 
       <m.section variants={fadeUp} className="spot px-5 py-5">
@@ -179,22 +190,22 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
         <div className="flex items-center gap-5">
           <Ring progress={progress} arrived={arrived}>
             <span className="font-display text-[26px] font-semibold leading-none tracking-[-0.04em] tabular-nums text-white">
-              {arrived ? "Now" : formatRemain(left)}
+              {arrived ? t("now") : formatRemain(left)}
             </span>
           </Ring>
           <div className="min-w-0">
             <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/60">
-              {receipt.timing === "scheduled" ? "Scheduled for" : arrived ? "Status" : delivery ? "Arriving" : "Ready around"}
+              {receipt.timing === "scheduled" ? t("scheduledFor") : arrived ? t("statusLabel") : delivery ? t("arriving") : t("readyAround")}
             </p>
             <p className="font-display mt-1 text-[22px] font-semibold tracking-tight text-white">{formatClock(receipt.readyAt)}</p>
             <p className="mt-1 text-[13px] text-white/60">
-              {receipt.timing === "asap" ? `Usually ${receipt.etaMin}–${receipt.etaMax} min` : "Exact time you picked"}
+              {receipt.timing === "asap" ? t("usually", { min: receipt.etaMin, max: receipt.etaMax }) : t("exact")}
             </p>
           </div>
         </div>
 
         {/* One line per gap. Each fills on its own, so a dot never lags the line reaching it. */}
-        <ol className="mt-5 flex items-center pb-6" aria-label="Order progress">
+        <ol className="mt-5 flex items-center pb-6" aria-label={t("progress")}>
           {steps.map((s, i) => {
             const done = i <= stepIndex;
             const current = i === stepIndex;
@@ -223,7 +234,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
                   <span
                     className={["absolute top-full mt-2 whitespace-nowrap text-[11px] font-medium", labelPos, done ? "text-white" : "text-white/45"].join(" ")}
                   >
-                    {s}
+                    {stepText[s]}
                   </span>
                 </span>
               </li>
@@ -231,6 +242,8 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
           })}
         </ol>
       </m.section>
+
+      <OrderAlerts receipt={receipt} />
 
       {canAddMore ? <SecondRound receipt={receipt} drinks={drinks} now={now} onUpdate={setReceipt} /> : null}
 
@@ -241,12 +254,12 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
               <Bike className="size-5" strokeWidth={1.7} aria-hidden />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-medium">A runner has your order</p>
-              <p className="mt-1 text-[13px] leading-snug text-muted">They look for the seat number first. Add a landmark if the aisle is packed.</p>
+              <p className="text-[15px] font-medium">{t("runnerTitle")}</p>
+              <p className="mt-1 text-[13px] leading-snug text-muted">{t("runnerHint")}</p>
             </div>
           </div>
           <label htmlFor="runner-note" className="sr-only">
-            Note for the runner
+            {t("runnerNote")}
           </label>
           <div className="mt-4 flex gap-2">
             <input
@@ -254,7 +267,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
               type="text"
               autoComplete="off"
               enterKeyHint="done"
-              placeholder="Aisle end, blue jacket"
+              placeholder={t("notePlaceholder")}
               value={note}
               onChange={(e) => setNote(e.target.value)}
               className="input input--secondary input--full-width min-h-11 rounded-xl"
@@ -269,7 +282,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
                   transition={{ duration: 0.18 }}
                   className="inline-block"
                 >
-                  {savedNote ? "Saved" : "Send"}
+                  {savedNote ? t("saved") : t("send")}
                 </m.span>
               </AnimatePresence>
             </PillButton>
@@ -283,8 +296,8 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
             <Mail className="size-5" strokeWidth={1.7} aria-hidden />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-medium">Receipt by email</p>
-            <p className="mt-1 text-[13px] leading-snug text-muted">Optional. Nothing else, no newsletter.</p>
+            <p className="text-[15px] font-medium">{t("receiptTitle")}</p>
+            <p className="mt-1 text-[13px] leading-snug text-muted">{t("receiptHint")}</p>
           </div>
         </div>
         <AnimatePresence mode="wait" initial={false}>
@@ -299,7 +312,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
               className="mt-4"
             >
               <label htmlFor="receipt-email" className="sr-only">
-                Email address
+                {t("email")}
               </label>
               <div className="flex gap-2">
                 <input
@@ -318,7 +331,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
                   className="input input--secondary input--full-width min-h-11 rounded-xl"
                 />
                 <PillButton type="submit" size="md" variant="primary" className="shrink-0">
-                  Send
+                  {t("send")}
                 </PillButton>
               </div>
             </m.form>
@@ -332,7 +345,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
               className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-surface-secondary px-4 py-3"
             >
               <span className="min-w-0 truncate text-[15px]">
-                Receipt sent to <span className="font-medium">{receipt.email}</span>
+                {t("receiptSent")} <span className="font-medium">{receipt.email}</span>
               </span>
               <button type="button" onClick={() => setEditingEmail(true)} className="shrink-0 text-[13px] font-medium text-link">
                 Change
@@ -361,7 +374,7 @@ export function OnTheWay({ receipt: initial, drinks = [] }: Props) {
 
       <m.div variants={fadeUp} className="pt-1">
         <Link href={`/${receipt.stadiumSlug}`} className="button button--primary button--lg w-full text-center">
-          Back to the shop
+          {t("backToShop")}
         </Link>
       </m.div>
     </m.div>
@@ -399,9 +412,10 @@ function DeclinedMark() {
 }
 
 function HandOffCode({ code, fallback }: { code?: string; fallback: string }) {
+  const t = useTranslations("tracker");
   const digits = confirmDigits(code, fallback);
   return (
-    <p className="mt-4 flex justify-center gap-2.5" aria-label={`Hand-off code ${digits.join("")}`}>
+    <p className="mt-4 flex justify-center gap-2.5" aria-label={t("handoff")}>
       {digits.map((d, i) => (
         <m.span
           key={`${d}-${i}`}

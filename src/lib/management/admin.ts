@@ -1,4 +1,6 @@
 import "server-only";
+import { randomBytes } from "node:crypto";
+import { z } from "zod";
 import { Prisma, type StaffStatus } from "@/generated/prisma/client";
 import { withDb } from "@/lib/db";
 import { revalidateStadiumShop } from "@/lib/revalidate";
@@ -64,7 +66,15 @@ export async function getVenueAdmin(slug: string): Promise<AdminSettings | null>
     const fallback = initialSettings(doc, stadium.currency);
     const parsed = venueSettingsSchema.safeParse(stadium.venueAdmin?.settings);
     const base = parsed.success ? parsed.data : fallback;
+    const secured = stadium.staff.length
+      ? await db.user.findMany({
+          where: { email: { in: stadium.staff.map((row) => row.email), mode: "insensitive" }, twoFactorEnabled: true },
+          select: { email: true },
+        })
+      : [];
+    const withTwoFactor = new Set(secured.map((user) => user.email.toLowerCase()));
     const members: Member[] = stadium.staff.map((row) => ({
+      twoFactor: withTwoFactor.has(row.email.toLowerCase()),
       id: row.id,
       name: row.name,
       email: row.email,
@@ -164,6 +174,63 @@ export async function saveVenueAdmin(slug: string, input: unknown, locale?: Loca
     await withDb((db) => db.staffMember.update({ where: { id: member.id }, data: { userId: sent.userId } }));
   }
   return { ok: true, settings: saved, invitesSent };
+}
+
+const inviteSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  email: z.email().max(200),
+  role: z.string().min(1).max(40),
+  kitchens: z.array(z.string().min(1).max(40)).max(40),
+});
+
+/** Create the team row and send the set-password email in this one action. */
+export async function inviteStaff(slug: string, input: unknown, locale: Locale): Promise<AdminResult<{ member: Member }>> {
+  const parsed = inviteSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Enter a name, a valid email, and a role." };
+
+  const stadium = await withDb((db) => db.stadium.findUnique({ where: { slug }, select: { id: true, name: true } }));
+  if (!stadium) return { ok: false, error: "Stadium not found." };
+
+  const settings = await getVenueAdmin(slug);
+  if (!settings) return { ok: false, error: "Stadium not found." };
+  const role = settings.roles.find((item) => item.id === parsed.data.role);
+  if (!role) return { ok: false, error: "Save this role before sending an invite." };
+
+  const email = parsed.data.email.trim().toLowerCase();
+  const kitchens = role.id === "admin" ? [] : parsed.data.kitchens;
+  if (kitchens.some((id) => !settings.kitchens.some((kitchen) => kitchen.id === id))) {
+    return { ok: false, error: "Save that kitchen before assigning it." };
+  }
+
+  const taken = await withDb((db) =>
+    db.staffMember.findFirst({ where: { stadiumId: stadium.id, email: { equals: email, mode: "insensitive" } }, select: { id: true } }),
+  );
+  if (taken) return { ok: false, error: "That email is already on the team." };
+
+  const id = `m-${randomBytes(9).toString("hex")}`;
+  const name = parsed.data.name.trim();
+  try {
+    await withDb((db) =>
+      db.staffMember.create({
+        data: { id, stadiumId: stadium.id, name, email, roleId: role.id, kitchenIds: kitchens, status: "INVITED" },
+      }),
+    );
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { ok: false, error: "That email is already on the team." };
+    }
+    throw error;
+  }
+
+  const sent = await sendInviteEmail({ to: email, name, stadiumName: stadium.name, stadiumSlug: slug, role: role.label || role.id, locale });
+  if (!sent.ok) {
+    await withDb((db) => db.staffMember.delete({ where: { id } })).catch(() => undefined);
+    return { ok: false, error: "The invite email did not send." };
+  }
+  await withDb((db) => db.staffMember.update({ where: { id }, data: { userId: sent.userId } }));
+
+  const member: Member = { id, name, email, role: role.id, permissions: null, kitchens, status: "invited", lastSeen: null };
+  return { ok: true, member };
 }
 
 /** Send the set-password email again for someone already saved as invited. */

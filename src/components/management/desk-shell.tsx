@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { usePathname } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { LanguageField } from "@/components/i18n/language-field";
-import { AlertTriangle, ArrowUpRight, LayoutGrid, LogOut, Map as MapIcon, Package, ReceiptText, Search, Settings2 } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, LayoutGrid, LogOut, Map as MapIcon, Package, ReceiptText, Search, Settings2, ShieldCheck } from "lucide-react";
 import { signOut } from "@/lib/auth-client";
 import type { BoardStatus } from "@/lib/management/board";
 import { cn } from "@/lib/utils";
@@ -102,8 +102,8 @@ export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, chi
         <div className="flex flex-col gap-3 p-3">
           <Attention waiting={waiting} href={orders} />
           <div className="flex flex-col gap-2 border-t border-neutral-200 pt-3">
-            <LanguageField tone="desk" />
-            <Account email={email} loginHref={`${base}/login`} />
+            <LanguageField tone="desk" fullWidth menuSide="top" />
+            <Account email={email} loginHref={`${base}/login`} securityHref={`${base}/security`} />
           </div>
         </div>
       </aside>
@@ -141,7 +141,7 @@ export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, chi
               </MobileTab>
             </nav>
             <div className="lg:hidden">
-              <LanguageField tone="desk" layout="select" />
+              <LanguageField tone="desk" />
             </div>
             {onProducts ? (
               <a
@@ -278,7 +278,7 @@ function Attention({ waiting, href }: { waiting: number; href: string }) {
   );
 }
 
-function Account({ email, loginHref }: { email: string; loginHref: string }) {
+function Account({ email, loginHref, securityHref }: { email: string; loginHref: string; securityHref: string }) {
   const t = useTranslations("desk");
   const router = useRouter();
 
@@ -294,6 +294,14 @@ function Account({ email, loginHref }: { email: string; loginHref: string }) {
         {email.charAt(0)}
       </span>
       <span className="min-w-0 flex-1 truncate text-[13px] text-neutral-600">{email}</span>
+      <Link
+        href={securityHref}
+        aria-label={t("security")}
+        title={t("security")}
+        className="grid size-8 place-items-center rounded-lg text-neutral-500 transition-colors duration-150 hover:bg-neutral-200/60! hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-blue-500"
+      >
+        <ShieldCheck className="size-4" />
+      </Link>
       <button
         type="button"
         onClick={out}

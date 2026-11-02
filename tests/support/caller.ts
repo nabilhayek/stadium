@@ -39,6 +39,7 @@ export function makeSession(userId: string, email = "kitchen@example.com"): Kitc
       createdAt: new Date(),
       updatedAt: new Date(),
       image: null,
+      twoFactorEnabled: false,
     },
     session: {
       id: `sess-${userId}`,

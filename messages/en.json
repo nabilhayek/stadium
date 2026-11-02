@@ -34,7 +34,20 @@
     "popular": "Popular",
     "nothingHere": "Nothing here",
     "tryAnother": "Try another word, or clear the search.",
-    "nothingInCategory": "Nothing available in this category right now."
+    "nothingInCategory": "Nothing available in this category right now.",
+    "currencyHint": "Prices in this shop",
+    "soldOut": "Sold out",
+    "add": "Add",
+    "addToCart": "Add to cart",
+    "addNamed": "Add {name} to cart",
+    "addAnother": "Add another {name}, {count} in cart",
+    "quantityOf": "{name} quantity",
+    "removeNamed": "Remove {name}",
+    "quantity": "Quantity",
+    "decreaseQty": "Decrease quantity",
+    "increaseQty": "Increase quantity",
+    "privacy": "Privacy",
+    "terms": "Terms"
   },
   "cart": {
     "viewCart": "View cart",
@@ -72,7 +85,8 @@
     "signOut": "Sign out",
     "viewShop": "View shop",
     "live": "Live",
-    "openBoard": "Open board"
+    "openBoard": "Open board",
+    "security": "Two-factor sign-in"
   },
   "login": {
     "title": "Kitchen sign in",
@@ -94,11 +108,24 @@
     "resetSent": "If that account exists, the reset link is on its way.",
     "backToSignIn": "Back to sign in",
     "resetTitle": "Choose a new password",
+    "setPasswordTitle": "Set your password",
+    "createPassword": "Create password",
     "newPassword": "New password",
     "confirmPassword": "Confirm password",
     "passwordsDontMatch": "Those passwords don't match.",
     "passwordUpdated": "Password updated. You can sign in with it.",
-    "resetFailed": "This link is invalid or expired."
+    "passwordCreated": "Password created. You can sign in with it.",
+    "resetFailed": "This link is invalid or expired.",
+    "codeTitle": "Enter your code",
+    "codeLead": "Open your authenticator app and enter the 6-digit code.",
+    "backupLead": "Enter one of the backup codes you saved. Each works once.",
+    "code": "6-digit code",
+    "backupCode": "Backup code",
+    "trustDevice": "Trust this device for 30 days",
+    "verify": "Verify",
+    "useBackup": "Use a backup code",
+    "useAuthenticator": "Use the authenticator app",
+    "codeWrong": "That code didn't work."
   },
   "email": {
     "reset": {
@@ -137,6 +164,53 @@
       "ignore": "You asked for this receipt at checkout. We only use this address for the order."
     }
   },
+  "push": {
+    "accepted": {
+      "title": "Order {order} is being made",
+      "body": "The kitchen has started on it."
+    },
+    "readyDelivery": {
+      "title": "Order {order} is on its way",
+      "body": "A runner is bringing it to your seat. Have code {code} ready."
+    },
+    "readyPickup": {
+      "title": "Order {order} is ready",
+      "body": "Pick it up at the counter with code {code}."
+    },
+    "done": {
+      "title": "Order {order} is done",
+      "body": "Enjoy the match."
+    },
+    "declined": {
+      "title": "Order {order} was declined",
+      "body": "{reason} The payment goes back to your card."
+    },
+    "deskNew": {
+      "title": "New order {order}",
+      "body": "{items} · {total}"
+    },
+    "itemOne": "1 item",
+    "itemMany": "{count} items"
+  },
+  "pwa": {
+    "alertsTitle": "Notify me when it's ready",
+    "alertsHint": "A notification each time the kitchen moves your order.",
+    "alertsOn": "Notifications are on for this order.",
+    "turnOn": "Turn on",
+    "turnOff": "Turn off",
+    "blocked": "Notifications are blocked for this site. Allow them in your browser settings.",
+    "iosInstall": "On iPhone, notifications need the app on your home screen. Tap Share, then Add to Home Screen, and open it from there.",
+    "failed": "Couldn't turn on notifications. Try again.",
+    "install": "Install app",
+    "installHint": "Add Seat Service to your home screen.",
+    "shareOrder": "Share order",
+    "shareMenu": "Share menu",
+    "shareMenuHint": "Send this menu to a friend",
+    "copied": "Link copied",
+    "shareFailed": "Couldn't share the link.",
+    "deskAlerts": "Alerts on this device",
+    "deskAlertsHint": "A notification for each new order, even with the board in the background."
+  },
   "error": {
     "title": "Something went wrong",
     "shopBody": "Your cart and orders are safe on this phone. Try again, or reload the page.",
@@ -144,5 +218,259 @@
     "retry": "Try again",
     "home": "Back to the menu",
     "loading": "Loading"
+  },
+  "history": {
+    "title": "Order history",
+    "description": "Past orders at {name}.",
+    "back": "Menu",
+    "lead": "Receipts from this phone, at this venue.",
+    "checking": "Checking for earlier orders…",
+    "empty": "No orders yet",
+    "emptyHint": "When you pay, the receipt lands here.",
+    "orderSomething": "Order something",
+    "order": "Order {order}",
+    "declined": "Declined",
+    "completed": "Completed",
+    "items": "{count, plural, one {# item} other {# items}}"
+  },
+  "support": {
+    "title": "Support",
+    "description": "Help with orders at {name}.",
+    "back": "Menu",
+    "whereTitle": "Where is my order?",
+    "whereBody": "Open Order history and tap the live order to see the tracker, ETA, and the four-digit hand-off code.",
+    "seatTitle": "Wrong seat",
+    "seatBody": "Change your seat from the chip on the shop before you pay. After you pay, tell the runner with a note on the tracker.",
+    "payTitle": "Payment",
+    "payBody": "Your card or wallet is charged when you confirm. If the bank declines it, nothing is taken and you can try again. If the kitchen can’t make the order, the charge is refunded.",
+    "allergyTitle": "Allergies",
+    "allergyBody": "Add a note on the line in your cart, or a runner note after you pay. The kitchen reads both.",
+    "email": "Email support"
+  },
+  "tracker": {
+    "back": "Back",
+    "orderLine": "{stadium} · Order {order}",
+    "declinedBody": "The kitchen couldn’t take this one. You won’t be charged — the payment goes back to your card.",
+    "reason": "Reason",
+    "fromKitchen": "From the kitchen",
+    "noReason": "No reason given.",
+    "orderElse": "Order something else",
+    "headingTo": "Heading to",
+    "runnerBrings": "A runner brings it to you.",
+    "collect": "Collect at the counter.",
+    "handoff": "Hand-off code",
+    "showRunner": "Show this to the runner",
+    "showCounter": "Show this at the counter",
+    "codeRunner": "They type these four digits to confirm the order reached you.",
+    "codeCounter": "Staff type these four digits to hand your order over.",
+    "now": "Now",
+    "scheduledFor": "Scheduled for",
+    "statusLabel": "Status",
+    "arriving": "Arriving",
+    "readyAround": "Ready around",
+    "usually": "Usually {min}–{max} min",
+    "exact": "Exact time you picked",
+    "progress": "Order progress",
+    "stepPaid": "Paid",
+    "stepPreparing": "Preparing",
+    "stepOnTheWay": "On the way",
+    "stepReady": "Ready",
+    "stepAtSeat": "At your seat",
+    "declined": "Order declined",
+    "received": "Order received",
+    "preparing": "Being prepared",
+    "onTheWay": "On the way",
+    "readyPickup": "Ready for pickup",
+    "atSeat": "At your seat",
+    "pickedUp": "Picked up",
+    "runnerTitle": "A runner has your order",
+    "runnerHint": "They look for the seat number first. Add a landmark if the aisle is packed.",
+    "runnerNote": "Note for the runner",
+    "notePlaceholder": "Aisle end, blue jacket",
+    "saved": "Saved",
+    "send": "Send",
+    "receiptTitle": "Receipt by email",
+    "receiptHint": "Optional. Nothing else, no newsletter.",
+    "email": "Email address",
+    "badEmail": "That email does not look right.",
+    "receiptSent": "Receipt sent to",
+    "change": "Change",
+    "backToShop": "Back to the shop",
+    "openOrder": "Order {order}: {title}. Open order",
+    "orderShort": "Order {order}",
+    "tapDetails": "Tap for details",
+    "tapCode": "Tap for hand-off code",
+    "scheduled": "Scheduled",
+    "runnerOnIt": "Runner on it",
+    "addDrink": "Add a drink to this round",
+    "adding": "Adding…",
+    "addRound": "Add to this round",
+    "showDrinks": "Show all {count} drinks"
+  },
+  "checkout": {
+    "pausedTitle": "Ordering is paused",
+    "pausedBody": "The kitchen isn’t taking new orders right now. You can still look at the menu.",
+    "backToMenu": "Back to the menu",
+    "paymentsTitle": "Payments aren’t ready",
+    "paymentsBody": "Card payments aren’t set up on this server yet.",
+    "emptyTitle": "Nothing to check out",
+    "emptyTracking": "Your last order is still on its way.",
+    "emptyShop": "Add something from the shop first.",
+    "trackOrder": "Track order {order}",
+    "backToShop": "Back to the shop",
+    "menu": "Menu",
+    "title": "Checkout",
+    "fulfillment": "Delivery or pickup",
+    "delivery": "Delivery",
+    "toSeat": "To your seat",
+    "pickup": "Pickup",
+    "atCounter": "At the counter",
+    "deliverTo": "Deliver to",
+    "seatNotSet": "Seat not set",
+    "edit": "Edit",
+    "set": "Set",
+    "collectAt": "Collect at",
+    "skipQueue": "Skip the queue — show your order number at the counter and it is handed straight over.",
+    "when": "When",
+    "asap": "ASAP",
+    "schedule": "Schedule",
+    "earliest": "Earliest {time} · scroll to set the exact minute",
+    "tooSoon": "Too soon — earliest is {time}",
+    "estimated": "Estimated delivery",
+    "readyIn": "Ready in",
+    "runnerAtTime": "Runner arrives at that time",
+    "counterAtTime": "Ready at the counter then",
+    "around": "Around {time}",
+    "order": "Order",
+    "addMore": "Add more",
+    "total": "Total",
+    "payWith": "Pay with",
+    "paymentMethod": "Payment method",
+    "apple": "Apple Pay",
+    "appleHint": "Face ID · one tap",
+    "google": "Google Pay",
+    "googleHint": "Saved cards",
+    "hideCard": "Hide card",
+    "payAnother": "Pay another way",
+    "payApple": "Pay with Apple Pay · {amount}",
+    "payGoogle": "Pay with Google Pay · {amount}",
+    "payCard": "Pay {amount}",
+    "paid": "Paid",
+    "confirming": "Confirming…",
+    "confirmSeat": "Confirm your seat so the runner can find you.",
+    "pickTime": "Pick a time from {time} onwards.",
+    "cardTitle": "Credit or debit",
+    "cardNumber": "Card number",
+    "expiry": "Expiry",
+    "cvc": "CVC",
+    "returnTitle": "Confirming",
+    "returnFailed": "Payment didn’t finish",
+    "returnBody": "Confirming your payment…",
+    "returnMissing": "We couldn’t find that payment.",
+    "returnDeclined": "The bank declined this payment. You haven’t been charged.",
+    "returnFailedBody": "The payment didn’t go through. You haven’t been charged.",
+    "returnStill": "The bank is still confirming. If the payment goes through, the order shows up in your history.",
+    "backToCheckout": "Back to checkout"
+  },
+  "status": {
+    "title": "Status",
+    "lead": "Whether Seatize is answering right now.",
+    "checking": "Checking…",
+    "ok": "The shop is up.",
+    "down": "The shop isn’t answering. Try again in a minute.",
+    "hint": "This page does not check the database. If you can read this and the line above says the shop is up, the app is serving."
+  },
+  "legal": {
+    "updated": "1 November 2026",
+    "privacyTitle": "Privacy policy",
+    "termsTitle": "Terms",
+    "venuesTitle": "What we store about fans",
+    "privacyLead": "Seatize takes food orders at a venue. This page says what a phone stores with us, and why.",
+    "termsLead": "These terms cover ordering through the app. The venue still makes and hands over the food.",
+    "venuesLead": "A note for venues. Fans do not create an account.",
+    "privacyLink": "Privacy policy",
+    "termsLink": "Terms",
+    "venuesLink": "Data note for venues",
+    "privacySections": [
+      {
+        "heading": "Who we are",
+        "body": "The app is run for the venue you are ordering from. Write to support@seatize.com for privacy questions."
+      },
+      {
+        "heading": "What we store about a fan",
+        "body": "Your seat, the items, the time, the amount, and an email only if you ask for a receipt. A random id on this phone lets you see your own orders. Fans do not create an account."
+      },
+      {
+        "heading": "Payments",
+        "body": "Card numbers are handled by Stripe. We store the result, the amount and a Stripe reference, not the full card number."
+      },
+      {
+        "heading": "How long",
+        "body": "Orders stay so the venue can reconcile a match. After 12 months the seat, email and notes are removed. Totals stay for the books. Staff accounts stay while the person works at the venue, and can be deleted from Admin → Team."
+      }
+    ],
+    "termsSections": [
+      {
+        "heading": "Ordering",
+        "body": "Placing an order is an offer to buy those items from the venue. The kitchen can decline it. If it does, the charge is refunded."
+      },
+      {
+        "heading": "Prices",
+        "body": "Prices are the venue’s, in the venue’s currency, as shown on the menu when you pay."
+      },
+      {
+        "heading": "Allergies",
+        "body": "Notes you add are passed to the kitchen. The venue decides whether it can prepare the order safely."
+      },
+      {
+        "heading": "The service",
+        "body": "A paused kitchen, a failed payment or a lost connection can stop an order. You are charged only when a payment succeeds."
+      }
+    ],
+    "venueSections": [
+      {
+        "heading": "Fans",
+        "body": "A fan order stores the seat, the lines, the time, the amount and an optional receipt email. A random device id ties that phone to its history. There is no fan account and no password."
+      },
+      {
+        "heading": "Staff",
+        "body": "Desk accounts store name, email and role. The person can download that data or delete the account from Admin → Team, unless they are the only admin."
+      },
+      {
+        "heading": "Retention",
+        "body": "A nightly job removes seat, email and notes from orders older than 12 months (or RECEIPT_RETENTION_DAYS). Payment totals and order numbers stay so a match can still be reconciled. Stripe keeps card data under its own terms."
+      }
+    ]
+  },
+  "security": {
+    "title": "Two-factor sign-in",
+    "pleaseWait": "Please wait",
+    "failed": "Something went wrong. Try again.",
+    "codeWrong": "That code didn't work.",
+    "passwordNeeded": "Enter your password first.",
+    "password": "Password",
+    "setupTitle": "Protect your account",
+    "setupLead": "Add an authenticator app (Google Authenticator, 1Password, Authy). You'll enter a code from it each time you sign in.",
+    "requiredLead": "Admins and Managers must use two-factor sign-in. Set it up to open the desk.",
+    "setUp": "Set up",
+    "scanTitle": "Scan with your authenticator",
+    "scanLead": "Scan this code, then enter the 6-digit code the app shows.",
+    "manualKey": "Can't scan? Enter this key:",
+    "enterCode": "6-digit code",
+    "confirm": "Confirm",
+    "codesTitle": "Save your backup codes",
+    "codesLead": "If you lose your phone, each code signs you in once. Keep them somewhere safe. They are not shown again.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "download": "Download",
+    "backupFileTitle": "Seat Service backup codes. Each works once.",
+    "savedThem": "I've saved them",
+    "on": "Two-factor is on",
+    "manageLead": "Enter your password to make a new set of backup codes. The old ones stop working.",
+    "newBackupCodes": "Make new backup codes",
+    "turnOff": "Turn off two-factor",
+    "turnedOff": "Two-factor is off.",
+    "lockedNote": "Admins and Managers can't turn this off. If you lose your phone, ask an admin to reset it in Admin → Team.",
+    "backToDesk": "Back to the desk"
   }
 }

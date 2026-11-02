@@ -10,15 +10,23 @@ function tracesSampleRate() {
   return window.location.pathname.includes("/management") ? 1 : 0;
 }
 
-Sentry.init({
-  dsn,
-  enabled: sentryEnabled(dsn),
-  environment: process.env.NEXT_PUBLIC_VERCEL_ENV || process.env.NODE_ENV,
-  tracesSampler: tracesSampleRate,
-  beforeSend(event) {
-    if (event.user) delete event.user.ip_address;
-    return event;
-  },
-});
+function startSentry() {
+  Sentry.init({
+    dsn,
+    enabled: sentryEnabled(dsn),
+    environment: process.env.NEXT_PUBLIC_VERCEL_ENV || process.env.NODE_ENV,
+    tracesSampler: tracesSampleRate,
+    beforeSend(event) {
+      if (event.user) delete event.user.ip_address;
+      return event;
+    },
+  });
+}
+
+if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+  window.requestIdleCallback(() => startSentry(), { timeout: 2000 });
+} else {
+  startSentry();
+}
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

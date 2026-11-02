@@ -66,6 +66,8 @@ export type Member = {
   kitchens: string[];
   status: "active" | "invited" | "disabled";
   lastSeen: string | null;
+  /** Read-only: whether this person has an authenticator app set up. */
+  twoFactor?: boolean;
 };
 
 export type Kitchen = {

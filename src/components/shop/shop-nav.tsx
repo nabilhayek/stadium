@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useState } from "react";
+import { useHoldInstallPrompt } from "@/lib/hooks/use-install-prompt";
 import { useRouter } from "next/navigation";
 import { usePathname } from "@/i18n/navigation";
 import { Menu, X } from "lucide-react";
@@ -11,11 +12,14 @@ const NavDrawer = dynamic(() => import("./nav-drawer").then((mod) => mod.NavDraw
   ssr: false,
 });
 
-type Props = { stadiumSlug: string };
+type Props = { stadiumSlug: string; currency: string | null };
 
 /** Top-right hamburger. The drawer (HeroUI) loads the first time the menu opens. */
-export function ShopNav({ stadiumSlug }: Props) {
+export function ShopNav({ stadiumSlug, currency }: Props) {
   const t = useTranslations("shop");
+  // The Install row is inside the drawer, which only loads after the menu opens.
+  // Hold the prompt for the whole time this chrome is on screen so that click can call prompt().
+  useHoldInstallPrompt();
   const pathname = usePathname();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -58,7 +62,7 @@ export function ShopNav({ stadiumSlug }: Props) {
         </div>
       </div>
 
-      {hasOpened ? <NavDrawer stadiumSlug={stadiumSlug} isOpen={isOpen} onOpenChange={setIsOpen} /> : null}
+      {hasOpened ? <NavDrawer stadiumSlug={stadiumSlug} currency={currency} isOpen={isOpen} onOpenChange={setIsOpen} /> : null}
     </>
   );
 }

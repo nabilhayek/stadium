@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, m } from "framer-motion";
 import { useNow } from "@/lib/hooks/use-now";
 import { useStorageValue } from "@/lib/hooks/use-storage";
-import { formatRemain, isOrderLive, parseReceipt, receiptKey, statusTitle, type Receipt } from "@/lib/orders/receipt";
+import { formatRemain, isOrderLive, parseReceipt, receiptKey, statusKey, type Receipt } from "@/lib/orders/receipt";
+import { useTranslations } from "next-intl";
 import { parsePastOrders, pastOrdersKey } from "@/lib/orders/past";
 import { SPRING } from "@/components/motion/variants";
 import { Bike, Check, Store, X } from "lucide-react";
@@ -34,13 +35,14 @@ type Props = { receipt: Receipt };
  * returns to the full order page.
  */
 export function ActiveOrderPill({ receipt }: Props) {
+  const t = useTranslations("tracker");
   const router = useRouter();
   const now = useNow(1000) || receipt.paidAt;
   const left = receipt.readyAt - now;
   const declined = receipt.kitchenStatus === "declined";
   const arrived = declined || left <= 0;
   const delivery = receipt.fulfillment === "delivery";
-  const title = statusTitle(receipt, now);
+  const title = t(statusKey(receipt, now));
   const href = `/${receipt.stadiumSlug}/order/${encodeURIComponent(receipt.orderNumber)}`;
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export function ActiveOrderPill({ receipt }: Props) {
       type="button"
       onClick={() => router.push(href)}
       whileTap={{ scale: 0.98 }}
-      aria-label={`Order ${receipt.orderNumber}: ${title}. Open order`}
+      aria-label={t("openOrder", { order: receipt.orderNumber, title })}
       className="pointer-events-auto flex w-full items-center gap-3 rounded-full border border-border bg-surface py-2 pl-3 pr-2 text-left shadow-[0_10px_28px_-14px_rgba(17,17,17,0.45)]"
     >
       <span
@@ -92,16 +94,16 @@ export function ActiveOrderPill({ receipt }: Props) {
           </AnimatePresence>
         </span>
         <span className="block truncate text-[12px] leading-tight text-muted">
-          Order {receipt.orderNumber}
+          {t("orderShort", { order: receipt.orderNumber })}
           {declined
-            ? " · Tap for details"
+            ? ` · ${t("tapDetails")}`
             : arrived
-              ? " · Tap for hand-off code"
+              ? ` · ${t("tapCode")}`
               : receipt.timing === "scheduled"
-                ? " · Scheduled"
+                ? ` · ${t("scheduled")}`
                 : delivery
-                  ? " · Runner on it"
-                  : " · Being prepared"}
+                  ? ` · ${t("runnerOnIt")}`
+                  : ` · ${t("preparing")}`}
         </span>
       </span>
 
@@ -114,7 +116,7 @@ export function ActiveOrderPill({ receipt }: Props) {
             exit={{ opacity: 0, y: -6 }}
             transition={SPRING}
           >
-            {declined ? "—" : arrived ? "Now" : formatRemain(left)}
+            {declined ? "—" : arrived ? t("now") : formatRemain(left)}
           </m.span>
         </AnimatePresence>
       </span>

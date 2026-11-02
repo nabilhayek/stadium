@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { getTranslations } from "next-intl/server";
 import { api } from "@/server/trpc/server";
 import { OrderHistory } from "@/components/shop/order-history";
 import { catalogFromProducts } from "@/lib/menu/catalog";
@@ -10,10 +11,11 @@ type Props = { params: Promise<{ stadium: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { stadium } = await params;
   const menu = await api.stadium.menu({ slug: stadium });
-  if (!menu) return { title: "Order history" };
+  const t = await getTranslations("history");
+  if (!menu) return { title: t("title") };
   return {
-    title: `Order history · ${menu.name}`,
-    description: `Past orders at ${menu.name}.`,
+    title: `${t("title")} · ${menu.name}`,
+    description: t("description", { name: menu.name }),
   };
 }
 

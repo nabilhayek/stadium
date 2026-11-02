@@ -34,7 +34,20 @@
     "popular": "Populært",
     "nothingHere": "Intet her",
     "tryAnother": "Prøv et andet ord, eller ryd søgningen.",
-    "nothingInCategory": "Intet tilgængeligt i denne kategori lige nu."
+    "nothingInCategory": "Intet tilgængeligt i denne kategori lige nu.",
+    "currencyHint": "Priser i denne shop",
+    "soldOut": "Udsolgt",
+    "add": "Tilføj",
+    "addToCart": "Læg i kurv",
+    "addNamed": "Læg {name} i kurven",
+    "addAnother": "Tilføj endnu en {name}, {count} i kurven",
+    "quantityOf": "Antal {name}",
+    "removeNamed": "Fjern {name}",
+    "quantity": "Antal",
+    "decreaseQty": "Mindsk antal",
+    "increaseQty": "Forøg antal",
+    "privacy": "Privatliv",
+    "terms": "Vilkår"
   },
   "cart": {
     "viewCart": "Se kurv",
@@ -72,7 +85,8 @@
     "signOut": "Log ud",
     "viewShop": "Se butikken",
     "live": "Live",
-    "openBoard": "Åbn tavlen"
+    "openBoard": "Åbn tavlen",
+    "security": "Tofaktorlogin"
   },
   "login": {
     "title": "Log ind i køkkenet",
@@ -94,11 +108,24 @@
     "resetSent": "Hvis kontoen findes, er linket på vej.",
     "backToSignIn": "Tilbage til log ind",
     "resetTitle": "Vælg en ny adgangskode",
+    "setPasswordTitle": "Opret din adgangskode",
+    "createPassword": "Opret adgangskode",
     "newPassword": "Ny adgangskode",
     "confirmPassword": "Bekræft adgangskode",
     "passwordsDontMatch": "Adgangskoderne er ikke ens.",
     "passwordUpdated": "Adgangskoden er opdateret. Du kan logge ind med den.",
-    "resetFailed": "Linket er ugyldigt eller udløbet."
+    "passwordCreated": "Adgangskoden er oprettet. Du kan logge ind med den.",
+    "resetFailed": "Linket er ugyldigt eller udløbet.",
+    "codeTitle": "Indtast din kode",
+    "codeLead": "Åbn din autentificeringsapp og indtast den sekscifrede kode.",
+    "backupLead": "Indtast en af de backupkoder, du gemte. Hver kode virker én gang.",
+    "code": "Sekscifret kode",
+    "backupCode": "Backupkode",
+    "trustDevice": "Stol på denne enhed i 30 dage",
+    "verify": "Bekræft",
+    "useBackup": "Brug en backupkode",
+    "useAuthenticator": "Brug autentificeringsappen",
+    "codeWrong": "Koden virkede ikke."
   },
   "email": {
     "reset": {
@@ -137,6 +164,53 @@
       "ignore": "Du bad om kvitteringen i kassen. Vi bruger kun adressen til bestillingen."
     }
   },
+  "push": {
+    "accepted": {
+      "title": "Ordre {order} bliver lavet",
+      "body": "Køkkenet er gået i gang."
+    },
+    "readyDelivery": {
+      "title": "Ordre {order} er på vej",
+      "body": "En runner bringer den til din plads. Hav koden {code} klar."
+    },
+    "readyPickup": {
+      "title": "Ordre {order} er klar",
+      "body": "Hent den ved disken med koden {code}."
+    },
+    "done": {
+      "title": "Ordre {order} er leveret",
+      "body": "God kamp."
+    },
+    "declined": {
+      "title": "Ordre {order} blev afvist",
+      "body": "{reason} Betalingen går tilbage til dit kort."
+    },
+    "deskNew": {
+      "title": "Ny ordre {order}",
+      "body": "{items} · {total}"
+    },
+    "itemOne": "1 vare",
+    "itemMany": "{count} varer"
+  },
+  "pwa": {
+    "alertsTitle": "Giv besked, når den er klar",
+    "alertsHint": "En notifikation, hver gang køkkenet flytter din ordre.",
+    "alertsOn": "Notifikationer er slået til for denne ordre.",
+    "turnOn": "Slå til",
+    "turnOff": "Slå fra",
+    "blocked": "Notifikationer er blokeret for denne side. Tillad dem i browserens indstillinger.",
+    "iosInstall": "På iPhone kræver notifikationer, at appen ligger på hjemmeskærmen. Tryk på Del, derefter Føj til hjemmeskærm, og åbn den derfra.",
+    "failed": "Notifikationer kunne ikke slås til. Prøv igen.",
+    "install": "Installer appen",
+    "installHint": "Læg Seat Service på hjemmeskærmen.",
+    "shareOrder": "Del ordre",
+    "shareMenu": "Del menuen",
+    "shareMenuHint": "Send menuen til en ven",
+    "copied": "Linket er kopieret",
+    "shareFailed": "Linket kunne ikke deles.",
+    "deskAlerts": "Notifikationer på denne enhed",
+    "deskAlertsHint": "En notifikation for hver ny ordre, også når tavlen ligger i baggrunden."
+  },
   "error": {
     "title": "Noget gik galt",
     "shopBody": "Din kurv og dine bestillinger er gemt på telefonen. Prøv igen, eller genindlæs siden.",
@@ -144,5 +218,259 @@
     "retry": "Prøv igen",
     "home": "Tilbage til menuen",
     "loading": "Indlæser"
+  },
+  "history": {
+    "title": "Ordrehistorik",
+    "description": "Tidligere ordrer på {name}.",
+    "back": "Menu",
+    "lead": "Kvitteringer fra denne telefon, på dette stadion.",
+    "checking": "Leder efter tidligere ordrer…",
+    "empty": "Ingen ordrer endnu",
+    "emptyHint": "Når du betaler, lander kvitteringen her.",
+    "orderSomething": "Bestil noget",
+    "order": "Ordre {order}",
+    "declined": "Afvist",
+    "completed": "Færdig",
+    "items": "{count, plural, one {# vare} other {# varer}}"
+  },
+  "support": {
+    "title": "Support",
+    "description": "Hjælp til ordrer på {name}.",
+    "back": "Menu",
+    "whereTitle": "Hvor er min ordre?",
+    "whereBody": "Åbn Ordrehistorik og tryk på den igangværende ordre for at se sporing, tid og den firecifrede kode.",
+    "seatTitle": "Forkert plads",
+    "seatBody": "Skift plads fra markeringen i shoppen, før du betaler. Efter betaling skriver du en note til runneren på ordresiden.",
+    "payTitle": "Betaling",
+    "payBody": "Kortet eller tegnebogen trækkes, når du bekræfter. Hvis banken siger nej, trækkes intet, og du kan prøve igen. Hvis køkkenet ikke kan lave ordren, refunderes den.",
+    "allergyTitle": "Allergier",
+    "allergyBody": "Skriv en note på linjen i kurven, eller til runneren efter du har betalt. Køkkenet læser begge.",
+    "email": "Skriv til support"
+  },
+  "tracker": {
+    "back": "Tilbage",
+    "orderLine": "{stadium} · Ordre {order}",
+    "declinedBody": "Køkkenet kunne ikke tage den. Du bliver ikke opkrævet — betalingen går tilbage på kortet.",
+    "reason": "Årsag",
+    "fromKitchen": "Fra køkkenet",
+    "noReason": "Ingen årsag angivet.",
+    "orderElse": "Bestil noget andet",
+    "headingTo": "På vej til",
+    "runnerBrings": "En runner bringer den til dig.",
+    "collect": "Hent den ved disken.",
+    "handoff": "Udleveringskode",
+    "showRunner": "Vis den til runneren",
+    "showCounter": "Vis den ved disken",
+    "codeRunner": "De taster de fire cifre for at bekræfte, at ordren nåede dig.",
+    "codeCounter": "Personalet taster de fire cifre, når de udleverer ordren.",
+    "now": "Nu",
+    "scheduledFor": "Planlagt til",
+    "statusLabel": "Status",
+    "arriving": "Fremme",
+    "readyAround": "Klar omkring",
+    "usually": "Som regel {min}–{max} min",
+    "exact": "Det præcise tidspunkt du valgte",
+    "progress": "Ordrens trin",
+    "stepPaid": "Betalt",
+    "stepPreparing": "Tilberedes",
+    "stepOnTheWay": "På vej",
+    "stepReady": "Klar",
+    "stepAtSeat": "Ved pladsen",
+    "declined": "Ordren blev afvist",
+    "received": "Ordren er modtaget",
+    "preparing": "Tilberedes",
+    "onTheWay": "På vej",
+    "readyPickup": "Klar til afhentning",
+    "atSeat": "Ved din plads",
+    "pickedUp": "Afhentet",
+    "runnerTitle": "En runner har din ordre",
+    "runnerHint": "De leder efter pladsnummeret først. Tilføj et pejlemærke, hvis gangen er fuld.",
+    "runnerNote": "Note til runneren",
+    "notePlaceholder": "Enden af gangen, blå jakke",
+    "saved": "Gemt",
+    "send": "Send",
+    "receiptTitle": "Kvittering på mail",
+    "receiptHint": "Valgfrit. Ikke andet, intet nyhedsbrev.",
+    "email": "E-mailadresse",
+    "badEmail": "Den e-mailadresse ser ikke rigtig ud.",
+    "receiptSent": "Kvittering sendt til",
+    "change": "Skift",
+    "backToShop": "Tilbage til shoppen",
+    "openOrder": "Ordre {order}: {title}. Åbn ordren",
+    "orderShort": "Ordre {order}",
+    "tapDetails": "Tryk for detaljer",
+    "tapCode": "Tryk for koden",
+    "scheduled": "Planlagt",
+    "runnerOnIt": "Runner på vej",
+    "addDrink": "Tilføj en drik til denne runde",
+    "adding": "Tilføjer…",
+    "addRound": "Tilføj til runden",
+    "showDrinks": "Vis alle {count} drikke"
+  },
+  "checkout": {
+    "pausedTitle": "Bestilling er sat på pause",
+    "pausedBody": "Køkkenet tager ikke imod nye ordrer lige nu. Menuen kan stadig ses.",
+    "backToMenu": "Tilbage til menuen",
+    "paymentsTitle": "Betaling er ikke klar",
+    "paymentsBody": "Kortbetaling er ikke sat op på denne server endnu.",
+    "emptyTitle": "Intet at betale",
+    "emptyTracking": "Din seneste ordre er stadig på vej.",
+    "emptyShop": "Tilføj noget fra shoppen først.",
+    "trackOrder": "Følg ordre {order}",
+    "backToShop": "Tilbage til shoppen",
+    "menu": "Menu",
+    "title": "Kasse",
+    "fulfillment": "Levering eller afhentning",
+    "delivery": "Levering",
+    "toSeat": "Til din plads",
+    "pickup": "Afhentning",
+    "atCounter": "Ved disken",
+    "deliverTo": "Levér til",
+    "seatNotSet": "Ingen plads valgt",
+    "edit": "Rediger",
+    "set": "Vælg",
+    "collectAt": "Hent på",
+    "skipQueue": "Spring køen over — vis ordrenummeret ved disken, så bliver den udleveret med det samme.",
+    "when": "Hvornår",
+    "asap": "Så hurtigt som muligt",
+    "schedule": "Planlæg",
+    "earliest": "Tidligst {time} · scroll til det præcise minut",
+    "tooSoon": "For tidligt — tidligst {time}",
+    "estimated": "Estimeret levering",
+    "readyIn": "Klar om",
+    "runnerAtTime": "Runneren er fremme da",
+    "counterAtTime": "Klar ved disken da",
+    "around": "Omkring {time}",
+    "order": "Ordre",
+    "addMore": "Tilføj mere",
+    "total": "I alt",
+    "payWith": "Betal med",
+    "paymentMethod": "Betalingsmåde",
+    "apple": "Apple Pay",
+    "appleHint": "Face ID · ét tryk",
+    "google": "Google Pay",
+    "googleHint": "Gemte kort",
+    "hideCard": "Skjul kort",
+    "payAnother": "Betal på en anden måde",
+    "payApple": "Betal med Apple Pay · {amount}",
+    "payGoogle": "Betal med Google Pay · {amount}",
+    "payCard": "Betal {amount}",
+    "paid": "Betalt",
+    "confirming": "Bekræfter…",
+    "confirmSeat": "Bekræft pladsen, så runneren kan finde dig.",
+    "pickTime": "Vælg et tidspunkt fra {time} og frem.",
+    "cardTitle": "Kredit- eller debetkort",
+    "cardNumber": "Kortnummer",
+    "expiry": "Udløb",
+    "cvc": "CVC",
+    "returnTitle": "Bekræfter",
+    "returnFailed": "Betalingen blev ikke gennemført",
+    "returnBody": "Bekræfter din betaling…",
+    "returnMissing": "Vi kunne ikke finde den betaling.",
+    "returnDeclined": "Banken afviste betalingen. Du er ikke blevet trukket.",
+    "returnFailedBody": "Betalingen gik ikke igennem. Du er ikke blevet trukket.",
+    "returnStill": "Banken bekræfter stadig. Hvis betalingen går igennem, vises ordren i historikken.",
+    "backToCheckout": "Tilbage til kassen"
+  },
+  "status": {
+    "title": "Status",
+    "lead": "Om Seatize svarer lige nu.",
+    "checking": "Tjekker…",
+    "ok": "Shoppen er oppe.",
+    "down": "Shoppen svarer ikke. Prøv igen om et minut.",
+    "hint": "Denne side rører ikke databasen. Hvis du kan læse det her, og linjen ovenfor siger at shoppen er oppe, svarer appen."
+  },
+  "legal": {
+    "updated": "1. november 2026",
+    "privacyTitle": "Privatlivspolitik",
+    "termsTitle": "Vilkår",
+    "venuesTitle": "Hvad vi gemmer om fans",
+    "privacyLead": "Seatize tager imod madbestillinger på et stadion. Her står, hvad en telefon gemmer hos os, og hvorfor.",
+    "termsLead": "Vilkårene gælder bestilling i appen. Stadionet tilbereder og udleverer stadig maden.",
+    "venuesLead": "En note til stadioner. Fans opretter ikke en konto.",
+    "privacyLink": "Privatlivspolitik",
+    "termsLink": "Vilkår",
+    "venuesLink": "Datanote til stadioner",
+    "privacySections": [
+      {
+        "heading": "Hvem vi er",
+        "body": "Appen kører for det stadion, du bestiller fra. Skriv til support@seatize.com om privatliv."
+      },
+      {
+        "heading": "Hvad vi gemmer om en fan",
+        "body": "Din plads, varerne, tidspunktet, beløbet og en e-mail kun hvis du beder om en kvittering. Et tilfældigt id på telefonen viser dine egne ordrer. Fans opretter ikke en konto."
+      },
+      {
+        "heading": "Betalinger",
+        "body": "Kortnumre håndteres af Stripe. Vi gemmer resultatet, beløbet og en Stripe-reference, ikke hele kortnummeret."
+      },
+      {
+        "heading": "Hvor længe",
+        "body": "Ordrer bliver, så stadionet kan afstemme en kamp. Efter 12 måneder fjernes plads, e-mail og noter. Totaler bliver i regnskabet. Personalekonti bliver, mens personen arbejder, og kan slettes under Admin → Team."
+      }
+    ],
+    "termsSections": [
+      {
+        "heading": "Bestilling",
+        "body": "En ordre er et tilbud om at købe de varer af stadionet. Køkkenet kan afvise den. Så refunderes beløbet."
+      },
+      {
+        "heading": "Priser",
+        "body": "Priserne er stadionets, i stadionets valuta, som menuen viser, når du betaler."
+      },
+      {
+        "heading": "Allergier",
+        "body": "Noter du skriver, sendes til køkkenet. Stadionet afgør, om ordren kan laves sikkert."
+      },
+      {
+        "heading": "Tjenesten",
+        "body": "Et pauset køkken, en afvist betaling eller en tabt forbindelse kan stoppe en ordre. Du trækkes kun, når en betaling lykkes."
+      }
+    ],
+    "venueSections": [
+      {
+        "heading": "Fans",
+        "body": "En fanordre gemmer plads, linjer, tid, beløb og en valgfri kvitteringsmail. Et tilfældigt enheds-id knytter telefonen til sin historik. Ingen fankonto og ingen adgangskode."
+      },
+      {
+        "heading": "Personale",
+        "body": "Diskkonti gemmer navn, e-mail og rolle. Personen kan hente dataene eller slette kontoen under Admin → Team, medmindre de er den eneste administrator."
+      },
+      {
+        "heading": "Opbevaring",
+        "body": "Et natligt job fjerner plads, e-mail og noter fra ordrer ældre end 12 måneder (eller RECEIPT_RETENTION_DAYS). Betalingstotaler og ordrenumre bliver, så en kamp stadig kan afstemmes. Stripe opbevarer kortdata efter sine egne vilkår."
+      }
+    ]
+  },
+  "security": {
+    "title": "Tofaktorlogin",
+    "pleaseWait": "Vent",
+    "failed": "Noget gik galt. Prøv igen.",
+    "codeWrong": "Koden virkede ikke.",
+    "passwordNeeded": "Indtast din adgangskode først.",
+    "password": "Adgangskode",
+    "setupTitle": "Beskyt din konto",
+    "setupLead": "Tilføj en autentificeringsapp (Google Authenticator, 1Password, Authy). Du indtaster en kode fra den hver gang, du logger ind.",
+    "requiredLead": "Admin og Manager skal bruge tofaktorlogin. Slå det til for at åbne disken.",
+    "setUp": "Slå til",
+    "scanTitle": "Scan med din autentificeringsapp",
+    "scanLead": "Scan koden, og indtast derefter den sekscifrede kode, appen viser.",
+    "manualKey": "Kan du ikke scanne? Indtast denne nøgle:",
+    "enterCode": "Sekscifret kode",
+    "confirm": "Bekræft",
+    "codesTitle": "Gem dine backupkoder",
+    "codesLead": "Hvis du mister din telefon, logger hver kode dig ind én gang. Opbevar dem sikkert. De vises ikke igen.",
+    "copy": "Kopiér",
+    "copied": "Kopieret",
+    "download": "Download",
+    "backupFileTitle": "Backupkoder til Seat Service. Hver kode virker én gang.",
+    "savedThem": "Jeg har gemt dem",
+    "on": "Tofaktor er slået til",
+    "manageLead": "Indtast din adgangskode for at lave nye backupkoder. De gamle holder op med at virke.",
+    "newBackupCodes": "Lav nye backupkoder",
+    "turnOff": "Slå tofaktor fra",
+    "turnedOff": "Tofaktor er slået fra.",
+    "lockedNote": "Admin og Manager kan ikke slå dette fra. Mister du din telefon, så bed en admin nulstille det under Admin → Team.",
+    "backToDesk": "Tilbage til disken"
   }
 }

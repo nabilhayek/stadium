@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
+import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { LocaleBoot } from "@/components/i18n/locale-boot";
 import { SwRegister } from "@/components/pwa/sw-register";
@@ -85,6 +86,7 @@ export default async function RootLayout({ children, params }: Props) {
         </NextIntlClientProvider>
         <SwRegister />
         <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   );

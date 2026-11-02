@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronRight, MailPlus, MoreHorizontal, Plus, Send, SlidersHorizontal, Trash2, UserCheck, UserX } from "lucide-react";
+import { Check, ChevronRight, MailPlus, MoreHorizontal, Plus, Send, ShieldOff, SlidersHorizontal, Trash2, UserCheck, UserX } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,12 +14,12 @@ import { cn } from "@/lib/utils";
 import { Badge, Card, FilterTabs, ghostButton, primaryButton, secondaryButton } from "../ui";
 import { PERMISSIONS, type AdminSettings, type Edit, type Member, type StaffRole } from "./model";
 
-type Props = { stadiumSlug: string; settings: AdminSettings; edit: Edit };
+type Props = { stadiumSlug: string; settings: AdminSettings; edit: Edit; onMemberAdded: (member: Member) => void };
 
 const menuButton =
   "grid size-8 shrink-0 place-items-center rounded-lg text-neutral-500 transition-colors duration-150 hover:bg-neutral-200/60! hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-blue-500 data-[state=open]:bg-neutral-200/60!";
 
-export function TeamTab({ stadiumSlug, settings, edit }: Props) {
+export function TeamTab({ stadiumSlug, settings, edit, onMemberAdded }: Props) {
   const [filter, setFilter] = useState("all");
   const [inviting, setInviting] = useState(false);
   const [session, setSession] = useState(0);
@@ -30,6 +30,8 @@ export function TeamTab({ stadiumSlug, settings, edit }: Props) {
   const { toast } = useToast();
   const trpc = useTRPC();
   const resend = useMutation(trpc.admin.resendInvite.mutationOptions());
+  const resetTwoFactor = useMutation(trpc.admin.resetTwoFactor.mutationOptions());
+  const invite = useMutation(trpc.admin.invite.mutationOptions());
   const { members, kitchens, roles } = settings;
   const roleFilter = filter === "all" || roles.some((r) => r.id === filter) ? filter : "all";
   const shown = roleFilter === "all" ? members : members.filter((m) => m.role === roleFilter);
@@ -99,6 +101,7 @@ export function TeamTab({ stadiumSlug, settings, edit }: Props) {
                     <span className="flex items-center gap-2">
                       <span className={cn("truncate text-[14px] font-medium", m.status === "disabled" && "text-neutral-500")}>{m.name}</span>
                       {m.permissions ? <Badge tone="bg-blue-500">Custom</Badge> : null}
+                      {m.twoFactor ? <Badge tone="bg-green-600">2FA</Badge> : null}
                       {m.status === "invited" ? <Badge tone="bg-amber-500">Invited</Badge> : null}
                       {m.status === "disabled" ? <Badge tone="bg-neutral-500">Disabled</Badge> : null}
                     </span>
@@ -152,6 +155,26 @@ export function TeamTab({ stadiumSlug, settings, edit }: Props) {
                         >
                           <Send />
                           Resend invite
+                        </DropdownMenuItem>
+                      ) : null}
+                      {m.twoFactor ? (
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            if (!window.confirm(`Reset two-factor for ${m.name}? They are signed out and must set it up again.`)) return;
+                            resetTwoFactor.mutate(
+                              { stadium: stadiumSlug, memberId: m.id },
+                              {
+                                onSuccess: (result) => {
+                                  toast({ message: result.ok ? `Two-factor reset for ${m.name}` : result.error, status: result.ok ? "success" : "error" });
+                                  if (result.ok) edit((s) => ({ ...s, members: s.members.map((x) => (x.id === m.id ? { ...x, twoFactor: false } : x)) }));
+                                },
+                                onError: () => toast({ message: "Could not reset two-factor.", status: "error" }),
+                              },
+                            );
+                          }}
+                        >
+                          <ShieldOff />
+                          Reset two-factor
                         </DropdownMenuItem>
                       ) : null}
                       {m.status === "disabled" ? (
@@ -317,11 +340,28 @@ export function TeamTab({ stadiumSlug, settings, edit }: Props) {
             key={session}
             roles={roles}
             kitchens={kitchens}
+            sending={invite.isPending}
             onCancel={() => setInviting(false)}
             onInvite={(member) => {
-              edit((s) => ({ ...s, members: [...s.members, member] }));
-              setInviting(false);
-              toast({ message: `Invite for ${member.email} goes out when you save.`, status: "success" });
+              if (members.some((existing) => existing.email.toLowerCase() === member.email.toLowerCase())) {
+                toast({ message: "That email is already on the team.", status: "error" });
+                return;
+              }
+              invite.mutate(
+                { stadium: stadiumSlug, name: member.name, email: member.email, role: member.role, kitchens: member.kitchens },
+                {
+                  onSuccess: (result) => {
+                    if (!result.ok) {
+                      toast({ message: result.error, status: "error" });
+                      return;
+                    }
+                    onMemberAdded(result.member);
+                    setInviting(false);
+                    toast({ message: `Invite sent to ${result.member.email}`, status: "success" });
+                  },
+                  onError: () => toast({ message: "The invite email did not send.", status: "error" }),
+                },
+              );
             }}
           />
         ) : null}
@@ -402,11 +442,13 @@ function KitchenPicker({ kitchens, picked, onChange }: { kitchens: AdminSettings
 function InviteSheet({
   roles,
   kitchens,
+  sending,
   onCancel,
   onInvite,
 }: {
   roles: StaffRole[];
   kitchens: AdminSettings["kitchens"];
+  sending: boolean;
   onCancel: () => void;
   onInvite: (m: Member) => void;
 }) {
@@ -423,7 +465,7 @@ function InviteSheet({
       <header className="flex h-14 shrink-0 items-center border-b border-neutral-200 px-5 pr-14">
         <div className="min-w-0">
           <SheetTitle>Invite staff</SheetTitle>
-          <SheetDescription className="truncate">The invite email goes out when you save.</SheetDescription>
+          <SheetDescription className="truncate">They get an email to create a password.</SheetDescription>
         </div>
       </header>
       <form
@@ -433,7 +475,7 @@ function InviteSheet({
         onSubmit={(e) => {
           e.preventDefault();
           setTried(true);
-          if (!name.trim() || !emailOk) return;
+          if (!name.trim() || !emailOk || sending) return;
           onInvite({
             id: `m-${Date.now()}`,
             name: name.trim(),
@@ -491,9 +533,9 @@ function InviteSheet({
         <button type="button" onClick={onCancel} className={secondaryButton}>
           Cancel
         </button>
-        <button type="submit" form="invite-form" className={primaryButton}>
+        <button type="submit" form="invite-form" disabled={sending} className={primaryButton}>
           <Send className="size-4" aria-hidden />
-          Send invite
+          {sending ? "Sending…" : "Send invite"}
         </button>
       </footer>
     </SheetContent>

@@ -26,7 +26,7 @@ export const productsRouter = router({
 
   update: kitchenProcedure
     .input(z.object({ stadium: stadiumSlug, id: productId, product: productInput }))
-    .mutation(({ input }) => updateProduct(input.stadium, input.id, input.product)),
+    .mutation(({ ctx, input }) => updateProduct(input.stadium, input.id, input.product, { userId: ctx.session.user.id, email: ctx.session.user.email })),
 
   setFlags: kitchenProcedure
     .input(

@@ -47,6 +47,10 @@ export type Receipt = {
   kitchenStatus?: KitchenStatus;
   /** Why the kitchen declined. Shown to the customer as-is. */
   declineReason?: string;
+  /** Set when a completed order is refunded from the desk. */
+  refundedAt?: number;
+  /** Short note stored with a desk refund of a finished order. */
+  refundReason?: string;
   /** Anonymous install id the order was placed from. Lets that phone restore its history. */
   deviceId?: string;
   /** Write secret for the server copy. Missing on receipts restored from a bare URL. */
@@ -164,24 +168,41 @@ export function formatRemain(ms: number) {
   return `${mm}:${ss.toString().padStart(2, "0")}`;
 }
 
-/** Headline for the current stage of an order. The kitchen's word wins over the clock. */
-export function statusTitle(receipt: Receipt, now: number) {
+export type StatusKey = "declined" | "received" | "preparing" | "onTheWay" | "readyPickup" | "atSeat" | "pickedUp";
+
+const STATUS_TITLE: Record<StatusKey, string> = {
+  declined: "Order declined",
+  received: "Order received",
+  preparing: "Being prepared",
+  onTheWay: "On the way",
+  readyPickup: "Ready for pickup",
+  atSeat: "At your seat",
+  pickedUp: "Picked up",
+};
+
+/** Stable key for translated headlines. The kitchen's word wins over the clock. */
+export function statusKey(receipt: Receipt, now: number): StatusKey {
   const delivery = receipt.fulfillment === "delivery";
   switch (receipt.kitchenStatus) {
     case "declined":
-      return "Order declined";
+      return "declined";
     case "new":
-      return "Order received";
+      return "received";
     case "accepted":
-      return "Being prepared";
+      return "preparing";
     case "ready":
-      return delivery ? "On the way" : "Ready for pickup";
+      return delivery ? "onTheWay" : "readyPickup";
     case "done":
-      return delivery ? "At your seat" : "Picked up";
+      return delivery ? "atSeat" : "pickedUp";
   }
   const arrived = receipt.readyAt - now <= 0;
-  if (arrived) return delivery ? "At your seat" : "Ready for pickup";
-  return delivery ? "On the way" : "Being prepared";
+  if (arrived) return delivery ? "atSeat" : "readyPickup";
+  return delivery ? "onTheWay" : "preparing";
+}
+
+/** English headline. UI should use statusKey with next-intl. */
+export function statusTitle(receipt: Receipt, now: number) {
+  return STATUS_TITLE[statusKey(receipt, now)];
 }
 
 /** How long after the ETA the shop keeps showing the order widget. */

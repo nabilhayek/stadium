@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FlagIcon } from "@/components/i18n/flag-icon";
+import { currencyFlag } from "@/lib/flag-codes";
 import { currencySymbol } from "@/lib/money";
 import { Card } from "../ui";
 import { CURRENCIES, type AdminSettings, type Edit } from "./model";
@@ -46,7 +49,7 @@ export function ServiceTab({ settings, edit }: Props) {
           <ToggleRow label="Swish" checked={p.swish} onChange={(v) => setPayments({ swish: v })} />
           <SettingRow
             label="Auto refund"
-            description="Refund orders no kitchen has accepted after this long."
+            description="Refund orders no kitchen has accepted after this long. The open orders board applies it; a nightly job catches anything left."
             control={
               <NumberInput
                 value={p.autoRefundMinutes}
@@ -59,6 +62,11 @@ export function ServiceTab({ settings, edit }: Props) {
             }
           />
         </SettingList>
+        <p className="px-1 pt-3 text-[13px] text-muted">
+          <Link href="/venues/data" className="font-medium text-link">
+            What we store about fans
+          </Link>
+        </p>
       </Card>
 
       <Card title="Notifications">
@@ -131,13 +139,18 @@ function CurrencyRow({ currency, onChange }: { currency: string; onChange: (curr
       description="Prices, fees and payouts use this."
       control={
         <Select value={current} onValueChange={onChange}>
-          <SelectTrigger aria-label="Currency" className="w-44">
+          <SelectTrigger aria-label="Currency" className="w-52">
             <SelectValue />
           </SelectTrigger>
           <SelectContent align="end">
             {options.map((code) => (
               <SelectItem key={code} value={code}>
-                {code} · {CURRENCY_NAMES[code] ?? currencySymbol(code)}
+                <span className="flex items-center gap-2.5">
+                  <FlagIcon code={currencyFlag(code)} className="text-[15px]" />
+                  <span>
+                    {code} · {CURRENCY_NAMES[code] ?? currencySymbol(code)}
+                  </span>
+                </span>
               </SelectItem>
             ))}
           </SelectContent>

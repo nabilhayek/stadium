@@ -3,6 +3,7 @@ import { revalidateStadiumShop } from "@/lib/revalidate";
 import { withDb } from "@/lib/db";
 import { emptySeatMap, parseSeatMap, type SeatMapDoc } from "@/lib/seatmap/schema";
 import { validateSeatMap } from "@/lib/seatmap/validate";
+import { writeAudit, type AuditActor } from "./audit";
 import type { Result } from "./products";
 
 export type VenueSection = { code: string; name: string };
@@ -77,7 +78,7 @@ export type PublishResult = Result<{
  * Makes the draft live and turns its sections into the stadium's Section rows,
  * matched by code. Sections that left the map are deleted unless orders use them.
  */
-export async function publishSeatMap(slug: string, revision: number, doc: SeatMapDoc): Promise<PublishResult> {
+export async function publishSeatMap(slug: string, revision: number, doc: SeatMapDoc, actor?: AuditActor | null): Promise<PublishResult> {
   const blocking = validateSeatMap(doc).filter((i) => i.level === "error");
   if (blocking.length) return { ok: false, error: blocking[0].message };
 
@@ -132,6 +133,11 @@ export async function publishSeatMap(slug: string, revision: number, doc: SeatMa
     );
   });
 
-  if (result.ok) revalidateStadiumShop(slug);
+  if (result.ok) {
+    revalidateStadiumShop(slug);
+    if (actor) {
+      await writeAudit({ stadiumSlug: slug, action: "seatmap.published", actor, detail: { revision: result.revision } });
+    }
+  }
   return result;
 }

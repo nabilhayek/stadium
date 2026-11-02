@@ -15,6 +15,7 @@ let cluster: Cluster | null = null;
 let embedded: EmbeddedPostgres | null = null;
 
 const APP_TABLES = [
+  '"AuditEvent"',
   '"OrderItem"',
   '"Order"',
   '"Payment"',
@@ -25,9 +26,11 @@ const APP_TABLES = [
   '"Section"',
   '"Receipt"',
   '"SeatMap"',
+  '"PushSubscription"',
   '"StaffMember"',
   '"VenueAdmin"',
   '"Stadium"',
+  '"twoFactor"',
   '"session"',
   '"account"',
   '"verification"',

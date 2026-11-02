@@ -3,6 +3,7 @@
 import { AnimatePresence, m } from "framer-motion";
 import { useCartQty } from "@/lib/cart/use-cart";
 import { getCartStore, type AddableProduct } from "@/lib/cart/store";
+import { useTranslations } from "next-intl";
 import { Minus, Plus } from "lucide-react";
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
 
 /** "Add" pill that swaps to a −/qty/+ stepper once the product is in the cart. */
 export function AddToCartButton({ stadiumSlug, product, dense = false }: Props) {
+  const t = useTranslations("shop");
   const qty = useCartQty(stadiumSlug, product.productId);
   const store = getCartStore(stadiumSlug);
   const hit = dense ? "size-7 text-[16px]" : "size-8 text-[18px]";
@@ -24,21 +26,21 @@ export function AddToCartButton({ stadiumSlug, product, dense = false }: Props) 
         <button
           type="button"
           onClick={() => store.add(product)}
-          aria-label={`Add ${product.name} to cart`}
+          aria-label={t("addNamed", { name: product.name })}
           className="button button--primary button--sm shrink-0 active:scale-[0.92]"
         >
-          Add
+          {t("add")}
         </button>
       ) : (
         <div
           className="flex shrink-0 items-center gap-0.5 rounded-full bg-foreground p-0.5 text-background"
           role="group"
-          aria-label={`${product.name} quantity`}
+          aria-label={t("quantityOf", { name: product.name })}
         >
           <button
             type="button"
             onClick={() => store.setQty(product.productId, qty - 1)}
-            aria-label={qty === 1 ? `Remove ${product.name}` : `Decrease ${product.name}`}
+            aria-label={qty === 1 ? t("removeNamed", { name: product.name }) : t("decreaseQty")}
             className={`grid ${hit} place-items-center rounded-full leading-none active:scale-90`}
           >
             <Minus className="size-3.5" strokeWidth={2.4} />
@@ -61,7 +63,7 @@ export function AddToCartButton({ stadiumSlug, product, dense = false }: Props) 
           <button
             type="button"
             onClick={() => store.add(product)}
-            aria-label={`Increase ${product.name}`}
+            aria-label={t("increaseQty")}
             className={`grid ${hit} place-items-center rounded-full leading-none active:scale-90`}
           >
             <Plus className="size-3.5" strokeWidth={2.4} />

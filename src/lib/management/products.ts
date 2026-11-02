@@ -6,6 +6,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { withDb } from "@/lib/db";
 import { toNutrition } from "@/lib/menu/nutrition";
 import type { MenuOptionGroup } from "@/lib/menu/options";
+import { writeAudit, type AuditActor } from "./audit";
 import { BLOB_HOST_SUFFIX, type categoriesInput, type productInput } from "./product-input";
 import type { z } from "zod";
 
@@ -248,14 +249,14 @@ export async function createProduct(slug: string, data: ProductData): Promise<Re
  * Groups and options keep their ids when edited, so carts holding them still check out.
  * Ids the product does not own are treated as new rows.
  */
-export async function updateProduct(slug: string, productId: string, data: ProductData): Promise<Result<{ product: AdminProduct }>> {
+export async function updateProduct(slug: string, productId: string, data: ProductData, actor?: AuditActor | null): Promise<Result<{ product: AdminProduct }>> {
   const id = await stadiumId(slug);
   if (!id) return { ok: false, error: "Stadium not found." };
 
   const outcome = await withDb(async (db) => {
     const current = await db.product.findFirst({
       where: { id: productId, stadiumId: id },
-      select: { imageUrl: true, optionGroups: { select: { id: true, options: { select: { id: true } } } } },
+      select: { imageUrl: true, priceCents: true, optionGroups: { select: { id: true, options: { select: { id: true } } } } },
     });
     if (!current) return null;
 
@@ -291,11 +292,19 @@ export async function updateProduct(slug: string, productId: string, data: Produ
       },
       { timeout: 20_000 },
     );
-    return { row, oldImage: current.imageUrl };
+    return { row, oldImage: current.imageUrl, oldPrice: current.priceCents };
   });
 
   if (!outcome) return { ok: false, error: "Product not found." };
   if (outcome.oldImage && outcome.oldImage !== data.imageUrl) removeImage(outcome.oldImage);
+  if (actor && outcome.oldPrice !== data.priceCents) {
+    await writeAudit({
+      stadiumSlug: slug,
+      action: "product.price",
+      actor,
+      detail: { productId, name: data.name, fromCents: outcome.oldPrice, toCents: data.priceCents },
+    });
+  }
   refreshShop(slug);
   return { ok: true, product: toAdmin(outcome.row) };
 }

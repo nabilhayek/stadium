@@ -1,6 +1,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import { ZodError } from "zod";
 import { kitchenSession } from "@/lib/management/session";
+import { twoFactorRequired } from "@/lib/management/two-factor";
 
 /**
  * Deliberately empty: reading headers here would make every public page that
@@ -29,5 +30,7 @@ export const publicProcedure = t.procedure;
 export const kitchenProcedure = t.procedure.use(async ({ ctx, next }) => {
   const session = await kitchenSession();
   if (!session) throw new TRPCError({ code: "UNAUTHORIZED", message: "Sign in required." });
+  // Admins and Managers use the desk only after two-factor is on. The check skips the database once it is.
+  if (await twoFactorRequired(session.user)) throw new TRPCError({ code: "FORBIDDEN", message: "Set up two-factor sign-in first." });
   return next({ ctx: { ...ctx, session } });
 });

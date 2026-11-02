@@ -34,7 +34,7 @@ export default async function KitchenLoginPage({ params }: Props) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-10">
       <div className="mb-8">
-        <LanguageField tone="shop" />
+        <LanguageField tone="shop" className="w-fit" />
       </div>
       <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{t("eyebrow")}</p>
       <h1 className="font-display mt-2 text-[32px] font-semibold leading-[0.95] tracking-[-0.045em]">{menu.name}</h1>

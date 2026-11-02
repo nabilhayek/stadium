@@ -42,6 +42,8 @@ import { ApplePayMark, GooglePayMark } from "./pay-marks";
 import { CardFields } from "./card-fields";
 import { useCheckoutPay, type PayMethod } from "./use-checkout-pay";
 import { useToast } from "@/components/toast/toast-provider";
+import { useTranslations } from "next-intl";
+import { trackFunnel } from "@/lib/analytics";
 
 type Method = PayMethod;
 
@@ -67,13 +69,14 @@ type Props = {
 };
 
 export function CheckoutView(props: Props) {
+  const t = useTranslations("checkout");
   if (props.orderingOpen === false) {
     return (
       <div className="flex min-h-[70dvh] flex-col justify-center pr-12">
-        <h1 className="font-display text-[28px] font-semibold tracking-[-0.03em]">Ordering is paused</h1>
-        <p className="mt-2 text-[15px] text-muted">The kitchen isn’t taking new orders right now. You can still look at the menu.</p>
+        <h1 className="font-display text-[28px] font-semibold tracking-[-0.03em]">{t("pausedTitle")}</h1>
+        <p className="mt-2 text-[15px] text-muted">{t("pausedBody")}</p>
         <Link href={`/${props.stadiumSlug}`} className="button button--primary button--lg mt-8 w-full text-center">
-          Back to the menu
+          {t("backToMenu")}
         </Link>
       </div>
     );
@@ -81,8 +84,8 @@ export function CheckoutView(props: Props) {
   if (!props.publishableKey) {
     return (
       <div className="flex min-h-[70dvh] flex-col justify-center pr-12">
-        <h1 className="font-display text-[28px] font-semibold tracking-[-0.03em]">Payments aren’t ready</h1>
-        <p className="mt-2 text-[15px] text-muted">Card payments aren’t set up on this server yet.</p>
+        <h1 className="font-display text-[28px] font-semibold tracking-[-0.03em]">{t("paymentsTitle")}</h1>
+        <p className="mt-2 text-[15px] text-muted">{t("paymentsBody")}</p>
       </div>
     );
   }
@@ -102,6 +105,8 @@ const panelVariants = {
 const LAYOUT = { duration: 0.32, ease: EASE };
 
 function CheckoutForm({ stadiumSlug, stadiumName, currency, sections }: Props) {
+  const t = useTranslations("checkout");
+  const shop = useTranslations("shop");
   const router = useRouter();
   const { state: liveCart, store: cart } = useCart(stadiumSlug);
   const { seat } = useSeat(stadiumSlug);
@@ -128,6 +133,9 @@ function CheckoutForm({ stadiumSlug, stadiumName, currency, sections }: Props) {
   const [cardOpen, setCardOpen] = useState(false);
   const [paying, setPaying] = useState(false);
   const { toast } = useToast();
+  useEffect(() => {
+    trackFunnel("checkout_started", stadiumSlug);
+  }, [stadiumSlug]);
   const [editSeat, setEditSeat] = useState(false);
   const [fulfillment, setFulfillment] = useState<Fulfillment>("delivery");
   const [dir, setDir] = useState(1);
@@ -179,6 +187,7 @@ function CheckoutForm({ stadiumSlug, stadiumName, currency, sections }: Props) {
         stadiumSlug,
         result.receipt.lines.flatMap((line) => Array.from({ length: line.qty }, () => line.productId)),
       );
+      trackFunnel("paid", stadiumSlug);
       setPaid({ receipt: result.receipt, cart: state });
     },
   });
@@ -194,14 +203,14 @@ function CheckoutForm({ stadiumSlug, stadiumName, currency, sections }: Props) {
   async function onPay(e: FormEvent) {
     e.preventDefault();
     if (fulfillment === "delivery" && !seat) {
-      toast({ message: "Confirm your seat so the runner can find you.", status: "error" });
+      toast({ message: t("confirmSeat"), status: "error" });
       setEditSeat(true);
       return;
     }
     if (count === 0) return;
     if (!scheduleOk) {
       toast({
-        message: `Pick a time from ${formatClock(earliestSchedule(now))} onwards.`,
+        message: t("pickTime", { time: formatClock(earliestSchedule(now)) }),
         status: "error",
       });
       return;
@@ -233,6 +242,7 @@ function CheckoutForm({ stadiumSlug, stadiumName, currency, sections }: Props) {
       stadiumSlug,
       result.receipt.lines.flatMap((line) => Array.from({ length: line.qty }, () => line.productId)),
     );
+    trackFunnel("paid", stadiumSlug);
     setPaid({ receipt: result.receipt, cart: state });
   }
 
@@ -240,20 +250,28 @@ function CheckoutForm({ stadiumSlug, stadiumName, currency, sections }: Props) {
     return (
       <m.div variants={stagger(0.08)} initial={entrance ? "hidden" : false} animate="show" className="flex min-h-[70dvh] flex-col justify-center pr-12">
         <m.h1 variants={fadeUp} className="font-display text-[28px] font-semibold tracking-[-0.03em]">
-          Nothing to check out
+          {t("emptyTitle")}
         </m.h1>
         <m.p variants={fadeUp} className="mt-2 text-[15px] text-muted">
-          {tracking ? "Your last order is still on its way." : "Add something from the shop first."}
+          {tracking ? t("emptyTracking") : t("emptyShop")}
         </m.p>
         <m.div variants={fadeUp} className="mt-8 flex flex-col gap-2">
           {tracking ? (
             <Link href={`/${stadiumSlug}/order/${encodeURIComponent(tracking.orderNumber)}`} className="button button--primary button--lg w-full text-center">
-              Track order {tracking.orderNumber}
+              {t("trackOrder", { order: tracking.orderNumber })}
             </Link>
           ) : null}
           <Link href={`/${stadiumSlug}`} className={`button button--lg w-full text-center ${tracking ? "button--secondary" : "button--primary"}`}>
-            Back to the shop
+            {t("backToShop")}
           </Link>
+          <p className="flex justify-center gap-4 text-[13px]">
+            <Link href="/privacy" className="font-medium text-link">
+              {shop("privacy")}
+            </Link>
+            <Link href="/terms" className="font-medium text-link">
+              {shop("terms")}
+            </Link>
+          </p>
         </m.div>
       </m.div>
     );
@@ -261,14 +279,13 @@ function CheckoutForm({ stadiumSlug, stadiumName, currency, sections }: Props) {
 
   const payLabel =
     method === "apple"
-      ? `Pay with Apple Pay · ${formatCents(cents, currency)}`
+      ? t("payApple", { amount: formatCents(cents, currency) })
       : method === "google"
-        ? `Pay with Google Pay · ${formatCents(cents, currency)}`
-        : `Pay ${formatCents(cents, currency)}`;
+        ? t("payGoogle", { amount: formatCents(cents, currency) })
+        : t("payCard", { amount: formatCents(cents, currency) });
 
   const whenLabel = timing === "scheduled" ? formatClock(scheduledAt) : `${eta.min}–${eta.max} min`;
-  const whenSub =
-    timing === "scheduled" ? (fulfillment === "delivery" ? "Runner arrives at that time" : "Ready at the counter then") : `Around ${arrivalClock(eta.max)}`;
+  const whenSub = timing === "scheduled" ? (fulfillment === "delivery" ? t("runnerAtTime") : t("counterAtTime")) : t("around", { time: arrivalClock(eta.max) });
 
   return (
     <m.form
@@ -279,21 +296,21 @@ function CheckoutForm({ stadiumSlug, stadiumName, currency, sections }: Props) {
       className="flex flex-col gap-7 pb-[max(7.5rem,env(safe-area-inset-bottom))]"
     >
       <m.header variants={fadeUp} className="pr-12">
-        <BackLink href={`/${stadiumSlug}`}>Menu</BackLink>
-        <h1 className="font-display mt-3 text-[28px] font-semibold leading-none tracking-[-0.03em]">Checkout</h1>
+        <BackLink href={`/${stadiumSlug}`}>{t("menu")}</BackLink>
+        <h1 className="font-display mt-3 text-[28px] font-semibold leading-none tracking-[-0.03em]">{t("title")}</h1>
         <p className="mt-2 text-[15px] text-muted">{stadiumName}</p>
       </m.header>
 
       <m.section variants={fadeUp}>
         <Segmented<Fulfillment>
-          aria-label="Delivery or pickup"
+          aria-label={t("fulfillment")}
           layoutId="fulfillment"
           size="lg"
           value={fulfillment}
           onChange={changeFulfillment}
           options={[
-            { id: "delivery", label: "Delivery", hint: "To your seat" },
-            { id: "pickup", label: "Pickup", hint: "At the counter" },
+            { id: "delivery", label: t("delivery"), hint: t("toSeat") },
+            { id: "pickup", label: t("pickup"), hint: t("atCounter") },
           ]}
         />
 
@@ -316,8 +333,8 @@ function CheckoutForm({ stadiumSlug, stadiumName, currency, sections }: Props) {
                       <Armchair className="size-5" strokeWidth={1.7} aria-hidden />
                     </span>
                     <div className="min-w-0">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Deliver to</p>
-                      <p className="mt-0.5 truncate text-[15px] font-medium">{seat ? formatSeat(seat, true) : "Seat not set"}</p>
+                      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">{t("deliverTo")}</p>
+                      <p className="mt-0.5 truncate text-[15px] font-medium">{seat ? formatSeat(seat, true) : t("seatNotSet")}</p>
                     </div>
                   </div>
                   <PillButton size="sm" variant="secondary" onClick={() => setEditSeat(true)}>
@@ -393,7 +410,7 @@ function CheckoutForm({ stadiumSlug, stadiumName, currency, sections }: Props) {
 
       <m.section variants={fadeUp} layout transition={{ layout: LAYOUT }} className="spot px-5 py-5">
         <SpotGradient />
-        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/70">{fulfillment === "delivery" ? "Estimated delivery" : "Ready in"}</p>
+        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/70">{fulfillment === "delivery" ? t("estimated") : t("readyIn")}</p>
         <div className="mt-2 h-[38px] overflow-hidden">
           <AnimatePresence mode="popLayout" initial={false}>
             <m.p
@@ -435,23 +452,23 @@ function CheckoutForm({ stadiumSlug, stadiumName, currency, sections }: Props) {
             </li>
           ))}
           <li className="flex items-center justify-between py-3 text-[15px]">
-            <span className="text-muted">Total</span>
+            <span className="text-muted">{t("total")}</span>
             <span className="font-semibold tabular-nums">{formatCents(cents, currency)}</span>
           </li>
         </ul>
       </m.section>
 
       <m.fieldset variants={fadeUp} layout transition={{ layout: LAYOUT }} className="min-w-0">
-        <legend className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Pay with</legend>
-        <div className="mt-3 flex flex-col gap-2" role="radiogroup" aria-label="Payment method">
+        <legend className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">{t("payWith")}</legend>
+        <div className="mt-3 flex flex-col gap-2" role="radiogroup" aria-label={t("paymentMethod")}>
           <WalletPay
             selected={method === "apple"}
             onSelect={() => {
               setMethod("apple");
               setCardOpen(false);
             }}
-            title="Apple Pay"
-            hint="Face ID · one tap"
+            title={t("apple")}
+            hint={t("appleHint")}
             mark={<ApplePayMark />}
           />
           <WalletPay
@@ -460,8 +477,8 @@ function CheckoutForm({ stadiumSlug, stadiumName, currency, sections }: Props) {
               setMethod("google");
               setCardOpen(false);
             }}
-            title="Google Pay"
-            hint="Saved cards"
+            title={t("google")}
+            hint={t("googleHint")}
             mark={<GooglePayMark />}
           />
         </div>
@@ -477,7 +494,7 @@ function CheckoutForm({ stadiumSlug, stadiumName, currency, sections }: Props) {
               });
             }}
           >
-            {cardOpen ? "Hide card" : "Pay another way"}
+            {cardOpen ? t("hideCard") : t("payAnother")}
             <m.span aria-hidden animate={{ rotate: cardOpen ? 180 : 0 }} className="inline-flex">
               <ChevronDown className="size-3.5" strokeWidth={2} />
             </m.span>
@@ -499,6 +516,14 @@ function CheckoutForm({ stadiumSlug, stadiumName, currency, sections }: Props) {
             </m.div>
           ) : null}
         </AnimatePresence>
+        <p className="mt-4 flex gap-4 text-[13px]">
+          <Link href="/privacy" className="font-medium text-link">
+            {shop("privacy")}
+          </Link>
+          <Link href="/terms" className="font-medium text-link">
+            {shop("terms")}
+          </Link>
+        </p>
       </m.fieldset>
 
       <m.div
@@ -528,12 +553,12 @@ function CheckoutForm({ stadiumSlug, stadiumName, currency, sections }: Props) {
                 {paid ? (
                   <>
                     <Check className="size-4" strokeWidth={2.6} aria-hidden />
-                    Paid
+                    {t("paid")}
                   </>
                 ) : paying ? (
                   <>
                     <Spinner />
-                    Confirming…
+                    {t("confirming")}
                   </>
                 ) : (
                   payLabel

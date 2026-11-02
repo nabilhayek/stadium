@@ -12,10 +12,10 @@ Later work, roughly in the order it pays off.
 
 ## Two-factor sign-in for the kitchen
 
-- [ ] Add Better Auth’s `twoFactor` plugin (authenticator app, with backup codes).
-- [ ] Require it for the Admin and Manager roles; optional for Kitchen and Runner.
-- [ ] Add “Trust this device for 30 days” so a shared kitchen tablet is not asked every shift.
-- [ ] Recovery: an admin can reset another person’s two-factor from **Admin → Team**.
+- [x] Add Better Auth’s `twoFactor` plugin (authenticator app, with backup codes). Setup page: `/<stadium>/management/security`.
+- [x] Require it for the Admin and Manager roles; optional for Kitchen and Runner. Enforced in the desk layout, in `kitchenProcedure`, and by blocking “turn off” for those roles. Accounts with no staff row (the bootstrap account) are not forced.
+- [x] Add “Trust this device for 30 days” so a shared kitchen tablet is not asked every shift.
+- [x] Recovery: an admin can reset another person’s two-factor from **Admin → Team**. It also signs them out, drops trusted devices, and writes an audit row.
 
 ## Load testing with k6
 
@@ -36,51 +36,50 @@ Later work, roughly in the order it pays off.
 
 ## Uptime and status
 
-- [ ] A health route that does not touch the database (for example `/api/health` returning the build id), watched by Sentry Cron or Better Stack.
-- [ ] Never health-check the database on a schedule. A check every minute keeps Neon awake and defeats the sleep work.
-- [ ] A public status page that fans and venue staff can open when the shop seems down.
+- [x] `GET /api/health` returns `{ ok, buildId }` and does not touch the database. Point Sentry Cron or Better Stack at it by hand; the app does not poll itself.
+- [x] No scheduled database health check. Auto-refund is a nightly backstop plus a sweep when the orders board is open, so a quiet day does not keep Neon awake.
+- [x] Public status page at `/status` (shop menu links to it). It fetches `/api/health` only.
 
 ## Privacy and legal
 
-- [ ] A privacy policy and terms page, in Swedish, Danish, and English, linked from the shop menu and checkout.
-- [ ] GDPR data export and delete for staff accounts.
-- [ ] A retention job that removes or anonymises old receipts and orders after a set period.
-- [ ] A data processing note for venues: what the app stores about fans (seat, order, optional email) and for how long.
+- [x] Privacy, terms, and a venue data note at `/privacy`, `/terms`, and `/venues/data`, in Swedish, Danish, and English. Linked from the shop menu and checkout. Admin → Payments links the venue note.
+- [x] Staff accounts can download their data and delete the account from Admin → Team. The last active admin at a venue cannot delete themselves. Fans have no accounts; the privacy page tells them to email support.
+- [x] Nightly `/api/cron/retention` anonymises receipts older than `RECEIPT_RETENTION_DAYS` (default 365, `0` turns it off). Totals and order numbers stay.
+- [x] `/venues/data` says what is stored (seat, order, optional email) and for how long.
 
 ## Audit log
 
-- [ ] Record who accepted, declined, or refunded which order, and who changed prices or published the seat map.
-- [ ] Show it in **Admin**, filterable by person and by day.
+- [x] `AuditEvent` records accept, decline, refund, auto-refund, price changes, and seat-map publish.
+- [x] Admin → Activity lists the latest events, filterable by person and by day in the venue timezone.
 
 ## Analytics
 
-- [ ] Turn on Vercel Web Analytics (no cookies). Speed Insights is already in `src/app/[locale]/layout.tsx`.
-- [ ] Track the funnel: shop opened, item added, checkout started, paid.
+- [x] Vercel Web Analytics is on next to Speed Insights (no cookies).
+- [x] Funnel events: `shop_opened`, `item_added`, `checkout_started`, `paid`.
 
 ## Stripe operations
 
-- [ ] Test that `paymentIntents.create` and `refunds.create` are called with an idempotency key. The calls in `src/lib/payments/service.ts` already pass one. Webhook replay is already covered (`tests/integration/webhook.test.ts`).
-- [ ] Refund a finished order from the desk, and record who did it on the audit log. Declining an order already refunds (`tests/integration/kitchen.test.ts`). `autoRefundMinutes` is saved in Admin and never applied.
-- [ ] Payouts per venue with Stripe Connect, if venues are paid directly.
+- [x] `paymentIntents.create` and `refunds.create` use an idempotency key. Covered in `tests/integration/payments.test.ts` and `tests/integration/kitchen.test.ts`. Webhook replay stays in `tests/integration/webhook.test.ts`.
+- [x] Refund a finished order from the desk, and record who did it. Declining an order already refunds. `autoRefundMinutes` is applied while the orders board is open, with a nightly `/api/cron/auto-refund` backstop. A five-minute cron was removed so it does not keep Neon awake.
+- [x] Payouts per venue are not built. Venues are not Stripe Connect accounts. Refunds stay on the platform account. Settle with venues outside the app until Connect is a real product decision.
 
 ## Accessibility
 
-- [ ] A screen reader pass on the shop and checkout (VoiceOver on iPhone, TalkBack on Android).
-- [ ] A contrast check of the shop’s muted text and the desk’s status colours.
-- [ ] Translate the remaining English. “Add” and “Sold out” are still hardcoded in `src/components/shop/product-card.tsx`, `add-to-cart-button.tsx`, and `product-order.tsx` (visible label and screen-reader text). Checkout, the order tracker, order history, and support are still English too.
+- [ ] A device screen-reader pass (VoiceOver / TalkBack) still needs a person with a phone. Labels and live status text are in place; the agent cannot complete that pass.
+- [x] Shop muted text is `#4e4e49` (was `#6b6b66`). Desk order-type chips use darker fills so white text clears contrast. Status is text plus a colour dot.
+- [x] Shop add / sold out, checkout, the order tracker, order history, and support follow the selected language. Desk pages stay English.
 
 ## Shop menu
 
-- [ ] The currency row in the menu drawer is still “coming soon” (`ComingSoonRow` in `src/components/shop/nav-drawer.tsx`). Admin currency already drives prices.
+- [x] The drawer shows the venue currency from the menu (the same code Admin uses for prices), plus privacy, terms, and status. The “coming soon” currency row is gone.
 
 ## Performance
 
-- [ ] Re-measure the shop’s JavaScript and a mobile Lighthouse run. The old notes (~370 KB gzipped, score 78, LCP 4.5 s) are not current until measured again.
-- [ ] `LazyMotion` already loads `domMax` in `src/components/motion/motion.tsx`. After the new numbers, decide whether that feature set should stay.
-- [ ] Sentry’s browser client still starts in `instrumentation-client.ts`. Load it after the page is interactive if the new trace puts it on the critical path.
+- [x] Measured 2 Nov 2026 on a production build (`next start`, Lighthouse mobile, simulated slow 4G, `/en/arena`): performance 79, accessibility 100, best practices 96, SEO 100. FCP 1.2 s, LCP 4.6 s, TBT 250 ms, CLS 0. Shop scripts are 369 KB transferred (1.3 MB parsed, 28 files), so the old ~370 KB / 78 / 4.5 s numbers still hold. Real LCP on the local server was about 0.3 s; the 4.6 s is mostly Lighthouse’s 4x CPU slowdown. If it matters: trim unused JS (about 48 KB flagged) and render-blocking CSS (about 430 ms).
+- [x] `LazyMotion` stays on `domMax`. Toasts use drag and the shop uses `layoutId`; `domAnimation` would drop those.
+- [x] Sentry’s browser init waits for idle (2s timeout). Next still loads `instrumentation-client.ts` early because the router transition hook has to be a static export.
 
 ## Support
 
-- [ ] The page exists (`src/app/[locale]/[stadium]/support/page.tsx`) with four hardcoded English topics (where is my order, wrong seat, payment, allergies).
-- [ ] The button is `mailto:support@seatservice.app`. Outgoing mail is sent from `seatize.com`. Point the button at a seatize.com address, or write down why this one stays.
-- [ ] Translate the page (Swedish, Danish, English). Per-venue copy only if the answers should differ by stadium.
+- [x] One shared support page, translated (sv/da/en). Topics do not differ by stadium.
+- [x] The button is `mailto:support@seatize.com`. Create that mailbox; `orders@seatize.com` is the transactional From address, not the support inbox.

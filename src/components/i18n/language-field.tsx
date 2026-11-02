@@ -2,65 +2,38 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import { LanguageSelectorDropdown } from "@/components/ui/language-selector-dropdown";
 import { locales, localeCookie, LOCALE_STORAGE_KEY, type Locale } from "@/i18n/config";
-import { cn } from "@/lib/utils";
+import { localeFlag } from "@/lib/flag-codes";
 
 type Props = {
   tone: "shop" | "desk";
+  /** @deprecated Kept for call sites. All layouts use the pill dropdown. */
   layout?: "grid" | "select";
+  fullWidth?: boolean;
+  menuSide?: "top" | "bottom";
+  align?: "start" | "end";
+  className?: string;
 };
 
-export function LanguageField({ tone, layout = "grid" }: Props) {
+export function LanguageField({ tone, className, fullWidth, menuSide, align }: Props) {
   const t = useTranslations("language");
-  const current = useLocale();
+  const current = useLocale() as Locale;
   const setLocale = useSetLocale();
-
-  if (layout === "select") {
-    return (
-      <select
-        aria-label={t("label")}
-        value={current}
-        onChange={(event) => setLocale(event.target.value as Locale)}
-        className="h-8 rounded-lg border border-neutral-200 bg-white px-2 text-[13px] text-neutral-700"
-      >
-        {locales.map((code) => (
-          <option key={code} value={code}>
-            {t(code)}
-          </option>
-        ))}
-      </select>
-    );
-  }
-
-  const shop = tone === "shop";
+  const options = locales.map((code) => ({ code, label: t(code), flagCode: localeFlag(code) }));
 
   return (
-    <div role="radiogroup" aria-label={t("label")} className="grid grid-cols-3 gap-1.5">
-      {locales.map((code) => {
-        const selected = current === code;
-        return (
-          <button
-            key={code}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => setLocale(code)}
-            className={cn(
-              "min-h-9 rounded-xl px-2 text-[13px] font-medium transition-colors",
-              shop
-                ? selected
-                  ? "bg-foreground text-background"
-                  : "bg-surface-secondary text-foreground"
-                : selected
-                  ? "bg-neutral-900 text-white"
-                  : "border border-neutral-200 bg-white text-neutral-600 hover:text-neutral-900",
-            )}
-          >
-            {t(code)}
-          </button>
-        );
-      })}
-    </div>
+    <LanguageSelectorDropdown
+      tone={tone}
+      value={current}
+      onChange={(code) => setLocale(code as Locale)}
+      options={options}
+      aria-label={t("label")}
+      fullWidth={fullWidth}
+      menuSide={menuSide}
+      align={align}
+      className={className}
+    />
   );
 }
 

@@ -31,6 +31,12 @@ export const receipt = z.unknown().transform((value, ctx) => {
   return parsed;
 });
 
+/** `PushSubscription.toJSON()`. Push services only hand out https endpoints. */
+export const pushSubscription = z.object({
+  endpoint: z.url({ protocol: /^https$/ }).max(1024),
+  keys: z.object({ p256dh: z.string().min(16).max(256), auth: z.string().min(8).max(128) }),
+});
+
 export const kitchenChange = z.discriminatedUnion("to", [
   z.object({ to: z.literal("new") }),
   z.object({ to: z.literal("accepted"), prepMinutes: z.number().optional() }),
