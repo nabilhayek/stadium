@@ -16,6 +16,7 @@ type Props = {
 /** "Add" pill that swaps to a −/qty/+ stepper once the product is in the cart. */
 export function AddToCartButton({ stadiumSlug, product, dense = false }: Props) {
   const t = useTranslations("shop");
+  const tc = useTranslations("cart");
   const qty = useCartQty(stadiumSlug, product.productId);
   const store = getCartStore(stadiumSlug);
   const hit = dense ? "size-7 text-[16px]" : "size-8 text-[18px]";
@@ -40,7 +41,7 @@ export function AddToCartButton({ stadiumSlug, product, dense = false }: Props) 
           <button
             type="button"
             onClick={() => store.setQty(product.productId, qty - 1)}
-            aria-label={qty === 1 ? t("removeNamed", { name: product.name }) : t("decreaseQty")}
+            aria-label={qty === 1 ? t("removeNamed", { name: product.name }) : tc("decrease", { name: product.name })}
             className={`grid ${hit} place-items-center rounded-full leading-none active:scale-90`}
           >
             <Minus className="size-3.5" strokeWidth={2.4} />
@@ -63,7 +64,7 @@ export function AddToCartButton({ stadiumSlug, product, dense = false }: Props) 
           <button
             type="button"
             onClick={() => store.add(product)}
-            aria-label={t("increaseQty")}
+            aria-label={tc("increase", { name: product.name })}
             className={`grid ${hit} place-items-center rounded-full leading-none active:scale-90`}
           >
             <Plus className="size-3.5" strokeWidth={2.4} />

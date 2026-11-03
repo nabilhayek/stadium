@@ -43,7 +43,7 @@ test.describe("shop", () => {
     await page.goto("/arena?section=N&row=1&seat=12");
     const dialog = page.getByRole("dialog", { name: "Is this your seat?" });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText("North Stand")).toBeVisible();
+    await expect(dialog.getByText("North Stand · Row 1 · Seat 12")).toBeVisible();
     await expect(dialog.getByLabel("Seat")).toHaveValue("12");
     await expect(dialog.getByLabel("Row (optional)")).toHaveValue("1");
 
@@ -95,7 +95,9 @@ test.describe("shop", () => {
   test("the language can be switched from the menu", async ({ page }) => {
     await page.goto("/arena");
     await page.getByRole("button", { name: "Open menu" }).click();
-    await page.getByRole("radio", { name: "Svenska" }).click();
+    const drawer = page.getByRole("dialog", { name: "Menu" });
+    await drawer.getByRole("button", { name: /Language/ }).click();
+    await drawer.getByRole("option", { name: "Svenska" }).click();
     await expect(page.locator("html")).toHaveAttribute("lang", "sv");
   });
 });

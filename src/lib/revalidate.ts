@@ -17,18 +17,19 @@ export function revalidateLocalized(path: string, type?: "layout" | "page") {
 }
 
 /**
- * Drop the cached menu and the shop shells. Called from tRPC (a route handler),
- * so this uses `revalidateTag` — `updateTag` is only valid inside a Server Action.
+ * Mark the cached menu stale. Called from tRPC (a route handler), so this uses `revalidateTag`; `updateTag` is only
+ * valid inside a Server Action.
+ *
+ * Tag only, on purpose. The shop, product pages and shop chrome all read the menu through `getStadiumMenu`, so their
+ * cached pages carry `menu:<slug>` and go stale with it: the next visit still gets the static shell and the page
+ * regenerates in the background. `revalidatePath` would *expire* those pages instead, and an expired `/[locale]/arena`
+ * is never rebuilt: every later visit gets the generic `[stadium]` fallback shell, without the menu, until a redeploy.
  */
 export function revalidateStadiumShop(slug: string) {
   revalidateTag(MENU_TAG(slug), "max");
-  revalidateLocalized(`/${slug}`, "layout");
-  revalidatePath("/[locale]/[stadium]", "layout");
-  revalidatePath("/[locale]/[stadium]", "page");
-  revalidatePath("/[locale]/[stadium]/product/[id]", "page");
 }
 
+/** Mark the venue list stale (home page, sitemap). Tag only, for the same reason as {@link revalidateStadiumShop}. */
 export function revalidateStadiumList() {
   revalidateTag(STADIUMS_TAG, "max");
-  revalidateLocalized("/", "layout");
 }

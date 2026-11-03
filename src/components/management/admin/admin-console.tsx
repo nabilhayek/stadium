@@ -10,7 +10,6 @@ import { KitchensTab } from "./kitchens-tab";
 import type { AdminSettings, Edit, Member } from "./model";
 import { OrderingTab } from "./ordering-tab";
 import { ServiceTab } from "./service-tab";
-import { AccountPrivacy } from "./account-privacy";
 import { AuditTab } from "./audit-tab";
 import { TeamTab } from "./team-tab";
 
@@ -50,14 +49,7 @@ export function AdminConsole({ stadiumSlug, stadiumName, doc, settings: loaded }
       </div>
 
       <div className="mt-4">
-        {tab === "team" ? (
-          <>
-            <TeamTab stadiumSlug={stadiumSlug} settings={settings} edit={edit} onMemberAdded={addMember} />
-            <div className="mt-4">
-              <AccountPrivacy stadiumSlug={stadiumSlug} />
-            </div>
-          </>
-        ) : null}
+        {tab === "team" ? <TeamTab stadiumSlug={stadiumSlug} settings={settings} edit={edit} onMemberAdded={addMember} /> : null}
         {tab === "kitchens" ? <KitchensTab doc={doc} settings={settings} edit={edit} /> : null}
         {tab === "ordering" ? <OrderingTab settings={settings} edit={edit} /> : null}
         {tab === "service" ? <ServiceTab settings={settings} edit={edit} /> : null}

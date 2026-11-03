@@ -76,7 +76,8 @@ export function LanguageSelectorDropdown({
     <div ref={root} className={cn("relative", fullWidth ? "w-full" : "inline-block max-w-full")}>
       <button
         type="button"
-        aria-label={ariaLabel}
+        // The accessible name must contain the visible language name (WCAG 2.5.3), so the label is a hidden prefix.
+        aria-label={selected ? undefined : ariaLabel}
         aria-expanded={open}
         aria-controls={listId}
         aria-haspopup="listbox"
@@ -96,6 +97,7 @@ export function LanguageSelectorDropdown({
         {selected ? (
           <span className="flex min-w-0 items-center gap-2">
             <FlagIcon code={selected.flagCode} className="text-[15px]" />
+            <span className="sr-only">{ariaLabel}: </span>
             <span className="truncate">{selected.label}</span>
           </span>
         ) : null}

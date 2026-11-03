@@ -42,9 +42,15 @@ test.describe("crawlers and SEO headers", () => {
     expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
   });
 
-  test("unknown routes and shops answer 404", async ({ request }) => {
-    expect((await request.get("/nope")).status()).toBe(404);
-    expect((await request.get("/nope/checkout")).status()).toBe(404);
+  test("unknown shops are not found and never indexed", async ({ request }) => {
+    // Shop pages stream a static shell first (Cache Components), so an unknown venue is a soft 404: Next.js can't
+    // change the status once streaming starts, and injects a noindex robots tag with the not-found page instead.
+    const shop = await (await request.get("/nope")).text();
+    expect(shop).toMatch(/<meta name="robots" content="noindex"/);
+    expect(shop).toContain("<title>Not found");
+
+    const checkout = await (await request.get("/nope/checkout")).text();
+    expect(checkout).toMatch(/<meta name="robots" content="noindex"/);
   });
 });
 

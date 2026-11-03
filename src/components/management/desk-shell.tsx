@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { usePathname } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { LanguageField } from "@/components/i18n/language-field";
-import { AlertTriangle, ArrowUpRight, LayoutGrid, LogOut, Map as MapIcon, Package, ReceiptText, Search, Settings2, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, LayoutGrid, LogOut, Map as MapIcon, Package, ReceiptText, Search, Settings2, UserRound } from "lucide-react";
 import { signOut } from "@/lib/auth-client";
 import type { BoardStatus } from "@/lib/management/board";
 import { cn } from "@/lib/utils";
@@ -34,11 +34,13 @@ export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, chi
   const products = `${base}/products`;
   const seatMap = `${base}/seat-map`;
   const admin = `${base}/admin`;
+  const account = `${base}/account`;
   const onOrders = pathname.startsWith(orders);
   const onProducts = pathname.startsWith(products);
   const onSeatMap = pathname.startsWith(seatMap);
   const onAdmin = pathname.startsWith(admin);
-  const page = onOrders ? "orders" : onProducts ? "products" : onSeatMap ? "seatMap" : onAdmin ? "admin" : "overview";
+  const onAccount = pathname.startsWith(account);
+  const page = onOrders ? "orders" : onProducts ? "products" : onSeatMap ? "seatMap" : onAdmin ? "admin" : onAccount ? "account" : "overview";
 
   return (
     <div className="flex min-h-dvh bg-white text-neutral-900">
@@ -53,7 +55,7 @@ export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, chi
           </span>
         </div>
 
-        {onSeatMap || onAdmin ? null : (
+        {onSeatMap || onAdmin || onAccount ? null : (
           <div className="px-3 pt-3">
             <FindOrder
               key={onProducts ? "products" : "orders"}
@@ -80,6 +82,9 @@ export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, chi
             <NavLink href={admin} icon={<Settings2 className="size-4" />}>
               {t("admin")}
             </NavLink>
+            <NavLink href={account} icon={<UserRound className="size-4" />}>
+              {t("account")}
+            </NavLink>
           </ul>
 
           <h2 className="mt-6 mb-1 px-2 text-[12px] font-medium text-neutral-500">{t("board")}</h2>
@@ -103,7 +108,7 @@ export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, chi
           <Attention waiting={waiting} href={orders} />
           <div className="flex flex-col gap-2 border-t border-neutral-200 pt-3">
             <LanguageField tone="desk" fullWidth menuSide="top" />
-            <Account email={email} loginHref={`${base}/login`} securityHref={`${base}/security`} />
+            <Account email={email} loginHref={`${base}/login`} />
           </div>
         </div>
       </aside>
@@ -139,6 +144,9 @@ export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, chi
               <MobileTab href={admin} active={onAdmin}>
                 {t("admin")}
               </MobileTab>
+              <MobileTab href={account} active={onAccount}>
+                {t("account")}
+              </MobileTab>
             </nav>
             <div className="lg:hidden">
               <LanguageField tone="desk" />
@@ -153,7 +161,7 @@ export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, chi
                 {t("viewShop")}
                 <ArrowUpRight className="size-3.5" aria-hidden />
               </a>
-            ) : onSeatMap || onAdmin ? null : onOrders ? (
+            ) : onSeatMap || onAdmin || onAccount ? null : onOrders ? (
               <span className="hidden items-center gap-2 rounded-full border border-neutral-200 px-3 py-1 text-[13px] font-medium text-neutral-700 sm:inline-flex">
                 <span className="relative size-2 rounded-full bg-green-500">
                   <span className="absolute inset-0 rounded-full bg-green-500 opacity-60 [animation:ping_1.8s_ease-out_infinite] motion-reduce:hidden" />
@@ -278,7 +286,7 @@ function Attention({ waiting, href }: { waiting: number; href: string }) {
   );
 }
 
-function Account({ email, loginHref, securityHref }: { email: string; loginHref: string; securityHref: string }) {
+function Account({ email, loginHref }: { email: string; loginHref: string }) {
   const t = useTranslations("desk");
   const router = useRouter();
 
@@ -294,14 +302,6 @@ function Account({ email, loginHref, securityHref }: { email: string; loginHref:
         {email.charAt(0)}
       </span>
       <span className="min-w-0 flex-1 truncate text-[13px] text-neutral-600">{email}</span>
-      <Link
-        href={securityHref}
-        aria-label={t("security")}
-        title={t("security")}
-        className="grid size-8 place-items-center rounded-lg text-neutral-500 transition-colors duration-150 hover:bg-neutral-200/60! hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-blue-500"
-      >
-        <ShieldCheck className="size-4" />
-      </Link>
       <button
         type="button"
         onClick={out}

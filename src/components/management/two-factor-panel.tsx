@@ -9,13 +9,39 @@ import { Check, Copy, Download, ShieldCheck } from "lucide-react";
 import { twoFactor } from "@/lib/auth-client";
 import { useToast } from "@/components/toast/toast-provider";
 
-type Props = { stadiumSlug: string; enabled: boolean; locked: boolean; required: boolean };
+/** `page` is the standalone sign-in setup screen; `desk` sits inside the Account settings card. */
+type Props = { stadiumSlug: string; enabled: boolean; locked: boolean; required: boolean; variant?: "page" | "desk" };
 type Step = "idle" | "scan" | "codes";
 
-const FIELD = "input input--secondary mt-1.5 min-h-12 w-full rounded-2xl border border-border bg-surface px-4 text-[15px]";
-const LABEL = "text-[11px] font-medium uppercase tracking-[0.14em] text-muted";
+const STYLES = {
+  page: {
+    field: "input input--secondary mt-1.5 min-h-12 w-full rounded-2xl border border-border bg-surface px-4 text-[15px]",
+    label: "text-[11px] font-medium uppercase tracking-[0.14em] text-muted",
+    title: "text-[17px] font-semibold",
+    lead: "text-[14px] text-muted",
+    box: "rounded-2xl border border-border",
+    codes: "rounded-2xl border border-border bg-background",
+    primary: "button button--primary button--lg w-full",
+    secondary: "button button--secondary",
+  },
+  desk: {
+    field:
+      "mt-1.5 h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 text-[14px] text-neutral-900 outline-none transition-[border-color,box-shadow] focus-visible:border-blue-500 focus-visible:ring-3 focus-visible:ring-blue-500/15",
+    label: "text-[13px] font-medium text-neutral-700",
+    title: "text-[15px] font-semibold",
+    lead: "text-[13px] leading-snug text-neutral-500",
+    box: "rounded-lg border border-neutral-200",
+    codes: "rounded-lg border border-neutral-200 bg-neutral-50",
+    primary:
+      "inline-flex h-9 w-fit items-center justify-center gap-1.5 rounded-full bg-neutral-900! px-4 text-[14px] font-medium text-white! transition-colors duration-150 hover:bg-neutral-700! focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 disabled:opacity-50",
+    secondary:
+      "inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-neutral-200 bg-white! px-4 text-[14px] font-medium transition-colors duration-150 hover:bg-neutral-50! focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 disabled:opacity-50",
+  },
+} as const;
 
-export function TwoFactorPanel({ stadiumSlug, enabled, locked, required }: Props) {
+export function TwoFactorPanel({ stadiumSlug, enabled, locked, required, variant = "page" }: Props) {
+  const S = STYLES[variant];
+  const desk = variant === "desk";
   const t = useTranslations("security");
   const router = useRouter();
   const { toast } = useToast();
@@ -26,7 +52,7 @@ export function TwoFactorPanel({ stadiumSlug, enabled, locked, required }: Props
   const [codes, setCodes] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
   const [copied, setCopied] = useState(false);
-  const desk = `/${stadiumSlug}/management`;
+  const deskHref = `/${stadiumSlug}/management`;
   const secret = uri ? (new URL(uri).searchParams.get("secret") ?? "") : "";
 
   function fail(message: string | undefined) {
@@ -95,31 +121,36 @@ export function TwoFactorPanel({ stadiumSlug, enabled, locked, required }: Props
   }
 
   function finish() {
-    router.push(desk);
+    if (desk) {
+      setStep("idle");
+      setCodes([]);
+      setUri("");
+      setCode("");
+    } else router.push(deskHref);
     router.refresh();
   }
 
   if (step === "codes") {
     return (
       <div className="flex flex-col gap-4">
-        <h2 className="text-[17px] font-semibold">{t("codesTitle")}</h2>
-        <p className="text-[14px] text-muted">{t("codesLead")}</p>
-        <ul className="grid grid-cols-2 gap-2 rounded-2xl border border-border bg-background p-4 font-mono text-[14px] tabular-nums">
+        <h2 className={S.title}>{t("codesTitle")}</h2>
+        <p className={S.lead}>{t("codesLead")}</p>
+        <ul className={`grid grid-cols-2 gap-2 p-4 font-mono text-[14px] tabular-nums ${S.codes}`}>
           {codes.map((c) => (
             <li key={c}>{c}</li>
           ))}
         </ul>
         <div className="flex gap-2">
-          <button type="button" onClick={copy} className="button button--secondary flex-1">
+          <button type="button" onClick={copy} className={`${S.secondary} flex-1`}>
             {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
             {copied ? t("copied") : t("copy")}
           </button>
-          <button type="button" onClick={download} className="button button--secondary flex-1">
+          <button type="button" onClick={download} className={`${S.secondary} flex-1`}>
             <Download className="size-4" aria-hidden />
             {t("download")}
           </button>
         </div>
-        <button type="button" onClick={finish} className="button button--primary button--lg w-full">
+        <button type="button" onClick={finish} className={S.primary}>
           {t("savedThem")}
         </button>
       </div>
@@ -129,18 +160,18 @@ export function TwoFactorPanel({ stadiumSlug, enabled, locked, required }: Props
   if (step === "scan") {
     return (
       <form onSubmit={confirm} className="flex flex-col gap-4">
-        <h2 className="text-[17px] font-semibold">{t("scanTitle")}</h2>
-        <p className="text-[14px] text-muted">{t("scanLead")}</p>
-        <div className="self-center rounded-2xl border border-border bg-white p-4">
+        <h2 className={S.title}>{t("scanTitle")}</h2>
+        <p className={S.lead}>{t("scanLead")}</p>
+        <div className={`self-center bg-white p-4 ${S.box}`}>
           <QRCode value={uri} size={176} />
         </div>
         {secret ? (
-          <p className="text-center text-[12px] text-muted">
-            {t("manualKey")} <span className="font-mono tracking-wider break-all text-foreground">{secret}</span>
+          <p className={desk ? "text-center text-[12px] text-neutral-500" : "text-center text-[12px] text-muted"}>
+            {t("manualKey")} <span className="font-mono tracking-wider break-all text-neutral-900">{secret}</span>
           </p>
         ) : null}
         <label className="block">
-          <span className={LABEL}>{t("enterCode")}</span>
+          <span className={S.label}>{t("enterCode")}</span>
           <input
             required
             value={code}
@@ -148,10 +179,10 @@ export function TwoFactorPanel({ stadiumSlug, enabled, locked, required }: Props
             inputMode="numeric"
             autoComplete="one-time-code"
             maxLength={7}
-            className={`${FIELD} tracking-[0.3em] tabular-nums`}
+            className={`${S.field} tracking-[0.3em] tabular-nums`}
           />
         </label>
-        <button type="submit" disabled={pending} className="button button--primary button--lg w-full">
+        <button type="submit" disabled={pending} className={S.primary}>
           {pending ? t("pleaseWait") : t("confirm")}
         </button>
       </form>
@@ -161,13 +192,13 @@ export function TwoFactorPanel({ stadiumSlug, enabled, locked, required }: Props
   if (!enabled) {
     return (
       <form onSubmit={start} className="flex flex-col gap-4">
-        <h2 className="text-[17px] font-semibold">{t("setupTitle")}</h2>
-        <p className="text-[14px] text-muted">{required ? t("requiredLead") : t("setupLead")}</p>
+        <h2 className={S.title}>{t("setupTitle")}</h2>
+        <p className={S.lead}>{required ? t("requiredLead") : t("setupLead")}</p>
         <label className="block">
-          <span className={LABEL}>{t("password")}</span>
-          <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" className={FIELD} />
+          <span className={S.label}>{t("password")}</span>
+          <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" className={S.field} />
         </label>
-        <button type="submit" disabled={pending} className="button button--primary button--lg w-full">
+        <button type="submit" disabled={pending} className={S.primary}>
           {pending ? t("pleaseWait") : t("setUp")}
         </button>
       </form>
@@ -180,26 +211,33 @@ export function TwoFactorPanel({ stadiumSlug, enabled, locked, required }: Props
         <ShieldCheck className="size-5" aria-hidden />
         {t("on")}
       </p>
-      <form onSubmit={regenerate} className="flex flex-col gap-3 rounded-2xl border border-border p-4">
-        <p className="text-[14px] text-muted">{t("manageLead")}</p>
+      <form onSubmit={regenerate} className={`flex flex-col gap-3 p-4 ${S.box}`}>
+        <p className={S.lead}>{t("manageLead")}</p>
         <label className="block">
-          <span className={LABEL}>{t("password")}</span>
-          <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" className={FIELD} />
+          <span className={S.label}>{t("password")}</span>
+          <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" className={S.field} />
         </label>
-        <button type="submit" disabled={pending} className="button button--secondary w-full">
+        <button type="submit" disabled={pending} className={desk ? `${S.secondary} w-fit` : `${S.secondary} w-full`}>
           {t("newBackupCodes")}
         </button>
         {locked ? (
-          <p className="text-[13px] text-muted">{t("lockedNote")}</p>
+          <p className={desk ? "text-[13px] text-neutral-500" : "text-[13px] text-muted"}>{t("lockedNote")}</p>
         ) : (
-          <button type="button" disabled={pending} onClick={turnOff} className="text-[13px] text-red-600">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={turnOff}
+            className={desk ? "w-fit text-[13px] font-medium text-red-600 hover:underline" : "text-[13px] text-red-600"}
+          >
             {t("turnOff")}
           </button>
         )}
       </form>
-      <Link href={desk} className="text-center text-[13px] text-muted">
-        {t("backToDesk")}
-      </Link>
+      {desk ? null : (
+        <Link href={deskHref} className="text-center text-[13px] text-muted">
+          {t("backToDesk")}
+        </Link>
+      )}
     </div>
   );
 }
