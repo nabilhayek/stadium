@@ -71,10 +71,10 @@ describe("products list/create/update", () => {
     expect(catalog!.categories.find((c) => c.name === "Drinks")!.productCount).toBeGreaterThan(0);
   });
 
-  it("returns null for an unknown stadium", async () => {
+  it("answers NOT_FOUND for an unknown stadium", async () => {
     const caller = await desk();
-    await expect(caller.products.list({ stadium: "nowhere" })).resolves.toBeNull();
-    await expect(caller.products.create({ stadium: "nowhere", product: await productInput() })).resolves.toEqual({ ok: false, error: "Stadium not found." });
+    await expect(caller.products.list({ stadium: "nowhere" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(caller.products.create({ stadium: "nowhere", product: await productInput() })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("creates a product with option groups, shows it in the list and on the shop menu", async () => {

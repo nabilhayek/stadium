@@ -11,10 +11,22 @@ function createClient() {
 }
 
 /**
- * Open a short-lived client per query.
- * `prisma dev` idle-kills pooled connections, which leaves a singleton PrismaClient dead in `next dev`.
+ * `prisma dev` idle-kills pooled connections, which leaves a long-lived client dead in `next dev`, so development
+ * opens a short-lived client per query. Everywhere else one client per server process is shared: a new client per
+ * query means a new TCP + TLS handshake to Neon every time, which is slow and burns through connection limits on
+ * match day.
  */
+const perQuery = process.env.NODE_ENV === "development";
+
+const globalForDb = globalThis as unknown as { stadiumPrisma?: PrismaClient };
+
+function shared(): PrismaClient {
+  globalForDb.stadiumPrisma ??= createClient();
+  return globalForDb.stadiumPrisma;
+}
+
 export async function withDb<T>(fn: (client: PrismaClient) => Promise<T>): Promise<T> {
+  if (!perQuery) return fn(shared());
   const client = createClient();
   try {
     return await fn(client);

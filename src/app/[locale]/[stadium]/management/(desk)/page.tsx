@@ -6,7 +6,7 @@ import { RangeSelect } from "@/components/management/overview/range-select";
 import { RecentOrders } from "@/components/management/overview/recent-orders";
 import { RANGES, toRange } from "@/lib/management/orders";
 import { kitchenStreamToken } from "@/lib/live/token";
-import { requireKitchen } from "@/lib/management/session";
+import { requireVenue } from "@/lib/management/session";
 import { api } from "@/server/trpc/server";
 
 type Props = {
@@ -25,7 +25,7 @@ export default async function ManagementOverview({ params, searchParams }: Props
   const range = toRange((await searchParams).range);
   const menu = await api.stadium.menu({ slug: stadium });
   if (!menu) notFound();
-  const session = await requireKitchen(menu.slug);
+  const { session } = await requireVenue(menu.slug, "orders.view");
 
   const data = await api.kitchen.overview({ stadium: menu.slug, range });
   const { now } = data;

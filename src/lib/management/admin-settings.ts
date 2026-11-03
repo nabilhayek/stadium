@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { CURRENCIES, PERMISSIONS, type AdminSettings, type Member, type StaffRole } from "@/components/management/admin/model";
+import { CURRENCIES, PERMISSIONS, type AdminSettings, type Member, type Permission, type StaffRole } from "@/components/management/admin/model";
 
-const PERMISSION_IDS = PERMISSIONS.map((p) => p.id);
+const PERMISSION_IDS: readonly string[] = PERMISSIONS.map((p) => p.id);
 const BUILTIN_ROLES = ["admin", "manager", "kitchen", "runner"] as const;
 
 const permissionId = z.string().refine((id) => PERMISSION_IDS.includes(id), "Unknown permission.");
@@ -168,4 +168,60 @@ export function readsAcceptOrders(settings: unknown): boolean {
   if (!settings || typeof settings !== "object") return true;
   const ordering = (settings as { ordering?: { acceptOrders?: unknown } }).ordering;
   return ordering?.acceptOrders !== false;
+}
+
+/** JSON with sorted keys, so two equal documents compare equal whatever order their keys arrived in. */
+function canon(value: unknown): string {
+  return JSON.stringify(value, (_key, v: unknown) =>
+    v && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)))
+      : v,
+  );
+}
+
+function omit<T extends object, K extends keyof T>(value: T, keys: readonly K[]): Omit<T, K> {
+  return Object.fromEntries(Object.entries(value).filter(([key]) => !(keys as readonly PropertyKey[]).includes(key))) as Omit<T, K>;
+}
+
+/** The parts of a team row an admin edits. `lastSeen` and `twoFactor` are read-only. */
+function teamRow(member: Pick<Member, "id" | "name" | "email" | "role" | "permissions" | "kitchens" | "status">) {
+  const { id, name, email, role, permissions, kitchens, status } = member;
+  return { id, name, email: email.toLowerCase(), role, permissions, kitchens, status };
+}
+
+export type AdminChange = {
+  /** Every one of these is needed. */
+  permissions: Permission[];
+  /** Someone with the Admin role is added, edited, or removed. Only an Admin (or the owner) may do that. */
+  touchesAdmins: boolean;
+};
+
+/**
+ * What a save from Admin needs, judged by what it changes, so each role can do its part of the one document:
+ * the team and roles need `team.manage`, opening or pausing kitchens needs `kitchens.pause`, anything else needs
+ * `settings.edit`. Nothing changed needs nothing.
+ */
+export function adminChangePermissions(before: AdminSettings, after: z.output<typeof adminSaveSchema>): AdminChange {
+  const needed = new Set<Permission>();
+  let touchesAdmins = false;
+
+  const beforeTeam = new Map(before.members.map((m) => [m.id, teamRow(m)]));
+  const afterTeam = new Map(after.members.map((m) => [m.id, teamRow(m)]));
+  for (const id of new Set([...beforeTeam.keys(), ...afterTeam.keys()])) {
+    const was = beforeTeam.get(id);
+    const now = afterTeam.get(id);
+    if (canon(was) === canon(now)) continue;
+    needed.add("team.manage");
+    if (was?.role === "admin" || now?.role === "admin") touchesAdmins = true;
+  }
+  if (canon(before.roles) !== canon(after.roles)) needed.add("team.manage");
+
+  const withoutOpen = (kitchens: AdminSettings["kitchens"]) => kitchens.map((k) => omit(k, ["open"]));
+  if (canon(withoutOpen(before.kitchens)) !== canon(withoutOpen(after.kitchens))) needed.add("settings.edit");
+  else if (canon(before.kitchens.map((k) => k.open)) !== canon(after.kitchens.map((k) => k.open))) needed.add("kitchens.pause");
+
+  const handled = ["members", "roles", "kitchens"] as const;
+  if (canon(omit(before, handled)) !== canon(omit(after, handled))) needed.add("settings.edit");
+
+  return { permissions: [...needed], touchesAdmins };
 }

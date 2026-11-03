@@ -605,6 +605,7 @@ export function SeatMapDesigner({ stadiumSlug, initial }: Props) {
           </>
         )}
         <AssistantPanel
+          stadiumSlug={stadiumSlug}
           doc={doc}
           lastKey={lastKey}
           open={assistantOpen && !preview}

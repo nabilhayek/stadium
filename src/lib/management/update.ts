@@ -1,5 +1,4 @@
 import "server-only";
-import { revalidateLocalized } from "@/lib/revalidate";
 import type { Prisma } from "@/generated/prisma/client";
 import { withDb } from "@/lib/db";
 import { notifyOrder } from "@/lib/live/hub";
@@ -104,8 +103,6 @@ export async function updateKitchenOrder(stadiumSlug: string, orderNumber: strin
     });
   }
 
-  revalidateLocalized(`/${stadiumSlug}/management`);
-  revalidateLocalized(`/${stadiumSlug}/management/orders`);
   await notifyOrder(stadiumSlug, orderNumber);
   const pushed = moved as Receipt | null;
   if (pushed) await later(() => sendOrderPush(pushed));
@@ -152,8 +149,6 @@ export async function refundFinishedOrder(stadiumSlug: string, orderNumber: stri
     detail: { reason: note },
   });
 
-  revalidateLocalized(`/${stadiumSlug}/management`);
-  revalidateLocalized(`/${stadiumSlug}/management/orders`);
   await notifyOrder(stadiumSlug, orderNumber);
   return { ok: true };
 }

@@ -4,7 +4,7 @@ import { AccountPrivacy } from "@/components/management/admin/account-privacy";
 import { TwoFactorPanel } from "@/components/management/two-factor-panel";
 import { Card, PageHeader } from "@/components/management/ui";
 import { withDb } from "@/lib/db";
-import { requireKitchen } from "@/lib/management/session";
+import { requireVenue } from "@/lib/management/session";
 import { roleNeedsTwoFactor } from "@/lib/two-factor-policy";
 import { api } from "@/server/trpc/server";
 
@@ -17,7 +17,7 @@ export default async function ManagementAccountPage({ params }: Props) {
   const { stadium } = await params;
   const menu = await api.stadium.menu({ slug: stadium });
   if (!menu) notFound();
-  const session = await requireKitchen(menu.slug);
+  const { session } = await requireVenue(menu.slug);
   const locked = await withDb((db) => roleNeedsTwoFactor(db, session.user));
   const enabled = Boolean((session.user as { twoFactorEnabled?: boolean | null }).twoFactorEnabled);
 

@@ -26,6 +26,12 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL,
   trustedOrigins: process.env.NODE_ENV === "production" ? [baseURL] : [baseURL, "http://localhost:3000"],
+  user: {
+    additionalFields: {
+      // On the session so guards can read it without a query. `input: false`: a sign-up request can't set it.
+      isOwner: { type: "boolean", defaultValue: false, input: false },
+    },
+  },
   emailAndPassword: {
     enabled: true,
     sendResetPassword: async ({ user, url }, request) => {
@@ -66,7 +72,8 @@ export const auth = betterAuth({
           if (existing > 0) {
             throw new APIError("FORBIDDEN", { message: "Kitchen accounts are created by an existing desk." });
           }
-          return { data: user };
+          // Only the very first account gets this far, and it owns the installation.
+          return { data: { ...user, isOwner: true } };
         },
       },
     },

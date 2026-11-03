@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { DrawerHeader, iconButton } from "./fields";
 
 type Props = {
+  stadiumSlug: string;
   doc: SeatMapDoc;
   /** Key of the newest undo step; while it is this turn's key, nothing was edited since. */
   lastKey: string | null;
@@ -116,7 +117,7 @@ function readError(error: Error | undefined): string {
   return "The assistant ran into a problem. Try again.";
 }
 
-export function AssistantPanel({ doc, lastKey, open, onApply, onBusyChange, onBuildingChange, onUndo, onClose }: Props) {
+export function AssistantPanel({ stadiumSlug, doc, lastKey, open, onApply, onBusyChange, onBuildingChange, onUndo, onClose }: Props) {
   const docRef = useRef(doc);
   useLayoutEffect(() => {
     docRef.current = doc;
@@ -162,9 +163,9 @@ export function AssistantPanel({ doc, lastKey, open, onApply, onBusyChange, onBu
       setRejected(false);
       clearError();
       setDraft("");
-      void sendMessage({ text: value }, { body: { doc: docRef.current } });
+      void sendMessage({ text: value }, { body: { stadium: stadiumSlug, doc: docRef.current } });
     },
-    [busy, clearError, sendMessage],
+    [busy, clearError, sendMessage, stadiumSlug],
   );
 
   const halt = useCallback(() => {
@@ -277,7 +278,11 @@ export function AssistantPanel({ doc, lastKey, open, onApply, onBusyChange, onBu
               {error ? (
                 <div role="alert" className="flex flex-col items-start gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-[13px] text-red-800">
                   <p>{readError(error)}</p>
-                  <button type="button" onClick={() => void regenerate({ body: { doc: docRef.current } })} className="font-medium underline underline-offset-2">
+                  <button
+                    type="button"
+                    onClick={() => void regenerate({ body: { stadium: stadiumSlug, doc: docRef.current } })}
+                    className="font-medium underline underline-offset-2"
+                  >
                     Try again
                   </button>
                 </div>

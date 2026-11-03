@@ -28,6 +28,15 @@ type Props = { stadiumSlug: string; stadiumName: string; doc: SeatMapDoc; settin
 export function AdminConsole({ stadiumSlug, stadiumName, doc, settings: loaded }: Props) {
   const [saved, setSaved] = useState(loaded);
   const [settings, setSettings] = useState(loaded);
+  // Fresh settings from the server (navigating back, a refresh) replace the screen, unless there are unsaved edits.
+  const [source, setSource] = useState(loaded);
+  if (loaded !== source) {
+    setSource(loaded);
+    if (settings === saved) {
+      setSaved(loaded);
+      setSettings(loaded);
+    }
+  }
   const [tab, setTab] = useState<Tab>("team");
   const { toast } = useToast();
   const trpc = useTRPC();

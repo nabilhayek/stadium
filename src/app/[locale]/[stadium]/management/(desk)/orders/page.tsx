@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { DeskAlerts } from "@/components/management/desk-alerts";
 import { Kanban } from "@/components/management/kanban";
 import { kitchenStreamToken } from "@/lib/live/token";
-import { requireKitchen } from "@/lib/management/session";
+import { requireVenue } from "@/lib/management/session";
 import { api } from "@/server/trpc/server";
 
 type Props = { params: Promise<{ stadium: string }> };
@@ -12,7 +12,7 @@ export const instant = false;
 
 export default async function ManagementOrdersPage({ params }: Props) {
   const { stadium } = await params;
-  const session = await requireKitchen(stadium);
+  const { session } = await requireVenue(stadium, "orders.view");
   const orders = await api.kitchen.board({ stadium });
 
   return (

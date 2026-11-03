@@ -63,9 +63,9 @@ describe("seatMap.get", () => {
     expect(state!.sections.map((s) => s.code)).toEqual(["N", "E", "S", "W", "G"]);
   });
 
-  it("returns null for an unknown stadium", async () => {
+  it("answers NOT_FOUND for an unknown stadium", async () => {
     const caller = await desk();
-    await expect(caller.seatMap.get({ stadium: "nowhere" })).resolves.toBeNull();
+    await expect(caller.seatMap.get({ stadium: "nowhere" })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });
 
@@ -105,14 +105,11 @@ describe("seatMap.saveDraft", () => {
     expect(state!.draft.sections.map((s) => s.code)).toEqual(["B"]);
   });
 
-  it("rejects an invalid document with BAD_REQUEST and returns a soft failure for an unknown stadium", async () => {
+  it("rejects an invalid document with BAD_REQUEST and an unknown stadium with NOT_FOUND", async () => {
     const caller = await desk();
     const bad = docWith({ ...section("A"), code: "lower case!" });
     await expect(caller.seatMap.saveDraft({ stadium: "arena", revision: 0, doc: bad })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await expect(caller.seatMap.saveDraft({ stadium: "nowhere", revision: 0, doc: emptySeatMap() })).resolves.toEqual({
-      ok: false,
-      error: "Stadium not found.",
-    });
+    await expect(caller.seatMap.saveDraft({ stadium: "nowhere", revision: 0, doc: emptySeatMap() })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });
 

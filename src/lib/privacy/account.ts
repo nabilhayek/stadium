@@ -35,8 +35,10 @@ export async function exportAccount(userId: string): Promise<AccountExport | nul
  */
 export async function deleteAccount(userId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const blocked = await withDb(async (db) => {
-    const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, email: true } });
+    const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, email: true, isOwner: true } });
     if (!user) return "Account not found.";
+    // The owner runs every venue. Deleting it would leave the installation with nobody who can.
+    if (user.isOwner) return "The owner account can't be deleted.";
     const memberships = await db.staffMember.findMany({
       where: { status: "ACTIVE", roleId: "admin", OR: [{ userId }, { email: user.email }] },
       select: { stadiumId: true },

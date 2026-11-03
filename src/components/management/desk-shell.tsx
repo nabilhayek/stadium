@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { LanguageField } from "@/components/i18n/language-field";
 import { AlertTriangle, ArrowUpRight, LayoutGrid, LogOut, Map as MapIcon, Package, ReceiptText, Search, Settings2, UserRound } from "lucide-react";
 import { signOut } from "@/lib/auth-client";
+import type { Permission } from "@/components/management/admin/model";
 import type { BoardStatus } from "@/lib/management/board";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +16,8 @@ type Props = {
   stadiumSlug: string;
   stadiumName: string;
   email: string;
+  /** What this person may do here. Tabs they can't use are hidden; the server guards the pages and API anyway. */
+  permissions: Permission[];
   board: Record<BoardStatus, number>;
   waiting: number;
   children: ReactNode;
@@ -26,7 +29,7 @@ const BOARD_ROWS: { id: BoardStatus; label: "new" | "inProgress" | "ready"; dot:
   { id: "ready", label: "ready", dot: "bg-green-500" },
 ];
 
-export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, children }: Props) {
+export function DeskShell({ stadiumSlug, stadiumName, email, permissions, board, waiting, children }: Props) {
   const t = useTranslations("desk");
   const pathname = usePathname();
   const base = `/${stadiumSlug}/management`;
@@ -40,6 +43,13 @@ export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, chi
   const onSeatMap = pathname.startsWith(seatMap);
   const onAdmin = pathname.startsWith(admin);
   const onAccount = pathname.startsWith(account);
+  const may = (...anyOf: Permission[]) => anyOf.some((p) => permissions.includes(p));
+  const show = {
+    orders: may("orders.view"),
+    products: may("menu.edit"),
+    seatMap: may("seatmap.edit"),
+    admin: may("settings.edit", "team.manage", "kitchens.pause"),
+  };
   const page = onOrders ? "orders" : onProducts ? "products" : onSeatMap ? "seatMap" : onAdmin ? "admin" : onAccount ? "account" : "overview";
 
   return (
@@ -70,18 +80,26 @@ export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, chi
             <NavLink href={base} icon={<LayoutGrid className="size-4" />} exact>
               {t("overview")}
             </NavLink>
-            <NavLink href={orders} icon={<ReceiptText className="size-4" />}>
-              {t("orders")}
-            </NavLink>
-            <NavLink href={products} icon={<Package className="size-4" />}>
-              {t("products")}
-            </NavLink>
-            <NavLink href={seatMap} icon={<MapIcon className="size-4" />}>
-              {t("seatMap")}
-            </NavLink>
-            <NavLink href={admin} icon={<Settings2 className="size-4" />}>
-              {t("admin")}
-            </NavLink>
+            {show.orders ? (
+              <NavLink href={orders} icon={<ReceiptText className="size-4" />}>
+                {t("orders")}
+              </NavLink>
+            ) : null}
+            {show.products ? (
+              <NavLink href={products} icon={<Package className="size-4" />}>
+                {t("products")}
+              </NavLink>
+            ) : null}
+            {show.seatMap ? (
+              <NavLink href={seatMap} icon={<MapIcon className="size-4" />}>
+                {t("seatMap")}
+              </NavLink>
+            ) : null}
+            {show.admin ? (
+              <NavLink href={admin} icon={<Settings2 className="size-4" />}>
+                {t("admin")}
+              </NavLink>
+            ) : null}
             <NavLink href={account} icon={<UserRound className="size-4" />}>
               {t("account")}
             </NavLink>
@@ -132,18 +150,26 @@ export function DeskShell({ stadiumSlug, stadiumName, email, board, waiting, chi
               <MobileTab href={base} active={page === "overview"}>
                 {t("overview")}
               </MobileTab>
-              <MobileTab href={orders} active={onOrders}>
-                {t("orders")}
-              </MobileTab>
-              <MobileTab href={products} active={onProducts}>
-                {t("products")}
-              </MobileTab>
-              <MobileTab href={seatMap} active={onSeatMap}>
-                {t("seatMap")}
-              </MobileTab>
-              <MobileTab href={admin} active={onAdmin}>
-                {t("admin")}
-              </MobileTab>
+              {show.orders ? (
+                <MobileTab href={orders} active={onOrders}>
+                  {t("orders")}
+                </MobileTab>
+              ) : null}
+              {show.products ? (
+                <MobileTab href={products} active={onProducts}>
+                  {t("products")}
+                </MobileTab>
+              ) : null}
+              {show.seatMap ? (
+                <MobileTab href={seatMap} active={onSeatMap}>
+                  {t("seatMap")}
+                </MobileTab>
+              ) : null}
+              {show.admin ? (
+                <MobileTab href={admin} active={onAdmin}>
+                  {t("admin")}
+                </MobileTab>
+              ) : null}
               <MobileTab href={account} active={onAccount}>
                 {t("account")}
               </MobileTab>

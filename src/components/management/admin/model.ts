@@ -1,7 +1,7 @@
 import { centroid } from "@/lib/seatmap/geometry";
 import type { SeatMapDoc } from "@/lib/seatmap/schema";
 
-export const PERMISSIONS: readonly { id: string; label: string }[] = [
+const PERMISSION_LIST = [
   { id: "orders.view", label: "See incoming orders" },
   { id: "orders.update", label: "Accept and mark orders ready" },
   { id: "orders.deliver", label: "Mark orders delivered or collected" },
@@ -11,7 +11,12 @@ export const PERMISSIONS: readonly { id: string; label: string }[] = [
   { id: "kitchens.pause", label: "Pause a kitchen" },
   { id: "team.manage", label: "Invite and remove staff" },
   { id: "settings.edit", label: "Change admin settings" },
-];
+] as const satisfies readonly { id: string; label: string }[];
+
+/** What a desk action needs. The server guards check these; the Admin screen edits which role has which. */
+export type Permission = (typeof PERMISSION_LIST)[number]["id"];
+
+export const PERMISSIONS: readonly { id: Permission; label: string }[] = PERMISSION_LIST;
 
 const ALL_PERMISSIONS = PERMISSIONS.map((p) => p.id);
 

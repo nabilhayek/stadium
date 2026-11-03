@@ -51,10 +51,10 @@ describe("admin get and save", () => {
     expect(settings!.kitchens.length).toBeGreaterThan(0);
   });
 
-  it("returns null for an unknown stadium", async () => {
+  it("answers NOT_FOUND for an unknown stadium", async () => {
     const caller = await desk();
-    await expect(caller.admin.get({ stadium: "nowhere" })).resolves.toBeNull();
-    await expect(caller.admin.save({ stadium: "nowhere", settings: {} })).resolves.toEqual({ ok: false, error: "Stadium not found." });
+    await expect(caller.admin.get({ stadium: "nowhere" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(caller.admin.save({ stadium: "nowhere", settings: {} })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("saves the team and a pause, then the shop and checkout both see the pause", async () => {

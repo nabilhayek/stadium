@@ -29,7 +29,11 @@ export function clearKitchenSession() {
   mockedKitchenSession.mockResolvedValue(null);
 }
 
-export function makeSession(userId: string, email = "kitchen@example.com"): KitchenSession {
+/**
+ * A signed-in desk session. Owner by default, so behaviour tests don't need staff rows; pass `{ owner: false }` to
+ * exercise the venue and permission guards.
+ */
+export function makeSession(userId: string, email = "kitchen@example.com", { owner = true }: { owner?: boolean } = {}): KitchenSession {
   return {
     user: {
       id: userId,
@@ -40,6 +44,7 @@ export function makeSession(userId: string, email = "kitchen@example.com"): Kitc
       updatedAt: new Date(),
       image: null,
       twoFactorEnabled: false,
+      isOwner: owner,
     },
     session: {
       id: `sess-${userId}`,

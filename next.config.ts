@@ -86,6 +86,8 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["@heroui/react", "lucide-react"],
     // Pages live under app/[locale], so unmatched URLs need a 404 outside any layout.
     globalNotFound: true,
+    // `forbidden()` for desk pages a role can't use (src/lib/management/session.ts → requireVenue).
+    authInterrupts: true,
     // Lets src/lib/taint.ts mark server secrets so they can't be passed to the browser.
     taint: true,
     exposeTestingApiInProductionBuild: process.env.EXPOSE_TESTING_API === "1",

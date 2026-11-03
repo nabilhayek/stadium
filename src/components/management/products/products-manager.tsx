@@ -68,6 +68,14 @@ export function ProductsManager({ stadiumSlug, catalog }: Props) {
   const { currency } = catalog;
   const [categories, setCategories] = useState(catalog.categories);
   const [products, setProducts] = useState(catalog.products);
+  // Edits update the list right away; when the server sends a fresh catalog (navigating back, a refresh), it wins.
+  // Every change here is saved as it happens, so there is no local draft to lose.
+  const [loaded, setLoaded] = useState(catalog);
+  if (catalog !== loaded) {
+    setLoaded(catalog);
+    setCategories(catalog.categories);
+    setProducts(catalog.products);
+  }
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [categoriesSession, setCategoriesSession] = useState(0);
   /** The category being sorted, with its products in the new order. */
